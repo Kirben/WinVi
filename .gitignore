@@ -21,6 +21,7 @@
 /tests/hex-print-obj/
 /tests/hex-print-preview.bmp
 
+/tests/search-regression-obj/
 /tests/auto-split-obj/
 /tests/split-cases/
 /tests/ex-global-obj/

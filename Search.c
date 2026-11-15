@@ -60,6 +60,7 @@ typedef struct tagSEARCHPART {
 	union {
 #if NEW_SEARCH
 		struct {
+			BOOL  MatchBytes;           /* explicit byte/unit-only class */
 			BOOL  ContinuedInNextSP;   /*same set cont'd in next SEARCHPART*/
 			BOOL  ContinuedInPrevSP;   /*same set cont'd in prev SEARCHPART*/
 			BOOL  Inverse;			   /*TRUE for [^...] search operations*/
@@ -295,7 +296,7 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 	}
 	do {
 		for (i=0; i<pS->u.NewChoice.Fill; ++i) {
-			if (pS->u.NewChoice.ConvCSetChoice[i>>4] & (i&15)) {
+			if (pS->u.NewChoice.ConvCSetChoice[i>>4] & (1 << (i&15))) {
 				if (wc >= pS->u.NewChoice.Range[0][i] &&
 					wc <= pS->u.NewChoice.Range[1][i])
 						return !pS->u.NewChoice.Inverse;
@@ -348,6 +349,22 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 #endif
 }
 
+/* Explicit numeric classes consume bytes (UTF-16 code units), just like
+   numeric literals. Dot and character-set classes retain decoded matching. */
+static INT ReadChoice(PPOSITION pos,PSEARCHPART part,BOOL backward)
+{
+ INT c;
+ if(!part->u.NewChoice.MatchBytes)
+  return backward?GoBackAndSingleChar(pos):SingleCharAndAdvance(pos);
+ c=backward?GoBackAndByte(pos):ByteAndAdvance(pos);
+ if(c>=0 && UtfEncoding==16){
+  INT other=backward?GoBackAndByte(pos):ByteAndAdvance(pos);
+  if(other<0)return other;
+  c=(UtfLsbFirst!=backward)?c|(other<<8):(c<<8)|other;
+ }
+ return c;
+}
+
 static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 {
 	while (Srch) {
@@ -391,16 +408,13 @@ static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 				if (Srch->u.NewChoice.MatchMulti) {
 					WV_ULONG i = 0; INT c;
 
-					if ((c = CharAt(Pos)) == C_CRLF) c = '\r';
-					while (TestBit(Srch, c, FALSE)) {
-						if(MatchCheckpoint())return FALSE;
-						++i;
-						if (c == '\r') {
-							Advance(Pos, UtfEncoding == 16 ? 2 : 1);
-							c = CharAt(Pos);
-						} else c = AdvanceAndChar(Pos);
-						if (c == C_CRLF) c = '\r';
-					}
+                    for (;;) {
+                     POSITION before=*Pos;
+                     if(MatchCheckpoint())return FALSE;
+                     c=ReadChoice(Pos,Srch,FALSE);
+                     if(!TestBit(Srch,c,FALSE)){*Pos=before;break;}
+                     ++i;
+                    }
 					do {
 						if(MatchCheckpoint())return FALSE;
 						POSITION SavePos;
@@ -410,11 +424,11 @@ static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 							return (!MatchAtEndOfLine ||
 									CharFlags(CharAt(Pos)) & 0x21);
 						*Pos = SavePos;
-						GoBack(Pos, UtfEncoding == 16 ? 2 : 1);
+						ReadChoice(Pos,Srch,TRUE);
 					} while (i--);
 					return (FALSE);
 				} else {
-					INT c = SingleCharAndAdvance(Pos);
+					INT c = ReadChoice(Pos,Srch,FALSE);
 
 					if (!TestBit(Srch, c, FALSE)) return FALSE;
 				}
@@ -521,27 +535,27 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 							SavePos = *Pos;
 							if (CheckBkwd(Pos, Srch)) return TRUE;
 							*Pos = SavePos;
-							c = GoBackAndSingleChar(Pos);
+							c = ReadChoice(Pos,Srch,TRUE);
 							if (!TestBit(Srch, c, TRUE)) return FALSE;
 						}
 					}
-					for (;;) {
-						if(MatchCheckpoint())return FALSE;
-						c = GoBackAndSingleChar(Pos);
-						if (!TestBit(Srch, c, TRUE)) break;
-						++i;
-					}
+                    for (;;) {
+                     POSITION before=*Pos;
+                     if(MatchCheckpoint())return FALSE;
+                     c=ReadChoice(Pos,Srch,TRUE);
+                     if(!TestBit(Srch,c,TRUE)){*Pos=before;break;}
+                     ++i;
+                    }
 					do {
 						if(MatchCheckpoint())return FALSE;
-						if (c == C_EOF) c = 0;
-						else Advance(Pos, UtfEncoding == 16 ? 2 : 1);
+
 						SavePos = *Pos;
 						if (CheckBkwd(Pos, Srch)) return TRUE;
 						*Pos = SavePos;
 					} while (i--);
 					return (FALSE);
 				} else {
-					c = GoBackAndSingleChar(Pos);
+					c = ReadChoice(Pos,Srch,TRUE);
 					if (!TestBit(Srch, c, TRUE)) return FALSE;
 				}
 				break;
@@ -1001,6 +1015,7 @@ void EnterMatch(WCHAR Char, PWSTR Asterisk, UINT Flags)
 				}
 			}
 			LastMatch->u.NewChoice.MatchMulti = 1;
+            LastMatch->u.NewChoice.MatchBytes = !(Flags & 1);
 			LastMatch->u.NewChoice.ConvCSetChoice[0] |= Flags & 1;
 		}
 #else
@@ -1104,8 +1119,16 @@ void SetSrchDisp(INT c)
 	}
 }
 
+static PWSTR FinishChoice(PWSTR cmd,PSEARCHPART first)
+{
+ PSEARCHPART p;
+ for(p=first;p;p=p->Next)p->u.NewChoice.MatchBytes=first->u.NewChoice.MatchBytes;
+ return cmd;
+}
+
 PWSTR EnterChoice(PWSTR Cmd)
 {	BOOL Inverse;
+    PSEARCHPART first;
 
 	Inverse = *++Cmd=='^';
 #if NEW_SEARCH
@@ -1113,6 +1136,7 @@ PWSTR EnterChoice(PWSTR Cmd)
 		MatchValid = 0;
 		return L"";
 	}
+    first=LastMatch;first->u.NewChoice.MatchBytes=TRUE;
 	if (Inverse) {
 		LastMatch->u.NewChoice.Inverse = Inverse;
 		SetSrchDisp(*Cmd);
@@ -1148,11 +1172,11 @@ PWSTR EnterChoice(PWSTR Cmd)
 		ce = MapAnsiToEbcdic[cw & 255];
 		switch (cw) {
 			case '\0':
-				return (Cmd);
+				return FinishChoice(Cmd,first);
 
 			case '\\':
 				SetSrchDisp(cw = (BYTE)*++Cmd);
-				if (!cw) return (Cmd);
+				if (!cw) return FinishChoice(Cmd,first);
 				if (cw>='0' && cw<'8') {
 					cw -= '0';
 					if (Cmd[1]>='0' && Cmd[1]<'8') {
@@ -1192,7 +1216,7 @@ PWSTR EnterChoice(PWSTR Cmd)
 					ce = cd = cw;
 					AllowCSet = FALSE;
 				} else {
-					if (!MagicFlag && cw==']') return (Cmd);
+					if (!MagicFlag && cw==']') return FinishChoice(Cmd,first);
 					cd = cw;
 					CharToOemBuffW(&cd, (LPSTR)&cd, 1);
 					ce = MapAnsiToEbcdic[cw];
@@ -1202,7 +1226,7 @@ PWSTR EnterChoice(PWSTR Cmd)
 			case ']':
 				if (MagicFlag && cw==']')
 					if (AllowCase)	/*otherwise fallthrough from '\\'*/
-						return (Cmd);
+						return FinishChoice(Cmd,first);
 				/*FALLTHROUGH*/
 			default:
 #if NEW_SEARCH
@@ -1229,6 +1253,7 @@ PWSTR EnterChoice(PWSTR Cmd)
 							SetSrchDisp(*++Cmd);
 						} else ++LastMatch->u.NewChoice.Fill;
 					}
+					if (AllowCSet) first->u.NewChoice.MatchBytes=FALSE;
 					if (AllowCSet) LastMatch->u.NewChoice.ConvCSetChoice[i >> 4]
 								   |= 1 << (i & 15);
 					if (!WithinRange && AllowCase) {
