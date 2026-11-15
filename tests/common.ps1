@@ -21,7 +21,7 @@ public class WV {
  public static string Text(IntPtr h) {var s=new StringBuilder(2048);GetWindowTextW(h,s,2048);return s.ToString();}
  public static IntPtr[] Windows(int pid) { var a=new List<IntPtr>(); using(var p=Process.GetProcessById(pid)) foreach(ProcessThread t in p.Threads) EnumThreadWindows((uint)t.Id,(h,l)=>{a.Add(h);return true;},IntPtr.Zero);return a.ToArray(); }
  public static IntPtr[] Children(IntPtr root) {var a=new List<IntPtr>();EnumChildWindows(root,(h,l)=>{a.Add(h);return true;},IntPtr.Zero);return a.ToArray();}
- public static ulong Send(IntPtr h,uint m,ulong w,long l) {UIntPtr r;if(SendMessageTimeoutW(h,m,new UIntPtr(w),new IntPtr(l),2,5000,out r)==IntPtr.Zero)throw new Exception("Message timeout "+m);return r.ToUInt64();}
+ public static uint MessageTimeout=5000, MessageFlags=2; public static ulong Send(IntPtr h,uint m,ulong w,long l) {UIntPtr r;if(SendMessageTimeoutW(h,m,new UIntPtr(w),new IntPtr(l),MessageFlags,MessageTimeout,out r)==IntPtr.Zero)throw new Exception("Message timeout "+m);return r.ToUInt64();}
 }
 "@
 $ErrorActionPreference='Stop'
@@ -39,11 +39,24 @@ function Start-WV($path) {
  $h=[IntPtr]0; $limit=(Get-Date).AddSeconds(15)
  do { Start-Sleep -Milliseconds 100; if($p.HasExited){throw "Exited: $($p.ExitCode)"}; foreach($wh in [WV]::Windows($p.Id)) {if([WV]::Class($wh) -eq "Ramo's WinVi"){$h=$wh}} } while($h -eq 0 -and (Get-Date) -lt $limit)
  if($h -eq 0){$p.Kill();throw 'Missing main window'}
- $v=@{P=$p;H=$h;Log=$err};Wait-WVQuiet $v;return $v
+ $v=@{P=$p;H=$h;Log=$err};$seconds=if($env:WINVI_TEST_IDLE_SECONDS){[int]$env:WINVI_TEST_IDLE_SECONDS}else{120};$readyDeadline=(Get-Date).AddSeconds($seconds)
+ $base=[IO.Path]::GetFileName($path)
+ while([WV]::Text($h).IndexOf($base,[StringComparison]::OrdinalIgnoreCase) -lt 0){if((Get-Date) -gt $readyDeadline){throw 'File title was not initialized'};Start-Sleep -Milliseconds 100}
+ do {
+  Wait-WVQuiet $v $seconds
+  if((Dialog $v) -ne [IntPtr]::Zero){return $v}
+  try {
+   [void][WV]::Send($h,0x111,119,0);[void][WV]::Send($h,0x102,58,1)
+   $edit=[WV]::GetDlgItem($h,161)
+   if($edit -ne [IntPtr]::Zero){[WV]::SetText($edit,':1');[void][WV]::Send($h,2258,0,0);return $v}
+  }catch{}
+  Start-Sleep -Milliseconds 200
+ }while((Get-Date) -lt $readyDeadline)
+ Stop-WV $v;throw 'Editor never accepted a readiness command'
 }
 function Menu($v,$id) {[void][WV]::Send($v.H,0x111,$id,0)}
 function Chars($v,$s) {foreach($c in $s.ToCharArray()){[void][WV]::Send($v.H,0x102,[uint32][char]$c,1)}}
-function Ex($v,$s) {Menu $v 119; Chars $v ':'; $ed=[WV]::GetDlgItem($v.H,161); if($ed -eq 0){throw 'Command edit unavailable'}; [WV]::SetText($ed,$s); [void][WV]::Send($v.H,2258,0,0)}
+function Ex($v,$s) {Menu $v 119; Chars $v ':'; $ed=[WV]::GetDlgItem($v.H,161);$deadline=(Get-Date).AddSeconds(120);while($ed -eq 0 -and (Get-Date) -lt $deadline){Start-Sleep -Milliseconds 200;Menu $v 119;Chars $v ':';$ed=[WV]::GetDlgItem($v.H,161)};if($ed -eq 0){throw 'Command edit unavailable'}; [WV]::SetText($ed,$s); [void][WV]::Send($v.H,2258,0,0)}
 function Save-WV($v) {Menu $v 103; Start-Sleep -Milliseconds 100}
 function Stop-WV($v) {if($null -eq $v){return}; if(!$v.P.HasExited){[void][WV]::PostMessageW($v.H,0x10,[UIntPtr]0,[IntPtr]0);if(!$v.P.WaitForExit(1000)){$v.P.Kill();$v.P.WaitForExit()}}}
 function Dialog($v) {foreach($wh in [WV]::Windows($v.P.Id)){if([WV]::Class($wh) -eq '#32770'){return $wh}};return [IntPtr]0}

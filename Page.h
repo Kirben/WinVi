@@ -24,7 +24,7 @@ typedef struct tagPAGE {
 	WV_ULONG		   LastAccess;			 /*last access (used for paging)	*/
 	WV_LONG		   PageFilePos;			 /*position on paging file			*/
 	UINT		   Fill;				 /*used amount of bytes in PageBuf	*/
-	UINT		   PageNo;				 /*length of chain in Prev			*/
+	WV_ULONG PageNo;				 /*length of chain in Prev			*/
 	WV_ULONG		   Newlines;			 /*no of newline character sequences*/
 	DWORD		   Flags;				 /*page status flags				*/
 } PAGE, *PPAGE, FAR *LPPAGE;
@@ -55,7 +55,7 @@ typedef struct {
 	POSITION Pos;
 	WV_ULONG	 ByteCount;
 	WV_ULONG	 Pixels;			/*line width needed for horizontal scrollbar*/
-	INT 	 nthContdLine;
+	WV_LONG nthContdLine;
 	INT 	 Flags;
 } LINEINFO, *PLINEINFO;
 extern PLINEINFO LineInfo;
@@ -118,7 +118,7 @@ LPPAGE NewPage(void);
 BOOL   ReloadPage(LPPAGE);
 void   FreeAllPages(void);
 void   UnsafePage(PPOSITION);
-BOOL   Reserve(PPOSITION, INT, WORD);
+BOOL   Reserve(PPOSITION, WV_LONG, WORD);
 INT    ByteAt(PPOSITION);
 INT    CharAt(PPOSITION);
 INT    ByteAndAdvance(PPOSITION);

@@ -34,6 +34,16 @@ int main(void) {
  CHECK(Win64Seek(h,4294967312LL,FILE_BEGIN)==4294967312LL);
  CHECK(Win64Write(h,"Z",1)==1);CHECK(GetFileSizeEx(raw,&size) && size.QuadPart==4294967313LL);
  CHECK(Win64Seek(h,-1,FILE_END)==4294967312LL);CHECK(Win64Read(h,&b,1)==1 && b=='Z');}
+ {const WV_LONG offsets[]={17179869184LL,34359738368LL,1099511627776LL};int k;
+ for(k=0;k<3;k++){LARGE_INTEGER size;char b=0;
+ CHECK(Win64Seek(h,offsets[k],FILE_BEGIN)==offsets[k]);CHECK(Win64Write(h,"Q",1)==1);
+ CHECK(GetFileSizeEx(raw,&size) && size.QuadPart==offsets[k]+1);
+ CHECK(Win64Seek(h,-1,FILE_END)==offsets[k]);CHECK(Win64Read(h,&b,1)==1 && b=='Q');
+ }
+ CHECK(Win64Seek(h,-1,FILE_BEGIN)==-1);
+ CHECK(Win64Seek(h,0,FILE_BEGIN)==0);CHECK(Win64Write(h,"",0)==0);
+ {LARGE_INTEGER z;CHECK(GetFileSizeEx(raw,&z) && z.QuadPart==0);}
+ }
  puts("PASS native handles, read/write, EOF, relative seeks, errors, zero-byte truncation");
  done: if(raw!=INVALID_HANDLE_VALUE)CloseHandle(raw);DeleteFileA("native-io.tmp");return result;
 }

@@ -280,7 +280,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 		case ' ':
 		case 'l':
 			if (HexEditMode) {
-				Advance(&NewPos, UtfEncoding == 16 ? 2 * Repeat : Repeat);
+				Advance(&NewPos, UtfEncoding == 16 ? WvMovementProduct(2,Repeat) : Repeat);
 				if (!(Flags & 1) && CharAt(&NewPos) == C_EOF)
 					GoBack(&NewPos, UtfEncoding == 16 ? 2 : 1);
 			} else if (!(CharFlags(CharAt(&NewPos)) & 1) || Flags & 0x200) {
@@ -316,7 +316,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 		case 'h':
 			if (HexEditMode) {
 				if (!HalfWChar || --Repeat > 0)
-					GoBack(&NewPos, UtfEncoding == 16 ? 2 * Repeat : Repeat);
+					GoBack(&NewPos, UtfEncoding == 16 ? WvMovementProduct(2,Repeat) : Repeat);
 				break;
 			}
 			do {
@@ -338,7 +338,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 		case 'k':
 			if (HexEditMode) {
 				WV_ULONG i;
-				i = GoBack(&NewPos, 16*Repeat) & 15;
+				i = GoBack(&NewPos, WvMovementProduct(16,Repeat)) & 15;
 				if (i) Advance(&NewPos, i);
 				break;
 			}
@@ -385,7 +385,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 			break;
 		case '$':
 			if (HexEditMode) {
-				Advance(&NewPos, 16 * Repeat - (CountBytes(&OldPos) & 15));
+				Advance(&NewPos, WvMovementProduct(16,Repeat) - (CountBytes(&OldPos) & 15));
 				if (!(Flags & 1)) GoBack(&NewPos, 1);
 			} else {
 				FullRowExtend = Repeat>1;
@@ -407,7 +407,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 			/*FALLTHROUGH*/
 		case '-':
 			if (HexEditMode /*&& Command=='-'*/) {
-				GoBack(&NewPos, 16 * Repeat + (CountBytes(&OldPos) & 15));
+				GoBack(&NewPos, WvMovementProduct(16,Repeat) + (CountBytes(&OldPos) & 15));
 			} else {
 				FullRowExtend = Repeat>0;
 				while (Repeat-- >= 0) {
@@ -425,7 +425,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 			break;
 		case '\r':
 			if (HexEditMode) {
-				Advance(&NewPos, Repeat*16 - (CountBytes(&OldPos) & 15));
+				Advance(&NewPos, WvMovementProduct(16,Repeat) - (CountBytes(&OldPos) & 15));
 				break;
 			}
 			/*FALLTHROUGH*/
@@ -442,7 +442,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 		case CTRL('n'):
 		case 'j':
 			if (HexEditMode) {
-				INT i = (INT)Advance(&NewPos, 16*Repeat);
+				WV_ULONG i = Advance(&NewPos, WvMovementProduct(16,Repeat));
 
 				if (i) {
 					if (i &= 15) GoBack(&NewPos, i);
@@ -468,7 +468,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 
 				if (Command == CTRL('d')) i = (i + 1) >> 1;
 				if (i < 1 || Command == CTRL('e')) i = 1;
-				if ((i *= Repeat) < 1) i = 1;
+				if ((i = WvMovementProduct(i,Repeat)) < 1) i = 1;
 				if (Flags & 4) return (Position(i, 'j', Flags));
 				if (LineInfo[CrsrLines].Flags & LIF_EOF) {
 					if (Flags & 0x100) return (FALSE);
@@ -566,7 +566,7 @@ BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 
 				if (Command == CTRL('u')) i = (i + 1) >> 1;
 				if (i < 1 || Command == CTRL('y')) i = 1;
-				i *= Repeat;
+				i = WvMovementProduct(i,Repeat);
 				if (Flags & 4) return (Position(i, 'k', Flags));
 				if (!Pos.p || (Pos.i==0 && !Pos.p->Prev)) {
 					if (Command == CTRL('y') || !CurrLine) return (FALSE);

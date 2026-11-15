@@ -414,8 +414,8 @@ BEGIN
     9330                    "Tag stack empty"
     9331                    "' requires following letter"
     9332                    "Undefined mark referenced"
-    9334                    "%d lines >ed"
-    9335                    "%d lines <ed"
+    9334                    "%I64u lines >ed"
+    9335                    "%I64u lines <ed"
     9336                    "unlimited"
     9337                    "Profile Name"
     9338                    "Specify a name for the new profile:"
@@ -817,8 +817,8 @@ BEGIN
     10330                   "pila de Tag vacía"
     10331                   "' requiere una letra a continuación"
     10332                   "Marca indefinida referenciada"
-    10334                   "%d líneas >ind."
-    10335                   "%d líneas <ind."
+    10334                   "%I64u líneas >ind."
+    10335                   "%I64u líneas <ind."
 END
 
 STRINGTABLE DISCARDABLE 
@@ -1228,8 +1228,8 @@ BEGIN
     12330                   "La liste des tags est vide"
     12331                   "' nécessite une lettre à sa suite"
     12332                   "Le marqueur référencé n'est pas défini"
-    12334                   "> sur %d lignes"
-    12335                   "< sur %d lignes"
+    12334                   "> sur %I64u lignes"
+    12335                   "< sur %I64u lignes"
 END
 
 STRINGTABLE DISCARDABLE 
@@ -2182,8 +2182,8 @@ BEGIN
     7330                    "Tag-Liste ist leer"
     7331                    "' benötigt einen Buchstaben"
     7332                    "Marke nicht gesetzt"
-    7334                    "%d Zeilen eingerückt"
-    7335                    "%d Zeilen ausgerückt"
+    7334                    "%I64u Zeilen eingerückt"
+    7335                    "%I64u Zeilen ausgerückt"
     7336                    "unbegrenzt"
     7337                    "Profilename"
     7338                    "Geben Sie einen Namen für das neue Profile an:"

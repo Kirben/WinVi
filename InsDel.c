@@ -32,7 +32,7 @@
 #include "winvi.h"
 #include "page.h"
 
-INT  IndentChars;
+WV_LONG IndentChars;
 WV_LONG InsertCount;
 BOOL SuppressMap = FALSE;
 
@@ -99,14 +99,14 @@ void InsertChar(INT Char) {
 	if (IsViewOnly()) return;
 	SetUnsafe();
 	if (Mode != ReplaceMode || (HexEditMode ? CharAt(&CurrPos) == C_EOF
-											: CharFlags(CharAt(&CurrPos)) & 1))
-		Reserve(&CurrPos, space, 0);
-	else {
+											: CharFlags(CharAt(&CurrPos)) & 1)) {
+		if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
+	} else {
 		INT oldspace = UtfEncoding && !HexEditMode ? EncodedCharacterSize(&CurrPos) : CharSize(CharAt(&CurrPos));
 
 		if (space != oldspace) {
-			Reserve(&CurrPos, -oldspace, 0);
-			Reserve(&CurrPos, space, 0);
+			if (!Reserve(&CurrPos, -oldspace, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
+			if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
 		} else {
 			EnterDeleteForUndo(&CurrPos, oldspace, 0);
 			EnterInsertForUndo(&CurrPos, space);
@@ -461,7 +461,7 @@ void InsertEol(UINT Flags, INT Char) {
 	if (!HexEditMode) ScrollDisplay(1, (WORD)(Flags & 1));
 	else SetCurrPos();
 	if (!(Flags & 8) && AutoIndentFlag) {
-		INT		 Indent = 0, c;
+		WV_LONG Indent = 0; INT c;
 		POSITION Pos;
 
 		/*find start of autoindent reference line...*/
@@ -485,7 +485,7 @@ void InsertEol(UINT Flags, INT Char) {
 		}
 		if (Flags & 4 && CharFlags(c) & 1 && Indent) {
 			/*remove indent in empty line...*/
-			INT IndentBytes = IndentChars;
+			WV_LONG IndentBytes = IndentChars;
 
 			if (UtfEncoding == 16) IndentBytes <<= 1;
 			GoBackAndChar(&Pos);
@@ -750,10 +750,15 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 	WV_ULONG    i = Length;
 	POSITION InsertStart;
 	UINT     wFlags = 3;
-	BOOL     DoAdvance = FALSE, Disabled = FALSE;
+	BOOL     DoAdvance = FALSE, Disabled = FALSE, Success = TRUE;
 	INT		 LineFeed = '\n';
 
 	if (!Length || !hwndMain) return (FALSE);
+    { POSITION end={LastPage,LastPage ? LastPage->Fill : 0,0}; WV_ULONG total;
+      if (!WvSizeAdd(CountBytes(&end),Length,&total)) {
+        NewStatus(0,L"Insertion would overflow the signed 64-bit document size.",NS_ERROR);return FALSE;
+      }
+    }
 	if (IsViewOnly()) return (FALSE);
 	InsertStart = CurrPos;
 	if (GoBackAndChar(&InsertStart) != C_EOF) ++DoAdvance;
@@ -780,7 +785,7 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 				if (c == '\r' && c2 == LineFeed) {
 					Buffer += 2;
 					i -= 2;
-					Reserve(&CurrPos, 4, 1);
+					if (!Reserve(&CurrPos, 4, 1)) {Success=FALSE;goto InsertFinished;}
 					++InsertCount;
 					assert(CurrPos.p->PageBuf);
 					if (UtfLsbFirst) {
@@ -793,43 +798,43 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 					c = LineFeed;
 				} else if (c == LineFeed) {
 					if (CharAt(&CurrPos) == '\n') {
-						Reserve(&CurrPos, 2, 1);
+						if (!Reserve(&CurrPos, 2, 1)) {Success=FALSE;goto InsertFinished;}
 						/*TODO: assert(PrevChar!='\r' || CurrPos.i>0);*/
 					} else {
 						WV_ULONG n = GoBack(&CurrPos, 2);
 						if (n && CharAt(&CurrPos) == '\r') {
 							/*cr/lf combination...*/
 							#if 0	/*did not work this way (29-Jul-98)*/
-							//	Reserve(&CurrPos, -1, 1);
-							//	Reserve(&CurrPos,  2, 1);
+							//	if (!Reserve(&CurrPos, -1, 1)) {Success=FALSE;goto InsertFinished;}
+							//	if (!Reserve(&CurrPos,  2, 1)) {Success=FALSE;goto InsertFinished;}
 							//	CurrPos.p->PageBuf[CurrPos.i++] = '\r';
 							#else
 								Advance(&CurrPos, n);
 								/*TODO: assert(CurrPos.i > 0);*/
-								Reserve(&CurrPos, 2, 0);
+								if (!Reserve(&CurrPos, 2, 0)) {Success=FALSE;goto InsertFinished;}
 								if (!GoBack(&InsertStart, 2)) DoAdvance = FALSE;
 							#endif
 						} else {
 							Advance(&CurrPos, n);
-							Reserve(&CurrPos, 2, 1);
+							if (!Reserve(&CurrPos, 2, 1)) {Success=FALSE;goto InsertFinished;}
 						}
 					}
 				} else if (c=='\r' && CharAt(&CurrPos)=='\n') {
-					Reserve(&CurrPos, 2, 0);
+					if (!Reserve(&CurrPos, 2, 0)) {Success=FALSE;goto InsertFinished;}
 					/*TODO: assert(CurrPos.i+1 < CurrPos.Len);*/
-				} else Reserve(&CurrPos, 2, 1);
+				} else if (!Reserve(&CurrPos, 2, 1)) {Success=FALSE;goto InsertFinished;}
 			} else {
 				if (i && c == '\r' && *Buffer == LineFeed) {
 					++Buffer;
 					--i;
-					Reserve(&CurrPos, 2, 1);
+					if (!Reserve(&CurrPos, 2, 1)) {Success=FALSE;goto InsertFinished;}
 					++InsertCount;
 					assert(CurrPos.p->PageBuf);
 					CurrPos.p->PageBuf[CurrPos.i++] = '\r';
 					c = LineFeed;
 				} else if (c == LineFeed) {
 					if (CharAt(&CurrPos) == '\n') {
-						Reserve(&CurrPos, 1, 1);
+						if (!Reserve(&CurrPos, 1, 1)) {Success=FALSE;goto InsertFinished;}
 						/*TODO: assert(PrevChar!='\r' || CurrPos.i>0);*/
 					} else {
 						WV_ULONG n = GoBack(&CurrPos, 1);
@@ -837,24 +842,24 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 						if (n && CharAt(&CurrPos) == '\r') {
 							/*cr/lf combination...*/
 							#if 0	/*did not work this way (29-Jul-98)*/
-							//	Reserve(&CurrPos, -1, 1);
-							//	Reserve(&CurrPos,  2, 1);
+							//	if (!Reserve(&CurrPos, -1, 1)) {Success=FALSE;goto InsertFinished;}
+							//	if (!Reserve(&CurrPos,  2, 1)) {Success=FALSE;goto InsertFinished;}
 							//	CurrPos.p->PageBuf[CurrPos.i++] = '\r';
 							#else
 								Advance(&CurrPos, 1);
 								/*TODO: assert(CurrPos.i > 0);*/
-								Reserve(&CurrPos, 1, 0);
+								if (!Reserve(&CurrPos, 1, 0)) {Success=FALSE;goto InsertFinished;}
 								if (!GoBack(&InsertStart, 1)) DoAdvance = FALSE;
 							#endif
 						} else {
 							Advance(&CurrPos, n);
-							Reserve(&CurrPos, 1, 1);
+							if (!Reserve(&CurrPos, 1, 1)) {Success=FALSE;goto InsertFinished;}
 						}
 					}
 				} else if (c=='\r' && CharAt(&CurrPos)=='\n') {
-					Reserve(&CurrPos, 1, 0);
+					if (!Reserve(&CurrPos, 1, 0)) {Success=FALSE;goto InsertFinished;}
 					/*TODO: assert(CurrPos.i+1 < CurrPos.Len);*/
-				} else Reserve(&CurrPos, 1, 1);
+				} else if (!Reserve(&CurrPos, 1, 1)) {Success=FALSE;goto InsertFinished;}
 			}
 			wFlags |= 4;
 		} else {
@@ -865,8 +870,8 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 
 				p2 = CurrPos;
 				if (GoBack(&p2, csize) == csize && CharAt(&p2) == C_CRLF) {
-					Reserve(&p2, -csize, 0);
-					Reserve(&p2,  csize, 1);
+					if (!Reserve(&p2, -csize, 0)) {Success=FALSE;goto InsertFinished;}
+					if (!Reserve(&p2,  csize, 1)) {Success=FALSE;goto InsertFinished;}
 					if (UtfEncoding == 16) {
 						if (UtfLsbFirst) {
 							p2.p->PageBuf[p2.i]   = '\r';
@@ -878,7 +883,7 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 					} else  p2.p->PageBuf[p2.i]   = '\r';
 				}
 			}
-			Reserve(&CurrPos, csize, 0);
+			if (!Reserve(&CurrPos, csize, 0)) {Success=FALSE;goto InsertFinished;}
 		}
 		++InsertCount;
 		assert(CurrPos.p->PageBuf);
@@ -910,7 +915,9 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 			}
 		}
 	}
-	if (Disabled) Enable();
+	InsertFinished:
+    if (!Success) NewStatus(0,L"Insertion stopped: page storage could not be allocated or read.",NS_ERROR);
+    if (Disabled) Enable();
 	SetUnsafe();
 	if (DoAdvance) CharAndAdvance(&InsertStart);
 	else {
@@ -931,7 +938,7 @@ BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 										   (HexEditMode << 1)));
 	NewScrollPos();
 	Indenting = FALSE;
-	return (TRUE);
+	return (Success);
 }
 
 extern INT DblQuoteChar;
@@ -1013,7 +1020,10 @@ BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 		CHAR huge *p;
 
 		if (YankHandle != NULL) {
-			HGLOBAL h = GlobalReAlloc(YankHandle, Expand+Length, GMEM_MOVEABLE);
+			WV_ULONG combined;
+            HGLOBAL h;
+            if (!WvSizeAdd(Expand,Length,&combined)) {NewStatus(0,L"Yank allocation size overflow.",NS_ERROR);ShowEditCaret();return FALSE;}
+            h = GlobalReAlloc(YankHandle, combined, GMEM_MOVEABLE);
 			if (!h) {
 				ErrorBox(MB_ICONSTOP, 308);
 				ShowEditCaret();
@@ -1112,7 +1122,8 @@ BOOL Shift(WV_LONG Amount, WORD Flags) {
 	 *		16=remove all indenting chars
 	 */
 	INT		 (*Advance)(PPOSITION);
-	INT		 c, Indent, nOldChars, LineCount = 0;
+	INT c; WV_LONG Indent, nOldChars;
+    WV_ULONG LineCount = 0;
 	BOOL	 More = TRUE;
 	POSITION EolPos, LineStartPos, p;
 	INT		 SaveCurrLine = CurrLine;
@@ -1213,7 +1224,7 @@ BOOL Shift(WV_LONG Amount, WORD Flags) {
 		UpdateWindow(hwndMain);
 		c = 0;
 		while (More) {
-			INT cnt;
+			WV_ULONG cnt;
 
 			if (UtfEncoding) cnt = CountBytes(&EolPos);
 			if (Amount-- < 0 && Advance == AdvanceAndChar) More = FALSE;
@@ -1225,7 +1236,7 @@ BOOL Shift(WV_LONG Amount, WORD Flags) {
 				} else if (CurrLine > 0) --CurrLine;
 				break;
 			} else if (UtfEncoding == 8)
-				Amount -= abs(CountBytes(&EolPos) - cnt) - 1;
+				Amount -= (CountBytes(&EolPos) >= cnt ? CountBytes(&EolPos)-cnt : cnt-CountBytes(&EolPos)) - 1;
 		}
 		if (c == C_CRLF && UtfEncoding != 8) --Amount;
 	} while (More);

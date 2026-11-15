@@ -542,7 +542,7 @@ VOID JumpAbsolute(WV_ULONG SkipBytes)
 }
 
 #if TEST_DRIVE_IO
-INT MyRead(INT hFile, PBYTE Buf, INT Size)
+INT MyRead(HFILE hFile, PBYTE Buf, INT Size)
 {	BYTE  pw[8192], *p;
 	DWORD n = 0;
 
@@ -585,14 +585,26 @@ BOOL OpenFileName(BOOL DontCreate)
 	return (TRUE);
 }
 
-/* File counters are 64-bit; keep a conservative explicit capacity guard. */
+/* Reject only sizes not representable by Windows signed 64-bit file positions. */
+static BOOL IncompleteRead, IncompleteIdentityValid;
+static BY_HANDLE_FILE_INFORMATION IncompleteReadIdentity;
+static BOOL SameIncompleteFile(HANDLE file)
+{
+ BY_HANDLE_FILE_INFORMATION info;
+ if (!IncompleteRead) return FALSE;
+ if (!IncompleteIdentityValid || !GetFileInformationByHandle(file,&info)) return TRUE;
+ return
+   info.dwVolumeSerialNumber==IncompleteReadIdentity.dwVolumeSerialNumber &&
+   info.nFileIndexHigh==IncompleteReadIdentity.nFileIndexHigh &&
+   info.nFileIndexLow==IncompleteReadIdentity.nFileIndexLow;
+}
 static BOOL SupportedFileSize(PCWSTR name)
 {
     WIN32_FILE_ATTRIBUTE_DATA info;
     if (name && *name && GetFileAttributesExW(name, GetFileExInfoStandard, &info)
         && !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-        && ((((WV_ULONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) > WV_MAX_FILE_BYTES)) {
-        NewStatus(0, L"File too large: this build supports files up to 16 GiB.", NS_ERROR);
+        && ((((WV_ULONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) > WV_MAX_POSITION)) {
+        NewStatus(0, L"File size exceeds the signed 64-bit file-position range.", NS_ERROR);
         return FALSE;
     }
     return TRUE;
@@ -605,7 +617,7 @@ static BOOL SupportedReadSize(PCWSTR name,BOOL insert)
  if(insert && name && *name && LastPage && GetFileAttributesExW(name,GetFileExInfoStandard,&info)) {
   POSITION end={LastPage,LastPage->Fill,0};WV_ULONG current=CountBytes(&end);
   WV_ULONG incoming=((WV_ULONG)info.nFileSizeHigh<<32)|info.nFileSizeLow;
-  if(current>WV_MAX_FILE_BYTES || incoming>WV_MAX_FILE_BYTES-current){NewStatus(0,L"Reading this file would exceed the 16 GiB document limit.",NS_ERROR);return FALSE;}
+  if(current>WV_MAX_POSITION || incoming>WV_MAX_POSITION-current){NewStatus(0,L"Reading this file would overflow the signed 64-bit document size.",NS_ERROR);return FALSE;}
  }
  return TRUE;
 }
@@ -727,8 +739,13 @@ BOOL Open(PCWSTR FName, WORD Flags)
 		LPPAGE Page, NewPg;
 		BOOL   IsFirst = TRUE;
 		DWORD  CountFlags = 0;
-		INT	   PageNo;
+		WV_ULONG PageNo;
 		WV_LONG   Length  = _llseek(hf, 0L, 2);
+        if (!(Flags&1)) {
+            IncompleteRead=FALSE;
+            memset(&IncompleteReadIdentity,0,sizeof(IncompleteReadIdentity));
+            IncompleteIdentityValid=GetFileInformationByHandle((HANDLE)hf,&IncompleteReadIdentity);
+        }
 		WV_LONG   ToRead  = Length;
 		WV_LONG   FileNls = 0, PageNls, ReadNls;
 
@@ -737,7 +754,10 @@ BOOL Open(PCWSTR FName, WORD Flags)
 								  && CurrFile[5] == ':')
 			ToRead = Length = 4096;
 #endif
-		_llseek(hf, 0L, 0);
+		if (Length < 0 || _llseek(hf, 0L, 0) != 0) {
+            if (!(Flags&1)) IncompleteRead=TRUE;
+            File32Error(FName); _lclose(hf); hf=HFILE_ERROR; break;
+        }
 		if (Flags & 1) {
 			CurrPos = ReadPos;
 			ReadPosAfterScreenStart = ComparePos(&ReadPos, &ScreenStart) > 0;
@@ -955,6 +975,7 @@ BOOL Open(PCWSTR FName, WORD Flags)
 				   SmallBuf, FileNls, Length);
 		NewStatus(0, BufferW, NS_NORMAL);
 		if (ToRead > 0) {
+            if (!(Flags&1)) IncompleteRead=TRUE;
 			if (NewPg == NULL) {
 				/*serious error, error box already confirmed*/
 				New(hwndMain, FALSE);
@@ -985,6 +1006,8 @@ BOOL Open(PCWSTR FName, WORD Flags)
 	} else {
 		#if defined(WIN32)
 			DWORD ErrorValue = GetLastError();
+            IncompleteRead=(ErrorValue!=ERROR_FILE_NOT_FOUND && ErrorValue!=ERROR_PATH_NOT_FOUND);
+            IncompleteIdentityValid=FALSE;
 		#else
 			DWORD ErrorValue = LastOf.nErrCode;
 		#endif
@@ -1299,7 +1322,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		EndPos.i = LastPage->Fill;
 		EndPos.f = 0;	/*TODO: set flags*/
 	}
-	if (Length > WV_MAX_FILE_BYTES) {NewStatus(0,L"Document exceeds this build's 16 GiB limit; save a smaller range.",NS_ERROR);ShowEditCaret();return FALSE;}
+	if (Length > WV_MAX_POSITION) {NewStatus(0,L"Document size exceeds the signed 64-bit file-position range.",NS_ERROR);ShowEditCaret();return FALSE;}
 	if (c != C_EOF) {
 		HFILE  hf;
 		BOOL   FileExists;
@@ -1326,6 +1349,11 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 								OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 								NULL);
 		FileExists = hf!=HFILE_ERROR;
+        if (FileExists && SameIncompleteFile((HANDLE)hf)) {
+            _lclose(hf);DragAcceptFiles(hwndMain,TRUE);ShowEditCaret();
+            NewStatus(0,L"Source was not fully loaded. Reopen it successfully, or save the partial document to a different file.",NS_ERROR);
+            return FALSE;
+        }
 		if (FileExists) {
 			if (AskIfExists || (FName!=NULL && !*FName)) {
 				INT TextId = 0;
@@ -1439,10 +1467,14 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 			if (ReadOnlyError) ReadOnlyFile = FALSE;
 			Interrupted = FALSE;
 			Disable(Length > 50000L);
-			Length = 0;
-			if (OpenMode == OF_WRITE) _llseek(hf, 0L, 2);
+			if (OpenMode == OF_WRITE) {
+                WV_LONG offset=_llseek(hf,0,2); WV_ULONG total;
+                if (offset<0 || !WvSizeAdd((WV_ULONG)offset,Length,&total)) ErrorVal=107;
+            }
+            Length = 0;
 			do {
-				while (StartPos.p != EndPos.p) {
+                if (ErrorVal) break;
+                while (StartPos.p != EndPos.p) {
 					n = StartPos.p->Fill - StartPos.i;
 					if (n > 0) {
 						if (!StartPos.p->PageBuf && !ReloadPage(StartPos.p)) {

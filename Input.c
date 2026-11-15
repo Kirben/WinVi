@@ -294,20 +294,20 @@ void AdvanceToCurr(PPOSITION Pos, /*INT Line,*/ INT Flags)
 	 */
 	if (HexEditMode) {
 		/*currently assuming fix character font*/
-		HexEditTextSide = CurrCol.PixelOffset >= 64*AveCharWidth;
+		HexEditTextSide = CurrCol.PixelOffset >= 72*AveCharWidth;
 		if (HexEditTextSide) {
 			/*right hand side ascii column...*/
 			WV_LONG i = CurrCol.PixelOffset - (4-1);
 			INT	 Max = Flags & 2 ? 16 : 15;
 
 			if (UtfEncoding == 16) Max >>= 1;
-			i = i / AveCharWidth - 64;
+			i = i / AveCharWidth - 72;
 			if (i > Max) i = Max;
 			if (i > 0) Advance(Pos, UtfEncoding == 16 ? 2 * i : i);
 		} else {
 			/*hex display part...*/
 			static INT QuadPositions[16] = {
-				56,68,80,94, 107,119,131,145, 158,170,182,196, 209,221,233,245
+				88,100,112,126, 139,151,163,177, 190,202,214,228, 241,253,265,277
 			};
 			WV_LONG QuadCurrCol = (CurrCol.PixelOffset-(4-2)) << 2;
 			INT  i, n = Flags & 2 ? 16 : 15 - (UtfEncoding == 16);
@@ -444,7 +444,7 @@ BOOL DoCompoundCommand(UINT Multiplier, WPARAM Character, WPARAM EnteredChar,
 		return (FALSE);
 	}
 	if (Multiplier) {
-		if (Number) Number *= Multiplier;
+		if (Number) {if (Multiplier > 4294967295U/Number) {NewStatus(0,L"Command repeat exceeds the unsigned 32-bit repeat range.",NS_ERROR);return FALSE;} Number *= Multiplier;}
 		else Number = Multiplier;
 	}
 	if (Flags & 1) {
@@ -1048,7 +1048,7 @@ void NewDigit(INT Digit, BOOL Display)
 	if (Number > (UINT)-1 / 10U
 			|| (NewNumber = 10U*Number+Digit-'0',
 			    (UINT)NewNumber < Number || (WV_LONG)NewNumber < 0)) {
-		Number = (UINT)-1 & 0x7fffffff;
+		Number = (UINT)-1;
 		MessageBeep(MB_ICONEXCLAMATION);
 	} else Number = (UINT)NewNumber;
 	if (!Display) return;
@@ -1284,7 +1284,7 @@ void GotChar(INT Character, WORD Flags)
 					if (!Repeating) {
 						if (Number || Multiplier) {
 							if (!Multiplier) Multiplier  = Number;
-							else if (Number) Multiplier *= Number;
+							else if (Number) {if (Multiplier > 4294967295U/Number) {MessageBeep(MB_ICONEXCLAMATION);return;} Multiplier *= Number;}
 						}
 						RedoCount = Multiplier;
 						RedoFill  = 0;
@@ -1625,7 +1625,7 @@ void GotChar(INT Character, WORD Flags)
 						INT Line;
 						if (Number || Multiplier) {
 							if (Multiplier) {
-								if (Number) Number *= Multiplier;
+								if (Number) {if (Multiplier > 4294967295U/Number) {NewStatus(0,L"Command repeat exceeds the unsigned 32-bit repeat range.",NS_ERROR);return;} Number *= Multiplier;}
 								else Number = Multiplier;
 							}
 							LinesVar   = Number;
@@ -1881,7 +1881,7 @@ void GotChar(INT Character, WORD Flags)
 					if (ExecRunning()) break;
 					Mode = CommandMode;
 					if (Number && !Repeating) {
-						INT Count = Number;
+						UINT Count = Number;
 
 						Number = 0;
 						Repeating = TRUE;

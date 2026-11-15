@@ -596,7 +596,12 @@ static PWSTR GetAddr(PWSTR Line, WV_ULONG *Ptr)
 		{	WV_LONG n;
 
 			n = 0;
-			while (*Line >= '0' && *Line <= '9') n = 10 * n + *Line++ - '0';
+			while (*Line >= '0' && *Line <= '9') {
+                int digit=*Line++-'0';
+                if ((WV_ULONG)n > (WV_MAX_POSITION-digit)/10) {ExecError=102;return NULL;}
+                n=10*n+digit;
+            }
+            if (Sign>0 && *Ptr>WV_MAX_POSITION-(WV_ULONG)n) {ExecError=102;return NULL;}
 			*Ptr += Sign * n;
 		}
 		while (*Line == ' ') ++Line;

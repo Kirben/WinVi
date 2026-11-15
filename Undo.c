@@ -180,6 +180,10 @@ BOOL EnterDeleteForUndo(PPOSITION Pos, WV_ULONG Length, WORD Flags)
 				  && LastUndo->DelFill+Length > 64000))))
 		if (!NewUndo()) return (FALSE);
 	if (LastUndo->Pos == (WV_ULONG)-1) LastUndo->Pos = ByteCount;
+    { WV_ULONG combined;
+      if (!WvSizeAdd(LastUndo->DelFill,Length,&combined) ||
+          !WvSizeAdd(combined,sizeof(UNDO),&combined)) return FALSE;
+    }
 	if (!LastUndo->DelFill) {
 		OldSize = 0;
 		if (Length > 64000) {
@@ -280,7 +284,11 @@ BOOL EnterInsertForUndo(PPOSITION Pos, WV_ULONG Length)
 					  LastUndo->Pos != ByteCount - LastUndo->Inserted))
 		if (!NewUndo()) return (FALSE);
 	if (LastUndo->Pos == (WV_ULONG)-1) LastUndo->Pos = ByteCount;
-	LastUndo->Inserted += Length;
+    { WV_ULONG combined;
+      if (!WvSizeAdd(LastUndo->DelFill,Length,&combined) ||
+          !WvSizeAdd(combined,sizeof(UNDO),&combined)) return FALSE;
+    }
+	if (!WvSizeAdd(LastUndo->Inserted,Length,&LastUndo->Inserted)) return FALSE;
 	return (TRUE);
 }
 

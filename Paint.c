@@ -352,7 +352,7 @@ void NewScrollPos(void)
 			static SCROLLINFO ScrollInfo;
 			INT				  ThumbSize;
 
-			if (!(ThumbSize = CrsrLines >> ScrollShift)) ++ThumbSize;
+			if (!(ThumbSize = (WV_ULONG)CrsrLines >> ScrollShift)) ++ThumbSize;
 			ScrollInfo.cbSize	 = sizeof(ScrollInfo);
 			ScrollInfo.fMask	 = SIF_PAGE | SIF_POS | SIF_RANGE |
 								   SIF_DISABLENOSCROLL;
@@ -1222,11 +1222,11 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 		/*display line number...*/
 
 		if (CharAt(&p) != C_EOF) {
-			WCHAR NumberBuf[12];
-			CHAR  Num[12];
+			WCHAR NumberBuf[32];
+			CHAR  Num[32];
 			INT	  Width, Len, i;
 
-			Len = wsprintf (Num, "%I64u", CountLines(&p) + 1);
+			Len = snprintf(Num, sizeof(Num), "%I64u", CountLines(&p) + 1);
 			for (i = 0; i <= Len; ++i) NumberBuf[i] = Num[i];
 			Width = GetTextWidth(hDC, NumberBuf, Len);
 			Flush(hDC, x - AveCharWidth - Width, YPos, NumberBuf, Len, 0);
@@ -1357,17 +1357,17 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 						BYTE Buf3[32];
 
 						if (HexNumberFlag)
-							 snprintf((char*)Buf3, sizeof(Buf3), "%011I64x:",
+							 snprintf((char*)Buf3, sizeof(Buf3), "%016I64x:   ",
 										  ByteCount-1);
-						else snprintf((char*)Buf3, sizeof(Buf3), "%11I64u:",
+						else snprintf((char*)Buf3, sizeof(Buf3), "%19I64u:",
 										  ByteCount-1);
 						for (i = 0; Buf3[i] != '\0'; ++i) Buf[i] = Buf3[i];
 						Flush(hDC, x, YPos, Buf, i, FALSE);
 						i = 0;
-						x += Width = 12 * AveCharWidth;
+						x += Width = 20 * AveCharWidth;
 						Buf2[0]    = '|';
 						Buf2[i2=1] = '\0';
-						x2 = 64 * AveCharWidth;
+						x2 = 72 * AveCharWidth;
 						if ((WithinSelect || MeasureCaret) && i2) {
 							Flush(hDC, x2, YPos, Buf2, i2, FALSE);
 							x2 += GetTextWidth(hDC, Buf2, i2);
@@ -1490,7 +1490,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 					PrepareNextLine(&p, ByteCount, FALSE);
 					return;
 				}
-				x = (INT)(12 * AveCharWidth + LineStart +
+				x = (INT)(20 * AveCharWidth + LineStart +
 						((51 * AveCharWidth * (ByteCount & 15)) >> 4));
 			}
 		} else {

@@ -21,13 +21,14 @@
 #include <memory.h>
 #include <wchar.h>
 #include <stdlib.h>
+#include <limits.h>
 #include "winvi.h"
 #include "page.h"
 
 extern INT OemCodePage, AnsiCodePage;
 
 CHAR BinaryFormat[] = "WinVi bin %I64u:";
-CHAR BinaryPart[24];
+CHAR BinaryPart[32];
 
 static VOID EbcdicConvert(char huge *dst, LPSTR src, INT n)
 {
@@ -46,7 +47,7 @@ BOOL ClipboardCopy(void)
 	BOOL	  WideCharConvert = FALSE;
 	UINT	  Codepage = 0;
 
-	if(SelectCount > 0x3fffffffULL) {NewStatus(0,L"Selection exceeds the clipboard conversion limit (1 GiB). Write a file range instead.",NS_ERROR);return FALSE;}
+	
 	/*prepare resources...*/
 	if (!SelectCount) {
 		Error(209);
@@ -56,7 +57,13 @@ BOOL ClipboardCopy(void)
 		ErrorBox(MB_ICONEXCLAMATION, 302);
 		return (FALSE);
 	}
-	lSize = SelectCount + sizeof(BinaryPart);
+	{ WV_ULONG size;
+      if (!WvSizeAdd(SelectCount,sizeof(BinaryPart),&size) ||
+          !WvSizeMultiply(size,2,&size)) {
+        CloseClipboard();NewStatus(0,L"Clipboard allocation size overflow.",NS_ERROR);return FALSE;
+      }
+      lSize=size/2;
+    }
 	if (!(0 /* Windows 10+ always uses the NT platform */))
 		if (UtfEncoding || CharSet == CS_OEM || AnsiCodePage != CP_ACP) {
 			/*copy as wide chars...*/
@@ -133,7 +140,7 @@ BOOL ClipboardCopy(void)
 				pMem  += i;
 				Bytes -= --i;
 				Pos.i += i;
-				i = wsprintf(BinaryPart, BinaryFormat, Bytes);
+				i = snprintf(BinaryPart, sizeof(BinaryPart), BinaryFormat, Bytes);
 				if (WideCharConvert) {
 					MultiByteToWideChar(Codepage, 0, BinaryPart, i,
 													 (WCHAR*)pMem, i);
@@ -213,7 +220,7 @@ BOOL ClipboardPaste(void)
 
 	if (IsViewOnly()) return(FALSE);
 
-	if(SelectCount > 0x3fffffffULL) {NewStatus(0,L"Selection exceeds the clipboard conversion limit (1 GiB). Write a file range instead.",NS_ERROR);return FALSE;}
+	
 	/*prepare resources...*/
 	if (!OpenClipboard(hwndMain)) {
 		ErrorBox(MB_ICONEXCLAMATION, 302);
@@ -223,9 +230,10 @@ BOOL ClipboardPaste(void)
 	/*first check for binary data containing null bytes...*/
 	if (UtfEncoding != 16 && (hMem = GetClipboardData(uFormat)) != 0) {
 		lSize = GlobalSize(hMem);
+        if ((WV_ULONG)lSize > INT_MAX) {CloseClipboard();NewStatus(0,L"Clipboard data exceeds the conversion API range.",NS_ERROR);return FALSE;}
 		if ((lpMem = GlobalLock(hMem)) != NULL) {
 			LPSTR lp;
-			WV_LONG  lRemain;
+			WV_ULONG lRemain;
 
 			lp = _fmemchr(lpMem, '\0', (size_t)lSize);
 			if (lp != NULL && (lp-lpMem+sizeof(BinaryPart)) <= (size_t)lSize
@@ -246,7 +254,7 @@ BOOL ClipboardPaste(void)
 				lRemain = _strtoui64(lp+11, &lp, 10);
 				if (*lp != ':') lSize = 0;
 				else {
-					if (lSize >= (lp - lpMem) + lRemain) lSize = lRemain;
+					if (lSize > lp-lpMem && lRemain <= (WV_ULONG)(lSize-(lp-lpMem)-1)) lSize = lRemain;
 					else lSize = 0;
 					lpMem = lp + 1;
 				}
@@ -279,6 +287,7 @@ BOOL ClipboardPaste(void)
 
 			if (hWideCharMem) {
 				lSize		  = GlobalSize(hWideCharMem);
+        if ((WV_ULONG)lSize > INT_MAX) {CloseClipboard();NewStatus(0,L"Clipboard data exceeds the conversion API range.",NS_ERROR);return FALSE;}
 				lpWideCharMem = GlobalLock(hWideCharMem);
 				if (lpWideCharMem != NULL) {
 					INT	   nSizeRequired;
@@ -297,7 +306,7 @@ BOOL ClipboardPaste(void)
 							if (hMem) {
 								lpMem = GlobalLock(hMem);
 								if (lpMem != NULL) {
-									INT i = 0;
+									SIZE_T i = 0;
 
 									while ((i += 2) <= lSize) {
 										lpMem[i-2] = *lpWideCharMem >> 8;
@@ -343,6 +352,7 @@ BOOL ClipboardPaste(void)
 			return (FALSE);
 		}
 		lSize = GlobalSize(hMem);
+        if ((WV_ULONG)lSize > INT_MAX) {CloseClipboard();NewStatus(0,L"Clipboard data exceeds the conversion API range.",NS_ERROR);return FALSE;}
 		#if !defined(WIN32)
 			if (lSize > 65535) {
 				CloseClipboard();
@@ -394,7 +404,7 @@ BOOL ClipboardPaste(void)
 #if 0
 //	if (lSize && UtfEncoding != 16) {
 //		LPSTR lp;
-//		WV_LONG  lRemain;
+//		WV_ULONG lRemain;
 //
 //		lp = _fmemchr(lpMem, '\0', (size_t)lSize);
 //		if (lp != NULL && (lp-lpMem+sizeof(BinaryPart)) <= (size_t)lSize
@@ -405,7 +415,7 @@ BOOL ClipboardPaste(void)
 //			lRemain = _strtoui64(lp+11, &lp, 10);
 //			if (*lp != ':') lSize = 0;
 //			else {
-//				if (lSize >= (lp - lpMem) + lRemain) lSize = lRemain;
+//				if (lSize > lp-lpMem && lRemain <= (WV_ULONG)(lSize-(lp-lpMem)-1)) lSize = lRemain;
 //				else lSize = 0;
 //				lpMem = lp + 1;
 //			}

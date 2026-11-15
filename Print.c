@@ -48,7 +48,7 @@ BOOL		OverrideOrientation, DoubleColumn;
 INT			nOrientation;
 PWSTR		Header, Footer;
 
-static UINT	PageNo;
+static WV_ULONG PageNo;
 static WCHAR DecimalPoint[2], Buf[300];
 
 void FillField(HWND hDlg, INT nCtl, INT Value)
@@ -330,8 +330,8 @@ VOID PrintHeaderFooter(HDC hDC, PWSTR Text, INT LeftX, INT RightX, INT Y)
 				continue;
 
 			case 'p':	/*page number*/
-				if (dp-BufW+wcslen(sp) > WSIZE(BufW)-6) continue;
-				dp += _snwprintf(dp, 6, L"%u", PageNo);
+				if (dp-BufW+wcslen(sp) > WSIZE(BufW)-21) continue;
+				dp += _snwprintf(dp, 21, L"%I64u", PageNo);
 				continue;
 
 			default:	/*preserve '&'*/
@@ -427,9 +427,9 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 			break;
 		}
 		if (hwndPrintCancel) {
-			WCHAR Buf[12];
+			WCHAR Buf[32];
 
-			_snwprintf(Buf, WSIZE(Buf), L"%d", PageNo);
+			_snwprintf(Buf, WSIZE(Buf), L"%I64u", PageNo);
 			SetDlgItemTextW(hwndPrintCancel, IDC_PAGESPRINTED, Buf);
 		}
 		if (hFont) hOldFont = SelectObject(hDC, hFont);

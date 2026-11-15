@@ -44,7 +44,7 @@ Check 'binary-hex-roundtrip' {
 Check 'about-native64' {
  $path=Join-Path $cases 'about.txt';[IO.File]::WriteAllText($path,"test`r`n");$script:v=Start-WV $path
  [void][WV]::PostMessageW($v.H,0x111,[UIntPtr]127,[IntPtr]0);Start-Sleep -Milliseconds 200;$d=Dialog $v
- $bits=[WV]::Text([WV]::GetDlgItem($d,201));[void][WV]::Send($d,0x111,1,0);if($bits -ne '(64 bit)'){throw "About reports $bits"}
+ $deadline=(Get-Date).AddSeconds(10);do{$bits=[WV]::Text([WV]::GetDlgItem($d,201));if($bits -eq '(64 bit)'){break};Start-Sleep -Milliseconds 100}while((Get-Date) -lt $deadline);[void][WV]::Send($d,0x111,1,0);if($bits -ne '(64 bit)'){throw "About reports $bits"}
 }
 Check 'multiple-window-intercom' {
  $path=Join-Path $cases 'multi.txt';[IO.File]::WriteAllText($path,"test`r`n");$script:v=Start-WV $path;$v2=Start-WV $path
@@ -67,20 +67,6 @@ Check 'save-as-ex-new-path' {
 }
 Check 'new-missing-file' {
  $path=Join-Path $cases 'new-missing.txt';if(Test-Path $path){Remove-Item $path};$script:v=Start-WV $path;Menu $v 117;Chars $v 'new';Menu $v 119;Save-WV $v;Equal-Bytes $path $ascii.GetBytes("new`r`n")
-}
-foreach($size in 17179869185L,34359738372L) {
- Check "oversized-$size-reject-and-preserve" {
-  $path=Join-Path $cases 'oversized.bin';[IO.File]::WriteAllBytes($path,[byte[]](65));& fsutil sparse setflag $path | Out-Null;if($LASTEXITCODE){throw 'Sparse setup failed'};$f=[IO.File]::OpenWrite($path);$f.SetLength($size);$f.Dispose()
-  try {
-   $script:v=Start-WV $path;Save-WV $v;if((Get-Item $path).Length -ne $size){throw 'Oversized file was overwritten'};Stop-WV $v;$script:v=$null
-   $small=Join-Path $cases 'small-preserved.txt';$bytes=$ascii.GetBytes("alpha`r`n");[IO.File]::WriteAllBytes($small,$bytes);$script:v=Start-WV $small
-   Menu $v 117;Chars $v 'X';Menu $v 119;$bytes=[byte[]](@(88)+$bytes)
-   Ex $v (':e '+$path);Save-WV $v;Equal-Bytes $small $bytes
-   Ex $v (':r '+$path);Save-WV $v;Equal-Bytes $small $bytes
-   Ex $v (':w! '+$path);if((Get-Item $path).Length -ne $size){throw 'Write command overwrote oversized file'}
-   $f=[IO.File]::OpenRead($path);try{if($f.ReadByte() -ne 65){throw 'Oversized content changed'}}finally{$f.Dispose()}
-  }finally{Stop-WV $v;$script:v=$null;Remove-Item -LiteralPath $path}
- }
 }
 Check 'unicode-input-bmp-and-emoji' {
  $path=Join-Path $cases 'unicode-input.txt';$bytes=[byte[]]($utf8.GetPreamble()+$utf8.GetBytes("alpha`r`n"));[IO.File]::WriteAllBytes($path,$bytes);$script:v=Start-WV $path
@@ -126,9 +112,22 @@ Check 'hex-edit-nibbles' {
  $path=Join-Path $cases 'hex-edit.bin';$bytes=[byte[]](0..255);[IO.File]::WriteAllBytes($path,$bytes);$script:v=Start-WV $path
  Menu $v 158;Ex $v ':1';Menu $v 118;Chars $v '41';Menu $v 119;Save-WV $v;$bytes[0]=65;Equal-Bytes $path $bytes
 }
-Check 'read-cap-boundary-preserves-document' {
- $path=Join-Path $cases 'cap-current.txt';$big=Join-Path $cases 'exact-cap.bin';$bytes=$ascii.GetBytes("alpha`r`n");[IO.File]::WriteAllBytes($path,$bytes);[IO.File]::WriteAllBytes($big,[byte[]](65));& fsutil sparse setflag $big|Out-Null;if($LASTEXITCODE){throw 'Sparse setup failed'};$f=[IO.File]::OpenWrite($big);$f.SetLength(17179869184L);$f.Dispose()
- try{$script:v=Start-WV $path;Ex $v (':r '+$big);Save-WV $v;Equal-Bytes $path $bytes;if((Get-Item $big).Length -ne 17179869184L){throw 'Input changed'}}finally{Remove-Item -LiteralPath $big}
+Check 'address-overflow-rejected' {
+ $path=Join-Path $cases 'address-overflow.txt';$bytes=$ascii.GetBytes("alpha`r`n");[IO.File]::WriteAllBytes($path,$bytes);$script:v=Start-WV $path
+ foreach($address in ':9223372036854775808',':18446744073709551616',':999999999999999999999999999999'){Ex $v $address}
+ Chars $v '4294967295d2l'
+ Save-WV $v;Equal-Bytes $path $bytes
+}
+Check 'append-sparse-1TiB-and-truncate' {
+ $path=Join-Path $cases 'append-source.txt';$big=Join-Path $cases 'append-1TiB.bin';$bytes=$ascii.GetBytes("alpha`r`n");[IO.File]::WriteAllBytes($path,$bytes)
+ [IO.File]::WriteAllBytes($big,[byte[]](65));& fsutil sparse setflag $big | Out-Null;if($LASTEXITCODE){throw 'Sparse setup failed'}
+ $f=[IO.File]::OpenWrite($big);try{$f.SetLength(1099511627776L);[void]$f.Seek(-1,[IO.SeekOrigin]::End);$f.WriteByte(81)}finally{$f.Dispose()}
+ try {
+  $script:v=Start-WV $path;Ex $v (':w >> '+$big)
+  if((Get-Item $big).Length -ne 1099511627776L+$bytes.Length){throw 'Append size mismatch'}
+  $f=[IO.File]::OpenRead($big);try{if($f.ReadByte() -ne 65){throw 'Append changed first byte'};[void]$f.Seek(1099511627775L,[IO.SeekOrigin]::Begin);$tail=[byte[]]::new(8);if($f.Read($tail,0,8) -ne 8 -or [Convert]::ToBase64String($tail) -ne [Convert]::ToBase64String([byte[]](@(81)+$bytes))){throw 'Append data or original endpoint mismatch'}}finally{$f.Dispose()}
+  Ex $v (':w! '+$big);Equal-Bytes $big $bytes
+ }finally{Remove-Item -LiteralPath $big}
 }
 $results | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $PSScriptRoot 'integration-results.json')
 $failed=@($results|Where-Object Result -eq 'FAIL');"$($results.Count-$failed.Count)/$($results.Count) passed";if($failed.Count){exit 1}

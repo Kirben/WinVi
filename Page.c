@@ -126,7 +126,7 @@ void RemoveTmpFile(void)
 	LastTmpOffset = 0;
 }
 
-static int PagesOccupied;
+static WV_ULONG PagesOccupied;
 WV_ULONG	   AccessTime;
 
 static LPPAGE ResidentHead, ResidentTail;
@@ -147,12 +147,16 @@ static void TouchResident(LPPAGE p)
 BOOL AllocPageMem(LPPAGE Page)
 {	HGLOBAL h;
 
-	if ((((WV_LONG)(PagesOccupied+1)*PAGESIZE) >> 10) > (PageThreshold<16 ? 16 : PageThreshold)) {
+	if ((((PagesOccupied+1)*PAGESIZE) >> 10) > (PageThreshold<16 ? 16 : PageThreshold)) {
 		if (TmpFile != INVALID_HANDLE_VALUE || CreateTmpFile()) {
 			LPPAGE ToSave = ResidentHead;
             if(!ToSave) return FALSE;
 			if (ToSave->PageFilePos == -1) {
-				ToSave->PageFilePos = LastTmpOffset;
+				if ((WV_ULONG)LastTmpOffset > WV_MAX_POSITION-PAGESIZE) {
+                    NewStatus(0,L"Temporary-file position would overflow signed 64-bit storage.",NS_ERROR);
+                    return FALSE;
+                }
+                ToSave->PageFilePos = LastTmpOffset;
 				LastTmpOffset += PAGESIZE;
 			}
 			if (ToSave->Flags & ISSAFE
@@ -236,7 +240,12 @@ BOOL ReloadPage(LPPAGE p)
 		Result = FALSE;
 	if (_lread ((HFILE)TmpFile, p->PageBuf, p->Fill) != p->Fill)
 		Result = FALSE;
-	return (Result);
+	if (!Result) {
+        HGLOBAL h=GLOBALHANDLE(p->PageBuf);
+        UnlinkResident(p);GlobalUnlock(h);GlobalFree(h);
+        p->PageBuf=NULL;--PagesOccupied;
+    }
+    return (Result);
 }
 
 void FreeAllPages(void)
@@ -770,7 +779,7 @@ void UnsafePage(PPOSITION Pos)
 	}
 }
 
-BOOL Reserve(PPOSITION Pos, INT Amount, WORD Flags)
+BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	/* Amount may be:  <0 (delete bytes),
 	 *					1 (insert one byte), or
 	 *					2 (insert two consecutive bytes, i.e. cr/lf)
@@ -779,7 +788,18 @@ BOOL Reserve(PPOSITION Pos, INT Amount, WORD Flags)
 	 */
 {	LPPAGE Page;
 
-	if (Flags & 1) LinesInFile += Amount > 0 ? 1 : -1;
+	if (Amount > PAGESIZE || Amount == (-9223372036854775807LL-1)) {
+        NewStatus(0,L"Invalid page-reservation size.",NS_ERROR);return FALSE;
+    }
+    /* A full document near INT64_MAX must also reject single-character growth.
+       Normal edits avoid a whole-document count: that size requires this many pages. */
+    if (Amount>0 && LastPage && LastPage->PageNo>=WV_MAX_POSITION/PAGESIZE) {
+        POSITION end={LastPage,LastPage->Fill,0};WV_ULONG size;
+        if (!WvSizeAdd(CountBytes(&end),(WV_ULONG)Amount,&size)) {
+            NewStatus(0,L"Edit would overflow the signed 64-bit document size.",NS_ERROR);return FALSE;
+        }
+    }
+    if (Flags & 1) LinesInFile += Amount > 0 ? 1 : -1;
 	if (Amount < 0) {
 		EnterDeleteForUndo(Pos, -Amount, 0);
 		do {
