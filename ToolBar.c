@@ -470,7 +470,9 @@ void DisableMenuItems(INT MenuIndex, HMENU hMenu)
 				EnableMenuItem(hMenu, ID_READFILE, ViewOnlyFlag
 							   ? MF_BYCOMMAND | MF_GRAYED : MF_BYCOMMAND);
 				break;
-		case 1:	EnableMenuItem(hMenu, ID_TAG, !(CharFlags(CharAt(&CurrPos)) & 8)
+		case 1:	CheckMenuItem(hMenu, ID_AUTOSPLIT, MF_BYCOMMAND | (AutoSplitFlag?MF_CHECKED:MF_UNCHECKED));
+                EnableMenuItem(hMenu,ID_AUTOSPLIT,MF_BYCOMMAND | (HexEditMode?MF_GRAYED:MF_ENABLED));
+                EnableMenuItem(hMenu, ID_TAG, !(CharFlags(CharAt(&CurrPos)) & 8)
 							   ? MF_BYCOMMAND | MF_GRAYED : MF_BYCOMMAND);
 				EnableMenuItem(hMenu, ID_TAGBACK, IsTagStackEmpty()
 							   ? MF_BYCOMMAND | MF_GRAYED : MF_BYCOMMAND);

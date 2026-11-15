@@ -43,6 +43,8 @@ WORD	 WinVersion;
 PCWSTR	 CurrFile;
 BOOL	 IsAltFile, Unsafe, CommandWithExclamation, CaretActive;
 BOOL	 MouseActivated, BreakLineFlag, ShowMatchFlag;
+BOOL AutoSplitFlag = FALSE;
+INT AutoSplitWidth = 80;
 BOOL	 ReadOnlyFlag, AutoRestoreFlag, AutoIndentFlag, AutoWriteFlag;
 BOOL	 IgnoreCaseFlag, WrapScanFlag, TerseFlag, DefaultInsFlag;
 BOOL	 DefaultTmpFlag, QuitIfMoreFlag, WrapPosFlag;

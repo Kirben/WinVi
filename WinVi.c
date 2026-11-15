@@ -250,6 +250,15 @@ INT_PTR DisplaySettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	return (FALSE);
 }
 
+void WvSyncSplitSettings(void)
+{
+ CheckMenuItem(GetMenu(hwndMain),ID_AUTOSPLIT,MF_BYCOMMAND|(AutoSplitFlag?MF_CHECKED:MF_UNCHECKED));
+ if(hwndSubSet && GetDlgItem(hwndSubSet,IDC_AUTOSPLIT)){
+  CheckDlgButton(hwndSubSet,IDC_AUTOSPLIT,AutoSplitFlag);
+  SetDlgItemInt(hwndSubSet,IDC_SPLITWIDTH,AutoSplitWidth,FALSE);
+  EnableWindow(GetDlgItem(hwndSubSet,IDC_SPLITWIDTH),AutoSplitFlag);
+ }
+}
 INT_PTR EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	CHAR Buf[260];
 	WV_LONG i;
@@ -257,6 +266,9 @@ INT_PTR EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
 		case WM_INITDIALOG:
+			CheckDlgButton(hDlg, IDC_AUTOSPLIT, AutoSplitFlag);
+			SetDlgItemInt(hDlg, IDC_SPLITWIDTH, AutoSplitWidth, FALSE);
+			EnableWindow(GetDlgItem(hDlg, IDC_SPLITWIDTH), AutoSplitFlag);
 			CheckDlgButton(hDlg, IDC_AUTOINDENT,	AutoIndentFlag);
 			CheckDlgButton(hDlg, IDC_AUTOWRITE,		AutoWriteFlag);
 			CheckDlgButton(hDlg, IDC_WRAPSCAN,		WrapScanFlag);
@@ -281,7 +293,13 @@ INT_PTR EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 		case WM_COMMAND:
 			switch (COMMAND) {
 
+				case IDC_AUTOSPLIT:
+					EnableWindow(GetDlgItem(hDlg, IDC_SPLITWIDTH), IsDlgButtonChecked(hDlg, IDC_AUTOSPLIT));
+					return TRUE;
 				case IDOK: case IDC_STORE: case ID_APPLY:
+					if (!GetEditLong(hDlg, IDC_SPLITWIDTH, 1, 1000, &i)) return FALSE;
+					AutoSplitWidth=(INT)i;
+					SETFLAG(AutoSplitFlag, IDC_AUTOSPLIT);
 					SETFLAG(AutoIndentFlag,	 IDC_AUTOINDENT);
 					SETFLAG(AutoWriteFlag,	 IDC_AUTOWRITE);
 					SETFLAG(WrapScanFlag,	 IDC_WRAPSCAN);
@@ -1194,6 +1212,10 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 				case ID_PRINT:		PrintFromMenu(hWnd);				break;
 				case ID_EXIT:		PostMessage(hWnd, WM_CLOSE, 0, 0L);	break;
 
+				case ID_AUTOSPLIT:
+                    AutoSplitFlag=!AutoSplitFlag;
+                    WvSyncSplitSettings();
+                    break;
 				case ID_INSMODE:	SwitchMode(InsertMode);				break;
 				case ID_REPMODE:	SwitchMode(ReplaceMode);			break;
 				case ID_CMDMODE:	SwitchMode(CommandMode);			break;

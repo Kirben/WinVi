@@ -1982,6 +1982,7 @@ void GotChar(INT Character, WORD Flags)
 				/*for vi % positioning: { ( [*/
 				case ')': case ']': case '}':
 					InsertChar(Character);
+					WvAutoSplitLine(Character);
 					if (!(Flags & 1)) ShowMatch(1);
 					break;
 
@@ -2002,6 +2003,7 @@ void GotChar(INT Character, WORD Flags)
 				default:
 					/*normal character to insert...*/
 					InsertChar(Character);
+					WvAutoSplitLine(Character);
 			}
 			ShiftOutPrefix = c;
 			ShiftOutPos = CurrPos;

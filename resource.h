@@ -2,6 +2,9 @@
 // Microsoft Developer Studio generated include file.
 // Used by WinVi.rc
 //
+#define ID_AUTOSPLIT 316
+#define IDC_AUTOSPLIT 1173
+#define IDC_SPLITWIDTH 1174
 #define ID_APPLY                        3
 #define ABOUT_TEXTX                     13
 #define ID_NEW                          100

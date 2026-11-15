@@ -28,6 +28,16 @@
       background-color: #c4c4c4;}
   </style>
 </head><body bgcolor="#c4c4c4">
+<div id="winvi-auto-split-note" style="border:1px solid #888;padding:10px;margin:10px"><b>Automatic line splitting:</b>
+Use Edit &gt; Automatic line splitting to toggle hard wrapping while typing in text insert mode.
+Set Width (columns), 1 to 1000, under Settings &gt; Edit. Default: off, width 80.
+The setting can be saved with the existing profile controls. Commands:
+<code>:set splitlines</code>, <code>:set nosplitlines</code>, <code>:set splitwidth=80</code>.
+Splitting replaces a separating run of spaces/tabs with the document's newline and, when AutoIndent is on,
+the existing indentation. Tabs use TabStop; each Unicode scalar counts as one logical column, independent
+of font pixel width. Words are not broken. Pasted/read/filter text, replace mode and hex mode are unchanged.
+Existing lines requiring more than 8192 characters of backward scanning are left intact to keep typing responsive.
+This changes file contents; it is not display-only word wrapping.</div>
 <div id="winvi64-port-note" style="border:1px solid #888;padding:10px;margin:10px"><b>64-Bit-Port, 15. November 2026:</b> Windows 7 SP1 + KB2533623 (or superseding update) / 8 / 8.1 / 10 / 11 x64. Kein festes GiB-Dateilimit. Speicher, tempor&auml;rer Plattenplatz und vorzeichenbehaftete 64-Bit-Dateipositionen bestimmen die Kapazit&auml;t. Dieser Hinweis ersetzt die alten 32-Bit- und Betriebssystemgrenzen im historischen Handbuch.</div>
 
 <h2><a name="HexPrinting"></a>Hexadezimales Drucken</h2>

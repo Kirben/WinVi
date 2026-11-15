@@ -876,6 +876,8 @@ VOID SaveFontSettings(VOID)
 VOID SaveEditSettings(VOID)
 {
 	MyWriteProfileBool(pfReadOnly,				  ReadOnlyFlag);
+	MyWriteProfileBool("AutoSplit", AutoSplitFlag);
+	MyWriteProfileInt("AutoSplitWidth", LdFormat, AutoSplitWidth);
 	MyWriteProfileBool(pfAutoIndent,			  AutoIndentFlag);
 	MyWriteProfileBool(pfAutoWrite,				  AutoWriteFlag);
 	MyWriteProfileBool(pfWrapScan,				  WrapScanFlag);
@@ -1384,6 +1386,9 @@ VOID LoadSettings(VOID)
 	#endif
 	ReadOnlyFlag	= MyGetProfileBool(pfReadOnly,		FALSE);
 	AutoRestoreFlag	= MyGetProfileBool(pfAutoRestore,	TRUE);
+	AutoSplitFlag = MyGetProfileBool("AutoSplit", FALSE);
+	AutoSplitWidth = MyGetProfileInt("AutoSplitWidth", 80);
+	if(AutoSplitWidth<1 || AutoSplitWidth>1000)AutoSplitWidth=80;
 	AutoIndentFlag	= MyGetProfileBool(pfAutoIndent,	FALSE);
 	AutoWriteFlag	= MyGetProfileBool(pfAutoWrite,		FALSE);
 	ShowMatchFlag	= MyGetProfileBool(pfShowMatch,		FALSE);

@@ -219,6 +219,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Select all\tCtrl+A",         ID_SELECTALL
         MENUITEM "&Refresh\tF5",                ID_REFRESH
+        MENUITEM "Automatic line s&plitting", ID_AUTOSPLIT
     END
     POPUP "&Search"
     BEGIN
@@ -622,6 +623,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Seleccionar todo\tCtrl+A",   ID_SELECTALL
         MENUITEM "R&efrescar\tF5",              ID_REFRESH
+        MENUITEM "División automática de líneas", ID_AUTOSPLIT
     END
     POPUP "&Buscar"
     BEGIN
@@ -1033,6 +1035,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Sél&ectionner tout\tCtrl+A",  ID_SELECTALL
         MENUITEM "Actual&iser\tF5",             ID_REFRESH
+        MENUITEM "Coupure automatique des lignes", ID_AUTOSPLIT
     END
     POPUP "&Recherche"
     BEGIN
@@ -1444,6 +1447,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Alles &markieren\tStrg+A",    ID_SELECTALL
         MENUITEM "Akt&ualisieren\tF5",          ID_REFRESH
+        MENUITEM "Automatischer Zeilenumbruch", ID_AUTOSPLIT
     END
     POPUP "&Suchen"
     BEGIN
@@ -1692,11 +1696,8 @@ BEGIN
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,30,95,10
     CONTROL         "aut&omatisch einrücken",IDC_AUTOINDENT,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,43,97,12
-    CONTROL         "&zeilenübergreifende Cursor-Bewegungen",IDC_NOTEPADNL,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,58,206,10
-    CONTROL         "zeile&nübergreifende !/c/d/y-Operationen auf ganzen Zeilen",
-                    IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    26,72,206,10
+    CONTROL "Cursor über Zeilengrenzen",IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,58,128,10
+    CONTROL "Ganze Zeilen bei !/c/d/y",IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,72,128,10
     LTEXT           "&Undo-Speicher:",IDC_STATIC,171,16,53,10
     LTEXT           "KB",IDC_STATIC,272,16,13,10
     EDITTEXT        IDC_UNDOLIMIT,227,14,42,12,ES_AUTOHSCROLL
@@ -1705,6 +1706,9 @@ BEGIN
     LTEXT           "Einrüc&kung:",IDC_STATIC,171,45,39,10
     LTEXT           "Leerzeichen",IDC_STATIC,234,45,43,10
     EDITTEXT        IDC_SHIFTWIDTH,215,43,16,12,ES_AUTOHSCROLL
+    CONTROL "Automatischer Zeilenumbruch",IDC_AUTOSPLIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,163,58,128,10
+    LTEXT "Breite (Spalten):",IDC_STATIC,163,73,78,10
+    EDITTEXT IDC_SPLITWIDTH,244,70,32,12,ES_NUMBER | ES_AUTOHSCROLL
     GROUPBOX        "Suchen",IDC_STATIC,20,91,272,41
     CONTROL         "&Rundumsuche (WrapScan)",IDC_WRAPSCAN,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,104,110,10
@@ -2566,12 +2570,8 @@ BEGIN
                     WS_TABSTOP,26,30,97,10
     CONTROL         "&AutoIndent",IDC_AUTOINDENT,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,26,43,97,12
-    CONTROL         "&Line wrapping horizontal cursor movements",
-                    IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,
-                    58,206,10
-    CONTROL         "Multi-lin&e !/c/d/y operations on entire rows",
-                    IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    26,72,206,10
+    CONTROL "Cursor crosses line ends",IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,58,128,10
+    CONTROL "Whole-row !/c/d/y operations",IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,72,128,10
     LTEXT           "&Undo memory:",IDC_STATIC,163,16,50,9
     LTEXT           "KB",IDC_STATIC,266,16,18,9
     EDITTEXT        IDC_UNDOLIMIT,218,14,45,12,ES_AUTOHSCROLL
@@ -2580,6 +2580,9 @@ BEGIN
     LTEXT           "&ShiftWidth:",IDC_STATIC,163,45,39,10
     LTEXT           "spaces",IDC_STATIC,223,45,43,10
     EDITTEXT        IDC_SHIFTWIDTH,205,43,16,12,ES_AUTOHSCROLL
+    CONTROL "Automatic line splitting",IDC_AUTOSPLIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,163,58,128,10
+    LTEXT "Width (columns):",IDC_STATIC,163,73,78,10
+    EDITTEXT IDC_SPLITWIDTH,244,70,32,12,ES_NUMBER | ES_AUTOHSCROLL
     GROUPBOX        "Search",IDC_STATIC,20,91,272,41
     CONTROL         "WrapS&can (search across EOF)",IDC_WRAPSCAN,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,104,120,10
@@ -3089,11 +3092,8 @@ BEGIN
                     WS_TABSTOP,26,30,97,10
     CONTROL         "Autoin&dentación",IDC_AUTOINDENT,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,43,97,12
-    CONTROL         "&Lineas nuevas como en Notepad",IDC_NOTEPADNL,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,26,58,206,10
-    CONTROL         "Las &operaciones !/c/d/y afectan a la línea completa",
-                    IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    26,72,206,10
+    CONTROL "Cursor entre líneas",IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,58,128,10
+    CONTROL "Filas completas en !/c/d/y",IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,72,128,10
     LTEXT           "M&emoria para deshacer:",IDC_STATIC,148,16,78,10
     LTEXT           "KB",IDC_STATIC,272,16,13,10
     EDITTEXT        IDC_UNDOLIMIT,229,14,40,12,ES_AUTOHSCROLL
@@ -3102,6 +3102,9 @@ BEGIN
     LTEXT           "Despla&zar:",IDC_STATIC,148,45,39,10
     LTEXT           "espacios",IDC_STATIC,208,45,43,10
     EDITTEXT        IDC_SHIFTWIDTH,190,43,16,12,ES_AUTOHSCROLL
+    CONTROL "Dividir líneas automáticamente",IDC_AUTOSPLIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,163,58,128,10
+    LTEXT "Ancho (columnas):",IDC_STATIC,163,73,78,10
+    EDITTEXT IDC_SPLITWIDTH,244,70,32,12,ES_NUMBER | ES_AUTOHSCROLL
     GROUPBOX        "Búsqueda",IDC_STATIC,20,91,272,41
     CONTROL         "&Búsqueda cíclica (WrapScan)",IDC_WRAPSCAN,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,104,120,10
@@ -3615,12 +3618,8 @@ BEGIN
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,30,97,10
     CONTROL         "Paragraphe a&utomatique",IDC_AUTOINDENT,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,43,97,12
-    CONTROL         "&Déplacements du curseur au fil du texte (flèches horizontales)",
-                    IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,
-                    58,226,10
-    CONTROL         "C&ommandes multi-lignes (!, c, d, y) pour toutes les lignes concernées",
-                    IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    26,72,226,10
+    CONTROL "Curseur entre les lignes",IDC_NOTEPADNL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,58,128,10
+    CONTROL "Lignes entières pour !/c/d/y",IDC_FULLROWEXTEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,26,72,128,10
     LTEXT           "Mémoire d'annulatio&n :",IDC_STATIC,155,16,74,10
     LTEXT           "Ko",IDC_STATIC,272,16,13,10
     EDITTEXT        IDC_UNDOLIMIT,238,14,31,12,ES_AUTOHSCROLL
@@ -3629,6 +3628,9 @@ BEGIN
     LTEXT           "Largeur de dépla&cement :",IDC_STATIC,155,45,83,10
     LTEXT           "espaces",IDC_STATIC,257,45,28,10
     EDITTEXT        IDC_SHIFTWIDTH,238,43,16,12,ES_AUTOHSCROLL
+    CONTROL "Coupure automatique des lignes",IDC_AUTOSPLIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,163,58,128,10
+    LTEXT "Largeur (colonnes):",IDC_STATIC,163,73,78,10
+    EDITTEXT IDC_SPLITWIDTH,244,70,32,12,ES_NUMBER | ES_AUTOHSCROLL
     GROUPBOX        "Recherche",IDC_STATIC,20,91,272,41
     CONTROL         "Rec&herche circulaire",IDC_WRAPSCAN,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,26,104,120,10

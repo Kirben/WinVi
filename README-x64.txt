@@ -71,3 +71,14 @@ Original upstream source: https://www.winvi.de/wvsrc302.zip
 Original upstream help: https://www.winvi.de/winvi302.zip
 An existing public source mirror/VS project is https://github.com/FigBug/WinVi .
 This community port is distinct from the upstream 32-bit 3.02 release.
+
+Automatic line splitting (off by default)
+Edit > Automatic line splitting toggles hard wrapping of ordinary typed insert-mode
+text. Settings > Edit > Width (columns) accepts 1-1000, default 80. Settings can be
+saved per profile. :set splitlines / nosplitlines and :set splitwidth=80 use the
+same settings. Tabs follow TabStop; Unicode scalars count as one logical column.
+Newlines and AutoIndent are preserved; whole words are not broken. Paste, file
+insertion, filters, hex and replace modes bypass automatic splitting. Existing
+lines beyond an 8192-character look-back are left intact for responsiveness.
+Under page-storage failure, an undoable partial newline/indent insertion may
+remain; original words and separator are retained if insertion cannot complete.

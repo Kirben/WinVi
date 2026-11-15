@@ -24,8 +24,8 @@ try {
   if($Configuration -in 'Both','Asan'){Run-Step 'build-asan' {& "$root/build-asan.cmd"} $results}
  }
  Run-Step 'build-command-fixture' {& "$tests/command-fixture.cmd"} $results
- foreach($native in 'compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
- if($Configuration -in 'Both','Asan'){Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
+ foreach($native in 'auto-split','compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ if($Configuration -in 'Both','Asan'){Run-Step 'auto-split-asan' {& "$tests/auto-split-test.cmd" asan} $results;Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
  Run-Step 'focused-asan-regressions' {& "$tests/bugs/build-and-test.cmd"} $results
  Copy-Item "$tests/bugs/bug-results.json" "$results/focused-results.json"
  Copy-Item "$tests/bugs/after-command-faults.stdout.txt" "$results/resource-fault-details.txt"
@@ -36,8 +36,8 @@ try {
   if(!(Test-Path $env:WINVI_TEST_EXE)){throw "Missing executable $env:WINVI_TEST_EXE"}
   $env:WINVI_TEST_CASES=Join-Path $folder 'cases'
   Run-Step "$kind-save-faults" {if($kind-eq'Asan'){& "$tests/safe-save-test.cmd" asan}else{& "$tests/safe-save-test.cmd"}} $folder
-  foreach($suite in 'integration','read-failure','search-cancel','reliability','ex-global'){
-   Run-Step "$kind-$suite" {& pwsh -NoProfile -File "$tests/$suite.ps1"} $folder
+  foreach($suite in 'auto-split','integration','read-failure','search-cancel','reliability','ex-global'){
+   Run-Step "$kind-$suite" {& pwsh -STA -NoProfile -File "$tests/$suite.ps1"} $folder
    Copy-Item "$tests/$suite-results.json" "$folder/$suite-results.json"
   }
   if($LargeFiles){

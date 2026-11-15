@@ -326,6 +326,8 @@ static BOOL SetCmd(PWSTR Args)
 		{VF_BOOLEAN, 0, 0,	   L"ansimode",	   L"am",	 (INT*)&CharSet},
 		{VF_DECIMAL, 0, 65001, L"ansicodepage",L"ansicp",(INT*)&AnsiCodePage},
 		{VF_BOOLEAN, 0, 0,	   L"autoindent",  L"ai",	 (INT*)&AutoIndentFlag},
+		{VF_BOOLEAN, 0, 0, L"splitlines", L"spl", (INT*)&AutoSplitFlag},
+		{VF_DECIMAL, 1, 1000, L"splitwidth", L"splw", &AutoSplitWidth},
 		{VF_BOOLEAN, 0, 0,	   L"autowrite",   L"aw",	 (INT*)&AutoWriteFlag},
 		{VF_DECIMAL, 8, 500,   L"columns",	   L"co",	 &ColumnsVar},
 		{VF_BOOLEAN, 0, 0,	   L"dosmode",	   L"dm",	 (INT*)&CharSet},
@@ -392,6 +394,7 @@ static BOOL SetCmd(PWSTR Args)
 						SetCharSet(NewCharSet, 3);
 				} else {
 					*(BOOL*)VarDescr[i].Variable = !Off;
+                    if(VarDescr[i].Variable==(INT*)&AutoSplitFlag)WvSyncSplitSettings();
 					if		((BOOL*)VarDescr[i].Variable == &ReadOnlyFlag)
 						ReadOnlyFile = ReadOnlyFlag;
 					else if ((BOOL*)VarDescr[i].Variable == &ViewOnlyFlag)
@@ -410,6 +413,7 @@ static BOOL SetCmd(PWSTR Args)
 						Error(223, VarDescr[i].Min, VarDescr[i].Max);
 					else if (*VarDescr[i].Variable != (INT)Value) {
 						*VarDescr[i].Variable = (INT)Value;
+                        if(VarDescr[i].Variable==&AutoSplitWidth)WvSyncSplitSettings();
 						if (VarDescr[i].Variable == &TabStop) {
 							HideEditCaret();
 							InvalidateArea(&ScreenStart, 0, 7);

@@ -364,6 +364,12 @@ BOOL WriteCmd(WV_LONG, WV_LONG, PCWSTR, WORD);
 /*insdel.c*/
 INT  CharSize(INT);
 void InsertChar(INT);
+void WvAutoSplitLine(INT);
+void WvSyncSplitSettings(void);
+extern HWND hwndSubSet;
+extern INT DefaultNewLine;
+extern BOOL AutoSplitFlag;
+extern INT AutoSplitWidth;
 BOOL DeleteChar(void);
 void InsertEol(UINT, INT);
 void DeleteEol(BOOL);
