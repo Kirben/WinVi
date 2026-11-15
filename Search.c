@@ -85,6 +85,7 @@ typedef struct tagSEARCHPART {
 			WCHAR String[96];
 		} StringMatch;
 		struct {
+			BOOL     NonCapturing;      /* implicit top-level alternative group */
 			CHAR     Char;			   /*one of: '(', '|', ')', '<', '>'*/
 			POSITION Pos;			   /*matched position of "\(" / "\)"*/
 			struct tagSEARCHPART *NextBranch;
@@ -1472,13 +1473,16 @@ PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 							LastMatch->u.SpecialMatch.Pos.p = NULL;
 							LastMatch->u.SpecialMatch.NextBranch = NULL;
 							if (*Cmd=='|') {
-								if (!Level) {
-									if (ErrNo) *ErrNo = 252;
-									SearchErrNo = 252;
-									MatchValid = FALSE;
-									Done = TRUE;
-									break;
-								}
+                                if (!Level && !FirstBranch[0]) {
+                                    PSEARCHPART pipe=LastMatch, root;
+                                    if (!(root=NewSearchPart())) break;
+                                    /* Move the synthetic opening before the existing pattern. */
+                                    LastMatch=pipe;pipe->Next=NULL;
+                                    root->Prev=NULL;root->Next=FirstMatch;FirstMatch->Prev=root;FirstMatch=root;
+                                    root->Type=SrchSpecial;root->u.SpecialMatch.Char='(';
+                                    root->u.SpecialMatch.NonCapturing=TRUE;
+                                    FirstBranch[0]=LastBranch[0]=root;
+                                }
 								if (LastBranch[Level]!=NULL) {
 									LastBranch[Level]->u.SpecialMatch.NextBranch
 										= LastMatch;
@@ -1577,6 +1581,17 @@ PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 				SetSrchDisp(*Cmd++);
 			}
 		}
+        if(MatchValid && FirstBranch[0]) {
+            PSEARCHPART close=NewSearchPart();
+            if(close) {
+                close->Type=SrchSpecial;close->u.SpecialMatch.Char=')';
+                close->u.SpecialMatch.NonCapturing=TRUE;
+                LastBranch[0]->u.SpecialMatch.NextBranch=close;
+                close->u.SpecialMatch.NextBranch=FirstBranch[0];
+                /* No literal is mandatory across all top-level branches. */
+                FirstString=NULL;OffsetTo1stString=0;
+            }
+        }
 		*pDisp = '\0';
 	} else {
 		if (*Cmd) ++Cmd;
@@ -1677,7 +1692,7 @@ BOOL CheckParenPairs(VOID)
 
 	Level = nParenPairs = 0;
 	for (pSp=FirstMatch; pSp; pSp=pSp->Next) {
-		if (pSp->Type == SrchSpecial) {
+		if (pSp->Type == SrchSpecial && !pSp->u.SpecialMatch.NonCapturing) {
 			switch (pSp->u.SpecialMatch.Char) {
 				case '(': ++nParenPairs;
 						  ++Level;
@@ -1728,7 +1743,7 @@ BOOL BuildReplaceString
 							pSp = FirstMatch;
 							for (;;) {
 								while (pSp && (pSp->Type != SrchSpecial ||
-									   pSp->u.SpecialMatch.Char != '('))
+									   pSp->u.SpecialMatch.Char != '(' || pSp->u.SpecialMatch.NonCapturing))
 									pSp = pSp->Next;
 								if (!pSp || --i <= 0) break;
 								pSp = pSp->Next;

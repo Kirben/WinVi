@@ -52,4 +52,18 @@ static void RepeatAlternatives(void){
  Expect("repeat-anchored",L"/^\\(.*\\|.*\\);$/",(BYTE*)"a;",2,0,TRUE);
  Expect("repeat-nested",L"/\\(\\(a*\\|b*\\)\\|c*\\);/",(BYTE*)"aaa;",4,0,TRUE);
 }
-int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}
+static void RootAlternatives(void){
+ Expect("root-second",L"/a\\|b/",(BYTE*)"b",1,0,TRUE);
+ Expect("root-first",L"/a\\|b/",(BYTE*)"a",1,0,TRUE);
+ Expect("root-third",L"/a\\|b\\|cat/",(BYTE*)"cat",3,0,TRUE);
+ Expect("root-negative",L"/a\\|b/",(BYTE*)"c",1,0,FALSE);
+ Expect("root-empty-first",L"/\\|a/",(BYTE*)"",0,0,TRUE);
+ Expect("root-empty-last",L"/a\\|/",(BYTE*)"",0,0,TRUE);
+ Expect("literal-pipe",L"/a|b/",(BYTE*)"a|b",3,0,TRUE);
+ Expect("root-nested",L"/a\\|\\(b\\|c\\)d/",(BYTE*)"cd",2,0,TRUE);
+ Expect("root-capture",L"/a\\|\\(bc\\)/",(BYTE*)"bc",2,0,TRUE);
+ checks++;if(!CheckParenPairs() || nParenPairs!=1){printf("FAIL root capture count\n");failures++;}
+ {WCHAR replacement[]=L"\\1";WV_LONG length=0;POSITION pos={FirstPage,0,0};
+ checks++;FreeRepList();if(!BuildReplaceString(replacement,&length,&pos,2,0) || length!=2 || RepList.Buf[0]!='b' || RepList.Buf[1]!='c'){printf("FAIL root capture replacement\n");failures++;}FreeRepList();}
+}
+int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();RootAlternatives();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}
