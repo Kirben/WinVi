@@ -10,7 +10,7 @@ toolset selection and the legacy runtime validation still needed. See README-x64
 when working from this repository, run test.ps1 in this directory (the older
 packaged instructions use a source/ prefix).
 
-History starts with the unmodified official 3.02 source, tagged upstream-3.02,
+History starts with the unmodified official 3.02 source,
 then imports preserved snapshots of the x64, large-file, security, stability
 and reliability work. See HISTORY-IMPORT.md for provenance and limitations.
 Unapplied review patches outside this directory are not part of this history.
