@@ -30,6 +30,7 @@
 #include "printh.h"
 #include "map.h"
 #include "page.h"
+#include "HexPrint.h"
 
 #if defined(__LCC__)
 typedef struct {
@@ -351,6 +352,90 @@ TEXTMETRIC tm;
 HWND	   hwndPrintCancel;
 BOOL	   PrintCancelled;
 
+/* Hex output never decodes text, skips a BOM, or treats controls as layout. */
+BOOL HexPrintInProgress;
+static void PrintHexIt(HDC dc, INT copies, BOOL startDoc, BOOL endDoc)
+{
+ POSITION pos; WV_ULONG offset=0,remaining;
+ HFONT font=NULL,oldFont=NULL;LOGFONT face={0};TEXTMETRIC metrics;
+ INT lpx,lpy,left,right,top,bottom,gap,cell,step,width,rows,columns,col,copy;
+ INT dx[WV_HEX_PRINT_CAP],length,i,y,x,textBottom;BOOL document=!startDoc,failed=FALSE;
+ WCHAR row[WV_HEX_PRINT_CAP];BYTE bytes[16];
+ /* CountBytes requires a valid end position, including for an empty file. */
+ EndOfFile(&pos);remaining=CountBytes(&pos);
+ pos.p=FirstPage;pos.i=pos.f=0;
+ if((pd.Flags&PD_SELECTION) && SelectCount){pos=SelectStart;offset=SelectBytePos;remaining=SelectCount;}
+ HexPrintInProgress=TRUE;
+ if(startDoc){DOCINFOW info={sizeof(info)};info.lpszDocName=CurrFile;
+  if(StartDocW(dc,&info)<=0){failed=TRUE;goto done;}}
+ document=TRUE;PageNo=0;
+ lpx=GetDeviceCaps(dc,LOGPIXELSX);lpy=GetDeviceCaps(dc,LOGPIXELSY);
+ left=MulDiv(nPrtLeft,lpx,50);right=GetDeviceCaps(dc,HORZRES)-MulDiv(nPrtRight,lpx,50)-2;
+ top=MulDiv(nPrtTop,lpy,50);bottom=GetDeviceCaps(dc,VERTRES)-MulDiv(nPrtBottom,lpy,50)-2;
+ face.lfHeight=-MulDiv(cf.iPointSize>0?cf.iPointSize:100,lpy,720);
+ face.lfCharSet=DEFAULT_CHARSET;face.lfPitchAndFamily=FIXED_PITCH|FF_MODERN;
+ lstrcpy(face.lfFaceName,"Courier New");
+ font=CreateFontIndirect(&face);if(!font){failed=TRUE;goto done;}
+ oldFont=SelectObject(dc,font);if(!oldFont || oldFont==HGDI_ERROR){oldFont=NULL;failed=TRUE;goto done;}
+ if(!GetTextMetrics(dc,&metrics)){failed=TRUE;goto done;}
+ cell=metrics.tmMaxCharWidth;step=metrics.tmHeight+metrics.tmExternalLeading;
+ gap=lpx/4;columns=DoubleColumn?2:1;
+ x=left+(Frame?gap:0);y=top+(Frame?lpy/5:0);
+ if(Header)y+=Frame2?metrics.tmHeight+lpy/3:3*metrics.tmHeight;
+ i=bottom-(Frame?lpy/5:0);
+ if(Footer)i-=Frame2?metrics.tmHeight+lpy/3:3*metrics.tmHeight;
+ if(cell<=0 || step<=0 || right<=left || i-y<metrics.tmHeight){failed=TRUE;goto done;}
+ textBottom=i;rows=1+(i-y-metrics.tmHeight)/step;
+ width=WvHexPrintBytes(((right-left-(Frame?2*gap:0)-(columns-1)*gap)/columns)/cell);
+ if(!width){failed=TRUE;goto done;}
+ for(i=0;i<WV_HEX_PRINT_CAP;i++)dx[i]=cell;
+ do {
+  POSITION pagePos=pos,endPos=pos;WV_ULONG pageOffset=offset,pageRemaining=remaining,endRemaining=remaining;
+  BOOL real;INT rowIndex;
+  ++PageNo;
+  if(hwndPrintCancel){WCHAR number[32];_snwprintf(number,32,L"%I64u",PageNo);SetDlgItemTextW(hwndPrintCancel,IDC_PAGESPRINTED,number);}
+  if(pd.nToPage && pd.nToPage!=0xffff && PageNo>pd.nToPage)break;
+  real=!pd.nFromPage || PageNo>=pd.nFromPage;
+  for(copy=0;copy<(copies>0?copies:1);copy++){
+   pos=pagePos;offset=pageOffset;remaining=pageRemaining;
+   if(real && StartPage(dc)<=0){failed=TRUE;goto done;}
+   /* Printer drivers may reset the selected font at StartPage. */
+   SelectObject(dc,font);
+   if(real){
+    if(Header)PrintHeaderFooter(dc,Header,left,right,top);
+    if(Footer)PrintHeaderFooter(dc,Footer,left,right,bottom-metrics.tmHeight);
+    if(Frame){MoveToEx(dc,left,top,NULL);LineTo(dc,right,top);LineTo(dc,right,bottom);LineTo(dc,left,bottom);LineTo(dc,left,top);}
+    if(Frame2){if(Header){MoveToEx(dc,left,y-lpy/6,NULL);LineTo(dc,right,y-lpy/6);}if(Footer){MoveToEx(dc,left,textBottom+lpy/6,NULL);LineTo(dc,right,textBottom+lpy/6);}}
+    if(Frame3 && DoubleColumn){INT middle=left+(right-left)/2;MoveToEx(dc,middle,y,NULL);LineTo(dc,middle,textBottom);}
+   }
+   for(col=0;col<columns && remaining;col++)for(rowIndex=0;rowIndex<rows && remaining;rowIndex++){
+    INT count=(INT)(remaining<(WV_ULONG)width?remaining:width),value;
+    MessageLoop(FALSE);
+    if(PrintCancelled || Interrupted){PrintCancelled=TRUE;goto done;}
+    for(i=0;i<count;i++){
+     value=ByteAt(&pos);if(value<0){failed=TRUE;goto done;}
+     bytes[i]=(BYTE)value;pos.i++;
+    }
+    length=WvHexPrintRow(row,offset,bytes,count,width);
+    if(real && !ExtTextOutW(dc,x+col*((right-left-(Frame?2*gap:0)+gap)/columns),y+rowIndex*step,0,NULL,row,length,dx)){failed=TRUE;goto done;}
+    offset+=count;remaining-=count;
+   }
+   endPos=pos;endRemaining=remaining;
+   if(real && EndPage(dc)<=0){failed=TRUE;goto done;}
+   if(!real)break;
+  }
+  pos=endPos;remaining=endRemaining;offset=pageOffset+(pageRemaining-remaining);
+ }while(remaining);
+ if(endDoc && EndDoc(dc)<=0){failed=TRUE;goto done;}
+ document=FALSE;
+done:
+ if(document && (failed || PrintCancelled))AbortDoc(dc);
+ if(oldFont)SelectObject(dc,oldFont);
+ if(font)DeleteObject(font);
+ HexPrintInProgress=FALSE;
+ if(failed){PrintCancelled=TRUE;NewStatus(0,L"Hexadecimal printing failed: check printer, paper size and margins.",NS_ERROR);}
+}
+
 VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 {	PCWSTR		 Src = CurrFile;
 	static WCHAR DocTitle[300];
@@ -363,6 +448,11 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 	HFONT		 hFont = NULL, hOldFont = NULL;
 	INT			 Lpx, Lpy, FrameDist;
 
+	if (HexEditMode) {
+		Disable(1);Interrupted=0;
+		PrintHexIt(hDC,nCopies,fStartDoc,fEndDoc);
+		Enable();return;
+	}
 	if (fStartDoc) {
 		di.cbSize	   = sizeof(DOCINFO);
 		di.lpszDocName = DstStart = pw = DocTitle;
@@ -658,6 +748,10 @@ INT_PTR WINAPI PrintCancelCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPa
 
 BOOL PrintDoc(HWND hwndParent, BOOL WithDlg)
 {
+	if (HexEditMode && ExecRunning()) {
+		NewStatus(0,L"Wait for the external command to finish before hexadecimal printing.",NS_ERROR);
+		return FALSE;
+	}
 	pd.lStructSize = sizeof(PRINTDLG);
 	pd.hwndOwner   = hwndParent;
 	if (!pd.Flags) {
@@ -666,6 +760,8 @@ BOOL PrintDoc(HWND hwndParent, BOOL WithDlg)
 		pd.nFromPage = pd.nMinPage = 1;
 		pd.nToPage	 = pd.nMaxPage = 0xffff;
 	}
+	if (HexEditMode && SelectCount) pd.Flags &= ~PD_NOSELECTION;
+	else {pd.Flags |= PD_NOSELECTION;pd.Flags &= ~PD_SELECTION;}
 	if (!WithDlg || (StopMap(TRUE), PrintDlg(&pd))) {
 		LPDEVMODE  lpdm;
 		LPDEVNAMES lpdn;

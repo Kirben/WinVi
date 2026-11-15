@@ -30,13 +30,32 @@
 </head><body bgcolor="#c4c4c4">
 <div id="winvi64-port-note" style="border:1px solid #888;padding:10px;margin:10px"><b>64-Bit-Port, 15. November 2026:</b> Windows 10/11 x64. Kein festes GiB-Dateilimit. Speicher, tempor&auml;rer Plattenplatz und vorzeichenbehaftete 64-Bit-Dateipositionen bestimmen die Kapazit&auml;t. Dieser Hinweis ersetzt die alten 32-Bit- und Betriebssystemgrenzen im historischen Handbuch.</div>
 
+<h2><a name="HexPrinting"></a>Hexadezimales Drucken</h2>
+<p>Im Hexadezimalmodus werden rohe Bytes einschlie&szlig;lich einer vorhandenen
+    Byte-Reihenfolgemarkierung gedruckt. Jede Zeile enth&auml;lt einen
+    16-stelligen hexadezimalen Byte-Offset, Hexadezimalwerte und eine ASCII-Spalte.
+    Nicht druckbare ASCII-Bytes erscheinen als Punkte; die Textkodierung wird
+    nicht angewendet.</p>
+<p>Eine Zeile enth&auml;lt bis zu 16 Bytes, bei schmalen Spalten weniger.
+    Verwendet wird Courier New in der eingestellten Druckschriftgr&ouml;&szlig;e.
+    R&auml;nder, Kopf- und Fu&szlig;zeilen, Rahmen, zwei Spalten, Seitenbereiche
+    und Kopien werden ber&uuml;cksichtigt. Statt Textzeilennummern werden
+    Byte-Offsets ausgegeben. Mit Auswahl im Druckdialog werden nur markierte
+    Bytes mit ihren urspr&uuml;nglichen Datei-Offsets gedruckt, sonst die ganze Datei.</p>
+<p>W&auml;hrend des Druckens ist die Bearbeitung gesperrt. Abbrechen beendet
+    den Druckauftrag. Das Schlie&szlig;en des Hauptfensters bricht ebenfalls
+    den Auftrag ab und l&auml;sst den Editor offen. Externe Befehle m&uuml;ssen
+    vor dem hexadezimalen Drucken beendet sein.</p>
+<p>^ Zum <a href="#Contents">Inhaltsverzeichnis</a></p>
+
 <a name="Contents"></a>
 
 <h1>WinVi</h1>
 <h2>Inhalt</h2>
 
 
-<p> <a href="#NotepadCompatible">Notepad - kompatibel</a>           <br>
+<p> <a href="#HexPrinting">Hexadezimales Drucken</a><br>
+    <a href="#NotepadCompatible">Notepad - kompatibel</a>           <br>
     <a href="#ExFileCommand"    >vi - Datei- und Anzeigebefehle</a> <br>
     <a href="#Positioning"      >vi - Anzeigeposition</a>           <br>
     <a href="#EditTextmode"     >vi - Text bearbeiten</a>           <br>

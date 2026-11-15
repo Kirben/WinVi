@@ -23,3 +23,6 @@ INT_PTR PrintCallback(HWND, UINT, WPARAM, LPARAM);
 
 /*Settings.h:*/
 LPARAM ChooseFontCustData(INT);
+
+/* Closing during raw-byte printing requests cancellation before pages can be freed. */
+extern BOOL HexPrintInProgress, PrintCancelled;

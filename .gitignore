@@ -17,3 +17,6 @@
 /tests/bugs/*-results.json
 /tests/bugs/after-*.txt
 /tests/WinVi-*.htm
+
+/tests/hex-print-obj/
+/tests/hex-print-preview.bmp

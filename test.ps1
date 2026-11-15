@@ -24,7 +24,7 @@ try {
   if($Configuration -in 'Both','Asan'){Run-Step 'build-asan' {& "$root/build-asan.cmd"} $results}
  }
  Run-Step 'build-command-fixture' {& "$tests/command-fixture.cmd"} $results
- foreach($native in 'format','platform','size','io','page-fault','hex-layout'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ foreach($native in 'format','platform','size','io','page-fault','hex-layout','hex-print'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
  Run-Step 'focused-asan-regressions' {& "$tests/bugs/build-and-test.cmd"} $results
  Copy-Item "$tests/bugs/bug-results.json" "$results/focused-results.json"
  Copy-Item "$tests/bugs/after-command-faults.stdout.txt" "$results/resource-fault-details.txt"

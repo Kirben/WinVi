@@ -30,13 +30,30 @@
 </head><body bgcolor="#c4c4c4">
 <div id="winvi64-port-note" style="border:1px solid #888;padding:10px;margin:10px"><b>64-bit port, 15 November 2026:</b> Windows 10/11 x64. This port has no fixed GiB file-size cap; available memory, temporary disk space and signed 64-bit file positions determine capacity. This note supersedes the original 32-bit size and operating-system limits in the historical manual below.</div>
 
+<h2><a name="HexPrinting"></a>Hexadecimal printing</h2>
+<p>Print while hexadecimal mode is active to print raw bytes, including any
+    byte-order mark. Each row contains a 16-digit hexadecimal byte offset,
+    hexadecimal bytes and an ASCII column. Bytes outside printable ASCII are
+    shown as dots. The file's text encoding does not change this output.</p>
+<p>Rows contain up to 16 bytes; narrow columns automatically use fewer bytes.
+    Printing uses a fixed-width Courier New font at the configured print size.
+    Margins, headers, footers, frames, two-column layout, page ranges and copies
+    apply. Text line numbering does not apply: offsets identify the bytes.
+    Select Selection in the print dialog to print selected bytes with their
+    original file offsets. Otherwise the entire file is printed.</p>
+<p>Editing is disabled during the job. Cancel stops printing; closing the main
+    window during printing also cancels the job and leaves the editor open.
+    Wait for an external command to finish before printing in hexadecimal mode.</p>
+<p>^ To <a href="#Contents">table of contents</a></p>
+
 <a name="Contents"></a>
 
 <h1>WinVi</h1>
 <h2>Table of Contents</h2>
 
 
-<p> <a href="#NotepadCompatible">Compatibility with Notepad</a>    <br>
+<p> <a href="#HexPrinting">Hexadecimal printing</a><br>
+    <a href="#NotepadCompatible">Compatibility with Notepad</a>    <br>
     <a href="#ExFileCommand"    >vi - File and Display Commands</a><br>
     <a href="#Positioning"      >vi - Positioning</a>              <br>
     <a href="#EditTextmode"     >vi - Editing Text</a>             <br>
