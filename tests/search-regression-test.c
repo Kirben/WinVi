@@ -43,4 +43,13 @@ static void ByteClasses(void){
  memset(boundary,'a',4095);memcpy(boundary+4095,bullet,3);
  Expect("page-boundary",L"/[\\%61]*[\\%e2][\\%80][\\%a2]/",boundary,sizeof(boundary),8,TRUE);
 }
-int main(int argc,char **argv){(void)argc;(void)argv;ByteClasses();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}
+static void RepeatAlternatives(void){
+ Expect("repeat-alternative-suffix",L"/\\(.*\\|.*\\);/",(BYTE*)"a;",2,0,TRUE);
+ Expect("repeat-second-branch",L"/^\\(x*\\|a*\\);$/",(BYTE*)"aaa;",4,0,TRUE);
+ Expect("repeat-with-prefix",L"/z\\(a*\\|b*\\);/",(BYTE*)"zaaa;",5,0,TRUE);
+ Expect("repeat-empty",L"/\\(a*\\|b*\\);/",(BYTE*)";",1,0,TRUE);
+ Expect("repeat-negative",L"/\\(a*\\|b*\\);/",(BYTE*)"aaa!",4,0,FALSE);
+ Expect("repeat-anchored",L"/^\\(.*\\|.*\\);$/",(BYTE*)"a;",2,0,TRUE);
+ Expect("repeat-nested",L"/\\(\\(a*\\|b*\\)\\|c*\\);/",(BYTE*)"aaa;",4,0,TRUE);
+}
+int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}

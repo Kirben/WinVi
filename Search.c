@@ -96,6 +96,7 @@ typedef struct tagSEARCHPART {
 PSEARCHPART FirstMatch, FirstString, LastMatch;
 BOOL		MatchAtStartOfLine, MatchAtEndOfLine, MatchForward, MatchValid;
 INT			RecursiveBranch;
+static PSEARCHPART ForwardBranchEnd, BackwardBranchStart;
 
 BOOL CheckFwd (PPOSITION, PSEARCHPART);
 BOOL CheckBkwd(PPOSITION, PSEARCHPART);
@@ -186,6 +187,7 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 			Srch->u.SpecialMatch.Pos = *Pos;
 			if (Srch->u.SpecialMatch.NextBranch != NULL) {
 				POSITION PosSav;
+                PSEARCHPART SavedBoundary, Boundary;
 
 				PosSav = *Pos;
 				if (Backward) {
@@ -193,6 +195,7 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 					Srch = Srch->u.SpecialMatch.NextBranch;
 					assert(Srch != NULL);
 					assert(Srch->u.SpecialMatch.Char == '(');
+					Boundary=Srch;SavedBoundary=BackwardBranchStart;BackwardBranchStart=Boundary;
 					Srch = Srch->u.SpecialMatch.NextBranch;
 					assert(Srch != NULL);
 					assert(Srch->u.SpecialMatch.Char == '|');
@@ -201,6 +204,7 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 						Srch = Srch->u.SpecialMatch.NextBranch;
 						assert(Srch != NULL);
 						if (Srch->u.SpecialMatch.Char == '(') {
+                            BackwardBranchStart=SavedBoundary;
 							--RecursiveBranch;
 							return FALSE;
 						}
@@ -208,17 +212,21 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 					}
 				} else {
 					if (Srch->u.SpecialMatch.Char == ')') break;
+                    Boundary=Srch;while(Boundary->u.SpecialMatch.Char!=')')Boundary=Boundary->u.SpecialMatch.NextBranch;
+                    SavedBoundary=ForwardBranchEnd;ForwardBranchEnd=Boundary;
 					++RecursiveBranch;
 					while (!CheckFwd(Pos, Srch->Next)) {
 						Srch = Srch->u.SpecialMatch.NextBranch;
 						assert(Srch != NULL);
 						if (Srch->u.SpecialMatch.Char == ')') {
+                            ForwardBranchEnd=SavedBoundary;
 							--RecursiveBranch;
 							return FALSE;
 						}
 						*Pos = PosSav;
 					}
 				}
+				if(Backward)BackwardBranchStart=SavedBoundary;else ForwardBranchEnd=SavedBoundary;
 				--RecursiveBranch;
 				while (Srch->u.SpecialMatch.Char != ')')
 					Srch = Srch->u.SpecialMatch.NextBranch;
@@ -349,6 +357,22 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 #endif
 }
 
+/* A repeated atom inside an alternative must test the suffix outside the
+   group before committing to its greedy length. Restore the group's boundary
+   afterwards so the ordinary group caller does not consume the suffix twice. */
+static BOOL CheckRepeatTail(PPOSITION pos,PSEARCHPART part,BOOL backward)
+{
+ PSEARCHPART boundary=backward?BackwardBranchStart:ForwardBranchEnd;
+ PSEARCHPART savedForward=ForwardBranchEnd,savedBackward=BackwardBranchStart;
+ INT savedBranch=RecursiveBranch;BOOL result;
+ if(!savedBranch || !boundary)return backward?CheckBkwd(pos,part):CheckFwd(pos,part);
+ RecursiveBranch=0;ForwardBranchEnd=BackwardBranchStart=NULL;
+ result=backward?CheckBkwd(pos,part):CheckFwd(pos,part);
+ RecursiveBranch=savedBranch;ForwardBranchEnd=savedForward;BackwardBranchStart=savedBackward;
+ if(result)*pos=boundary->u.SpecialMatch.Pos;
+ return result;
+}
+
 /* Explicit numeric classes consume bytes (UTF-16 code units), just like
    numeric literals. Dot and character-set classes retain decoded matching. */
 static INT ReadChoice(PPOSITION pos,PSEARCHPART part,BOOL backward)
@@ -420,8 +444,8 @@ static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						POSITION SavePos;
 
 						SavePos = *Pos;
-						if (!Srch->Next || CheckFwd(Pos, Srch->Next))
-							return (!MatchAtEndOfLine ||
+						if (!Srch->Next || CheckRepeatTail(Pos, Srch->Next,FALSE))
+							return (RecursiveBranch || !MatchAtEndOfLine ||
 									CharFlags(CharAt(Pos)) & 0x21);
 						*Pos = SavePos;
 						ReadChoice(Pos,Srch,TRUE);
@@ -533,7 +557,7 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						for (;;) {
 						if(MatchCheckpoint())return FALSE;
 							SavePos = *Pos;
-							if (CheckBkwd(Pos, Srch)) return TRUE;
+							if (CheckRepeatTail(Pos, Srch,TRUE)) return TRUE;
 							*Pos = SavePos;
 							c = ReadChoice(Pos,Srch,TRUE);
 							if (!TestBit(Srch, c, TRUE)) return FALSE;
@@ -550,7 +574,7 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						if(MatchCheckpoint())return FALSE;
 
 						SavePos = *Pos;
-						if (CheckBkwd(Pos, Srch)) return TRUE;
+						if (CheckRepeatTail(Pos, Srch,TRUE)) return TRUE;
 						*Pos = SavePos;
 					} while (i--);
 					return (FALSE);
