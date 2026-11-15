@@ -652,6 +652,7 @@ void DeleteSelected(INT Flags) {
 	WV_ULONG	 SelectBytePos;
 	INT		 n, InvalidateFlags = 3;
 	POSITION EndSel;
+	WV_ULONG globalDeleted=SelectCount;
 
 	if (!SelectCount) return;
 	if (IsViewOnly()) return;
@@ -739,6 +740,7 @@ void DeleteSelected(INT Flags) {
 			FindValidPosition(&CurrPos, (WORD)(Mode==InsertMode ? 3 : 0));
 		NewScrollPos();
 	} else CurrPos = SelectStart;
+	if(WvExGlobalEditHook)WvExGlobalEditHook(SelectBytePos,globalDeleted,0);
 	if (!(Flags & 4)) SetUnsafe();
 	CheckClipboard();
 }

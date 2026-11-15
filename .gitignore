@@ -20,3 +20,6 @@
 
 /tests/hex-print-obj/
 /tests/hex-print-preview.bmp
+
+/tests/ex-global-obj/
+/tests/global-*/

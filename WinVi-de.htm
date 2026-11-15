@@ -1049,6 +1049,47 @@ getrennt.<br>
 
 <h2><a name="ExCommand"></a>ex - Kommandos</h2>
 
+<h3>Globale Kommandos: :g und :v</h3>
+<p><code>:[Bereich]g[!]/Muster/[Kommando]</code> w&auml;hlt passende
+    Originalzeilen aus; <code>:[Bereich]v/Muster/[Kommando]</code> die nicht
+    passenden. <code>:g!</code> entspricht <code>:v</code>. Ohne Bereich gilt
+    die ganze Datei. Eine Adresse oder zwei durch Komma getrennte Adressen
+    begrenzen den Bereich. Es gelten die vorhandenen regul&auml;ren Ausdr&uuml;cke
+    und Sucheinstellungen von WinVi. <code>//</code> verwendet die vorige Suche.
+    Andere Satzzeichen wie <code>#</code> sind als Trennzeichen m&ouml;glich;
+    das abschlie&szlig;ende Trennzeichen ist erforderlich.</p>
+<p>Unterst&uuml;tzt werden die Kommandos f&uuml;r die aktuelle Zeile:
+    <code>d</code>/<code>delete</code>, <code>s</code>/<code>substitute</code>,
+    <code>p</code>/<code>print</code>, <code>#</code>/<code>number</code> und
+    <code>=</code>. Ohne Kommando gilt <code>p</code>. Text- und Nummernausgaben
+    erscheinen in einem eigenen schreibgesch&uuml;tzten Fenster;
+    <code>=</code> gibt Zeilennummern aus.</p>
+<ul>
+<li><code>:g/TODO/d</code> l&ouml;scht Zeilen mit TODO.</li>
+<li><code>:v/./d</code> l&ouml;scht leere Zeilen.</li>
+<li><code>:g/^#/s/^#//</code> entfernt ein f&uuml;hrendes #.</li>
+<li><code>:2,$g/foo/s/foo/bar/g</code> ersetzt foo durch bar auf ausgew&auml;hlten
+    Zeilen ab Zeile 2.</li>
+</ul>
+<p>Die Auswahl erfolgt vor der Bearbeitung. Jede ausgew&auml;hlte Originalzeile
+    wird einmal in Dateireihenfolge bearbeitet. Neue Zeilen werden nicht erneut
+    ausgew&auml;hlt; durch eine fr&uuml;here mehrzeilige Ersetzung entfernte
+    Originalzeilen werden &uuml;bersprungen. Alle ausgef&uuml;hrten &Auml;nderungen
+    bilden einen Undo-Schritt (<code>u</code>); ein weiteres <code>u</code>
+    stellt sie wieder her. Ein Abbruch w&auml;hrend der Auswahl &auml;ndert die
+    Datei nicht. Beim Abbruch w&auml;hrend der Ausf&uuml;hrung bleiben bereits
+    erfolgte &Auml;nderungen gemeinsam r&uuml;ckg&auml;ngig machbar. Schlie&szlig;en
+    w&auml;hrend des Vorgangs fordert einen Abbruch an und l&auml;sst den Editor offen.</p>
+<p>Diese erste Implementierung erlaubt nur ein Kommando f&uuml;r die aktuelle
+    Zeile. Verschachtelte globale Kommandos, Adressen im Unterkommando,
+    Kommandolisten sowie Datei- und Shell-Kommandos werden abgewiesen.
+    Erforderlich sind Textmodus und kein laufender externer Befehl.
+    Im Nur-Ansicht-Modus ist die Ausgabe, aber keine Bearbeitung erlaubt.
+    Die Verwaltung ben&ouml;tigt Speicher entsprechend der Anzahl ausgew&auml;hlter
+    Originalzeilen, die Ausgabe zus&auml;tzlich entsprechend ihrer Textmenge.</p>
+
+
+
 
 <p>Bei WinVi kann nach dem Doppelpunkt, der die Eingabe eines ex-Kommandos
 einleitet, mit der {Tabulator}-Taste eine Liste der m&ouml;glichen Eingaben

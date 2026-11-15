@@ -1020,6 +1020,43 @@ are separated by a bar, as in <code>|</code>.<br>
 
 <h2><a name="ExCommand"></a>ex - Commands</h2>
 
+<h3>Global commands: :g and :v</h3>
+<p><code>:[range]g[!]/pattern/[command]</code> selects matching original
+    lines; <code>:[range]v/pattern/[command]</code> selects non-matching lines.
+    <code>:g!</code> is equivalent to <code>:v</code>. The default range is
+    the entire file. A single address or a comma-separated range restricts it.
+    Patterns use WinVi's existing regular-expression rules and settings;
+    <code>//</code> reuses the previous search. Other punctuation delimiters
+    such as <code>#</code> can be used. A closing delimiter is required.</p>
+<p>Supported current-line commands are <code>d</code>/<code>delete</code>,
+    <code>s</code>/<code>substitute</code>, <code>p</code>/<code>print</code>,
+    <code>#</code>/<code>number</code> and <code>=</code>. An omitted command
+    means <code>p</code>. Print and number output appears in a separate
+    read-only window; <code>=</code> outputs line numbers.</p>
+<ul>
+<li><code>:g/TODO/d</code> deletes lines containing TODO.</li>
+<li><code>:v/./d</code> deletes empty lines.</li>
+<li><code>:g/^#/s/^#//</code> removes a leading # from matching lines.</li>
+<li><code>:2,$g/foo/s/foo/bar/g</code> replaces all foo matches on selected
+    lines, starting with line 2.</li>
+</ul>
+<p>Selection is completed before editing. Each selected original line runs
+    once, in file order. Inserted lines are not selected again; original lines
+    consumed by an earlier multiline replacement are skipped. All completed
+    edits form one vi-style undo operation (<code>u</code>); a second
+    <code>u</code> redoes them. Cancelling during selection leaves the file
+    unchanged. Cancelling during execution keeps completed edits, which can be
+    undone together. Closing during a global operation requests cancellation
+    and leaves the editor open.</p>
+<p>This initial implementation accepts one current-line command only.
+    Nested globals, addressed command bodies, command lists, file commands and
+    shell commands are rejected. Global commands require text mode and no
+    running external command. View-only mode permits display but not edits.
+    Target bookkeeping needs memory proportional to the number of selected
+    original lines; output also needs memory for the displayed text.</p>
+
+
+
 
 <p>In WinVi, a list of available ex commands can be requested by typing the
 tab key after the initial colon.  Generally, the tab key can be used to

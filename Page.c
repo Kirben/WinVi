@@ -781,6 +781,7 @@ void UnsafePage(PPOSITION Pos)
 	}
 }
 
+void (*WvExGlobalEditHook)(WV_ULONG,WV_ULONG,WV_ULONG);
 BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	/* Amount may be:  <0 (delete bytes),
 	 *					1 (insert one byte), or
@@ -789,6 +790,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	 * return value: state of success
 	 */
 {	LPPAGE Page;
+	WV_ULONG globalOffset=WvExGlobalEditHook?CountBytes(Pos):0;
 
 	if (Amount > PAGESIZE || Amount == (-9223372036854775807LL-1)) {
         NewStatus(0,L"Invalid page-reservation size.",NS_ERROR);return FALSE;
@@ -817,6 +819,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 			}
 			assert(Pos->p->Fill);
 			--Pos->p->Fill;
+			if(WvExGlobalEditHook)WvExGlobalEditHook(globalOffset,1,0);
 		} while (++Amount);
 		if (Flags & 1) {
 			Page = Pos->p;
@@ -845,6 +848,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 		if (ScreenStart.p==Pos->p->Next && ScreenStart.i==0)
 			LineInfo[0].Pos = ScreenStart = *Pos;
 		CorrectLineInfo(NULL, 0, NULL, 0, CountBytes(Pos), Amount);
+		if(WvExGlobalEditHook)WvExGlobalEditHook(globalOffset,0,Amount);
 		return (TRUE);
 	}
 	if (Pos->p->Fill + Amount > PAGESIZE) {
@@ -899,6 +903,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	Pos->p->Fill += Amount;
 	CorrectLineInfo(Pos->p, Pos->i+1, Pos->p, Pos->i + Amount+1,
 					CountBytes(Pos), Amount);
+	if(WvExGlobalEditHook)WvExGlobalEditHook(globalOffset,0,Amount);
 	return (TRUE);
 }
 

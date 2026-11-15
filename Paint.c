@@ -687,7 +687,9 @@ WV_LONG NewPosition(PPOSITION NewPos)
 		else {
 			/*scroll back (rolling down)*/
 			HideEditCaret();
-			do ScrollLine(-1);
+			do { WV_ULONG previous=LineInfo[0].ByteCount;
+				if(!ScrollLine(-1) || LineInfo[0].ByteCount>=previous){Jump(NewPos);break;}
+			}
 			while (Bytes < LineInfo[0].ByteCount);
 		}
 		NewScrollPos();
@@ -703,7 +705,9 @@ WV_LONG NewPosition(PPOSITION NewPos)
 		else {
 			/*scroll forward (rolling up)*/
 			HideEditCaret();
-			do ScrollLine(1);
+			do { WV_ULONG previous=LineInfo[CrsrLines].ByteCount;
+				if(!ScrollLine(1) || LineInfo[CrsrLines].ByteCount<=previous){Jump(NewPos);break;}
+			}
 			while (Bytes >= LineInfo[CrsrLines].ByteCount &&
 				   !(LineInfo[CrsrLines].Flags & LIF_EOF));
 		}
@@ -735,8 +739,10 @@ WV_LONG NewPosition(PPOSITION NewPos)
 				   && LineInfo[i+1].Flags & LIF_VALID
 				   && LineInfo[i+1].ByteCount <= Bytes) {
 				if (i+1 >= CrsrLines) {
-					ScrollLine(1);
+					WV_ULONG previous=LineInfo[i+1].ByteCount;
+					BOOL scrolled=ScrollLine(1);
 					UpdateWindow(hwndMain);
+					if(!scrolled || LineInfo[i+1].ByteCount<=previous){Jump(NewPos);break;}
 				} else {
 					++i;
 					CaretY		+= TextHeight;

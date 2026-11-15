@@ -485,3 +485,11 @@ void DeleteBackward(UINT);
 void WvWatchMessage(WPARAM,LPARAM);
 
 void WvWatchFlash(WPARAM,LPARAM);
+
+/* Two-pass ex global operations and document edit tracking. */
+extern BOOL WvExGlobalActive, WvExGlobalUndo;
+BOOL WvExGlobal(WV_ULONG,WV_ULONG,PWSTR,BOOL);
+void WvExGlobalEdit(WV_ULONG,WV_ULONG,WV_ULONG);
+struct tagPOSITION;
+INT WvExMatchLine(struct tagPOSITION*,struct tagPOSITION*);
+extern void (*WvExGlobalEditHook)(WV_ULONG,WV_ULONG,WV_ULONG);

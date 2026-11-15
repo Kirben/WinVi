@@ -88,6 +88,7 @@ static BOOL StartWithRemove, Redoing;
 
 void StartUndoSequence(void)
 {
+	if(WvExGlobalUndo){GlobalUndoFlags &= ~UD_NEWOP;return;}
 	if (ViewOnlyFlag) return;
 	if (!(GlobalUndoFlags & UD_BYUNDO) && Redoing) {
 		Redoing = FALSE;

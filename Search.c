@@ -1999,6 +1999,7 @@ BOOL SubstituteCmd(WV_LONG StartLine, WV_LONG EndLine, PWSTR Args)
 			RepaintLength   = SelectCount;
 			ConfirmResult = ConfirmSubstitute();
 			if (ConfirmResult == ConfirmAbort) {
+				if(WvExGlobalActive)Interrupted=TRUE;
 				SelectCount = 0;
 				InvalidateText();
 				break;
@@ -2189,4 +2190,24 @@ void SearchNewCset(void)
 			}
 		}
 	}
+}
+
+/* Test a compiled pattern only inside this original logical line. */
+INT WvExMatchLine(PPOSITION begin,PPOSITION end)
+{
+ POSITION pos=*begin,finish,back,file;INT c;BOOL afterBom,anchored,matched;
+ file.p=FirstPage;file.i=file.f=0;
+ afterBom=CharAt(&file)==C_BOM && CountBytes(begin)==(UtfEncoding==16?2:3);
+ MinimumMatchBkwd=FALSE;
+ for(;;){
+  if(CheckInterrupt() || !MatchValid)return -1;
+  finish=back=pos;anchored=MatchAtStartOfLine;
+  if(afterBom && !ComparePos(&pos,begin))MatchAtStartOfLine=FALSE;
+  matched=CheckFwd(&finish,FirstMatch) && ComparePos(&finish,end)<=0 && CheckBkwd(&back,FirstMatch);
+  MatchAtStartOfLine=anchored;
+  if(matched)return 1;
+  if(!MatchValid || Interrupted)return -1;
+  if(ComparePos(&pos,end)>=0)return 0;
+  c=CharAndAdvance(&pos);if(c==C_ERROR || c==C_EOF)return -1;
+ }
 }

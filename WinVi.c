@@ -860,6 +860,7 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	switch (uMsg) {
 		case WM_QUERYENDSESSION:
 			if (HexPrintInProgress) {PrintCancelled=TRUE;return FALSE;}
+			if (WvExGlobalActive) {Interrupted=TRUE;return FALSE;}
 			if (!AskForSave(hwndMain, 0)) break;
 			SaveSettings();
 			return (TRUE);
@@ -870,6 +871,7 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 		case WM_CLOSE:
 			if (HexPrintInProgress) {PrintCancelled=TRUE;break;}
+			if (WvExGlobalActive) {Interrupted=TRUE;break;}
 			if (!AskForSave(hwndMain, 0)) break;
 			QuitCmd(TRUE);
 			break;

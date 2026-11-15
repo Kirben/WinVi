@@ -659,7 +659,11 @@ BOOL CommandExec(PWSTR Cmd)
 		}
 		if (Cmd == NULL) return (FALSE);
 	}
-	if		  ((Args = Compare(Cmd, L"write",      1, 0x1f)) != NULL) {
+	if ((Args = Compare(Cmd, L"global", 1, 15)) != NULL) {
+		Ok=WvExGlobal(StartLine,EndLine,Args,CommandWithExclamation);
+	} else if ((Args = Compare(Cmd, L"v", 1, 7)) != NULL) {
+		Ok=WvExGlobal(StartLine,EndLine,Args,TRUE);
+	} else if ((Args = Compare(Cmd, L"write",      1, 0x1f)) != NULL) {
 		Ok = WriteCmd(StartLine, EndLine, Args, (WORD)CommandWithExclamation);
 	} else if ((Args = Compare(Cmd, L"edit",	   1, 0x1c)) != NULL) {
 		Ok = EditCmd(Args);
