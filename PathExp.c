@@ -303,14 +303,14 @@ static BOOL ShowPopupMenu(int x, int y)
 			i = 0;
 			pN1 = (*p)->Name;
 			pN2 = (*p2)->Name;
-			while (pN1[i] && CharUpperW((PWSTR)(INT)(BYTE)pN1[i])==
-							 CharUpperW((PWSTR)(INT)(BYTE)pN2[i])) ++i;
+			while (i < 20 && pN1[i] && pN2[i] && !LOWER_CMP(pN1[i],pN2[i])) ++i;
 			if (i > 20) i = 20;
 			++MatchLen[i];
 		}
 		for (MaxLen=i=0; MaxLen<=20; ++MaxLen)
 			if ((i+=MatchLen[MaxLen]) > 20) break;
-		if (i == MatchLen[MaxLen]) ++MaxLen;
+		if (MaxLen > 20) MaxLen = 20;
+		else if (i == MatchLen[MaxLen] && MaxLen < 20) ++MaxLen;
 		else if (MaxLen>1 && i*nMenuItemHght > 8*nMenuHeight) --MaxLen;
 	}
 	nMenuItems = 0;
@@ -836,57 +836,27 @@ void PathExpCleanup(void)
 
 #if defined(WIN32)
 
+/* Iterative glob matching: no recursive/exponential exploration of star choices.
+   Comma/semicolon alternatives and case-insensitive matching retain their meaning. */
 BOOL PatternMatch(PCWSTR String, PCWSTR Pattern)
-{	PCWSTR		s = String, p = Pattern;
-	static BOOL	Recursive = FALSE;
-
-	for (;;) {
-		switch (*p) {
-			case '?':
-				if (!*s) {
-					if (Recursive || (p = wcspbrk(p, L",;")) == NULL)
-						return (FALSE);
-					s = String;
-				} else ++s;
-				++p;
-				break;
-
-			case '*':
-				{	BOOL SaveRecursive = Recursive;
-
-					Recursive = TRUE;
-					++p;
-					do {
-						if (PatternMatch(s, p)) {
-							Recursive = SaveRecursive;
-							return (TRUE);
-						}
-					} while (*s++);
-					Recursive = SaveRecursive;
-					if (Recursive || (p = wcspbrk(p, L",;")) == NULL)
-						return (FALSE);
-					s = String;
-					++p;
-				}
-				continue;
-
-			case '\0':
-			case ',':
-			case ';':
-				if (!*s) return (TRUE);
-				if (!*p || Recursive) return (FALSE);
-				/*FALLTHROUGH*/
-			default:
-				if (LOWER_CMP(*s, *p)) {
-					if (Recursive || (p = wcspbrk(p, L",;")) == NULL)
-						return (FALSE);
-					s = String;
-				} else ++s;
-				++p;
-		}
-	}
+{
+ PCWSTR begin=Pattern;
+ if(!String || !Pattern)return FALSE;
+ for(;;) {
+  PCWSTR end=begin,s=String,p=begin,star=NULL,retry=NULL;
+  while(*end && *end!=L',' && *end!=L';')end++;
+  while(*s) {
+   if(p<end && *p==L'*'){star=++p;retry=s;}
+   else if(p<end && (*p==L'?' || !LOWER_CMP(*s,*p))){s++;p++;}
+   else if(star){s=++retry;p=star;}
+   else break;
+  }
+  while(p<end && *p==L'*')p++;
+  if(!*s && p==end)return TRUE;
+  if(!*end)return FALSE;
+  begin=end+1;
+ }
 }
-
 #ifdef __LCC__
 typedef struct {
 	DWORD  dwScope;

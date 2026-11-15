@@ -1,3 +1,5 @@
+Stability update: see BUG-AUDIT.txt for reproduced failures, fixes and current tests.
+
 WinVi 3.02 — native x64 port, Windows 10/11
 
 Security update (15 November 2026): see SECURITY-AUDIT.txt for fixes and evidence.
@@ -48,3 +50,8 @@ and force-terminate their own temporary child to check paging-file cleanup.
 Security restrictions: tags accept numeric/search addresses, not general Ex commands.
 Shell formats must start with %0 or quoted %0. Bare cmd.exe resolves to System32.
 Background BMPs must be validated, uncompressed BI_RGB. See SECURITY-AUDIT.txt.
+
+Additional local stability tests:
+  source\tests\bugs\build-and-test.cmd
+  pwsh -NoProfile -File source\tests\search-cancel.ps1
+

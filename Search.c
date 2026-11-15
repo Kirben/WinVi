@@ -101,6 +101,40 @@ BOOL CheckBkwd(PPOSITION, PSEARCHPART);
 
 extern INT OemCodePage, AnsiCodePage;
 
+/* Matching can backtrack for a long time inside one candidate position. Keep
+   cancellation responsive there, and fail safely before exhausting the C stack. */
+static UINT SearchDepth;
+static ULONG SearchWork;
+static BOOL CheckFwdImpl(PPOSITION,PSEARCHPART);
+static BOOL CheckBkwdImpl(PPOSITION,PSEARCHPART);
+static BOOL MatchCheckpoint(void)
+{
+ if(Interrupted)return TRUE;
+ return (++SearchWork & 255)==0 && CheckInterrupt();
+}
+static BOOL EnterSearchCheck(void)
+{
+ if(!SearchDepth)SearchWork=0;
+ if(MatchCheckpoint())return FALSE;
+ if(SearchDepth>=256) {
+  Interrupted=TRUE;
+  NewStatus(0,L"Search expression exceeded safe backtracking depth.",NS_ERROR);
+  return FALSE;
+ }
+ SearchDepth++;return TRUE;
+}
+BOOL CheckFwd(PPOSITION pos,PSEARCHPART part)
+{
+ BOOL result;if(!EnterSearchCheck())return FALSE;
+ result=CheckFwdImpl(pos,part);SearchDepth--;return result;
+}
+BOOL CheckBkwd(PPOSITION pos,PSEARCHPART part)
+{
+ BOOL result;if(!EnterSearchCheck())return FALSE;
+ result=CheckBkwdImpl(pos,part);SearchDepth--;return result;
+}
+
+
 INT SingleCharAndAdvance(PPOSITION Pos) {
 	INT c;
 
@@ -314,9 +348,10 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 #endif
 }
 
-BOOL CheckFwd(PPOSITION Pos, PSEARCHPART Srch)
+static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 {
 	while (Srch) {
+		if(MatchCheckpoint())return FALSE;
 		switch (Srch->Type) {
 			case SrchString:
 				{	PWCHAR pCmp	= Srch->u.StringMatch.String;
@@ -354,10 +389,11 @@ BOOL CheckFwd(PPOSITION Pos, PSEARCHPART Srch)
 #if NEW_SEARCH
 			case SrchChoice:
 				if (Srch->u.NewChoice.MatchMulti) {
-					INT i = 0, c;
+					WV_ULONG i = 0; INT c;
 
 					if ((c = CharAt(Pos)) == C_CRLF) c = '\r';
 					while (TestBit(Srch, c, FALSE)) {
+						if(MatchCheckpoint())return FALSE;
 						++i;
 						if (c == '\r') {
 							Advance(Pos, UtfEncoding == 16 ? 2 : 1);
@@ -366,6 +402,7 @@ BOOL CheckFwd(PPOSITION Pos, PSEARCHPART Srch)
 						if (c == C_CRLF) c = '\r';
 					}
 					do {
+						if(MatchCheckpoint())return FALSE;
 						POSITION SavePos;
 
 						SavePos = *Pos;
@@ -385,15 +422,17 @@ BOOL CheckFwd(PPOSITION Pos, PSEARCHPART Srch)
 #else
 			case SrchChoice:
 				if (Srch->u.ChoiceMatch.MatchMulti) {
-					INT i = 0, c;
+					WV_ULONG i = 0; INT c;
 
 					if ((c = CharAt(Pos)) == C_CRLF) c = '\r';
 					while (TestBit(Srch, c, FALSE)) {
+						if(MatchCheckpoint())return FALSE;
 						++i;
 						Advance(Pos, UtfEncoding == 16 ? 2 : 1);
 						if ((c = CharAt(Pos)) == C_CRLF) c = '\r';
 					}
 					do {
+						if(MatchCheckpoint())return FALSE;
 						POSITION SavePos;
 
 						SavePos = *Pos;
@@ -432,11 +471,12 @@ BOOL CheckFwd(PPOSITION Pos, PSEARCHPART Srch)
 
 BOOL MinimumMatchBkwd;
 
-BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
+static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 {
 	/*Current Srch need not be checked, check preceeding chain elements only.
 	 */
 	if (Srch) while ((Srch = Srch->Prev) != NULL) {
+		if(MatchCheckpoint())return FALSE;
 		INT c;
 
 		switch (Srch->Type) {
@@ -472,11 +512,12 @@ BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
 #if NEW_SEARCH
 			case SrchChoice:
 				if (Srch->u.NewChoice.MatchMulti) {
-					INT		 i = 0;
+					WV_ULONG i = 0;
 					POSITION SavePos;
 
 					if (MinimumMatchBkwd) {
 						for (;;) {
+						if(MatchCheckpoint())return FALSE;
 							SavePos = *Pos;
 							if (CheckBkwd(Pos, Srch)) return TRUE;
 							*Pos = SavePos;
@@ -485,11 +526,13 @@ BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
 						}
 					}
 					for (;;) {
+						if(MatchCheckpoint())return FALSE;
 						c = GoBackAndSingleChar(Pos);
 						if (!TestBit(Srch, c, TRUE)) break;
 						++i;
 					}
 					do {
+						if(MatchCheckpoint())return FALSE;
 						if (c == C_EOF) c = 0;
 						else Advance(Pos, UtfEncoding == 16 ? 2 : 1);
 						SavePos = *Pos;
@@ -505,11 +548,12 @@ BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
 #else
 			case SrchChoice:
 				if (Srch->u.ChoiceMatch.MatchMulti) {
-					INT		 i = 0;
+					WV_ULONG i = 0;
 					POSITION SavePos;
 
 					if (MinimumMatchBkwd) {
 						for (;;) {
+						if(MatchCheckpoint())return FALSE;
 							SavePos = *Pos;
 							if (CheckBkwd(Pos, Srch)) return TRUE;
 							*Pos = SavePos;
@@ -518,11 +562,13 @@ BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
 						}
 					}
 					for (;;) {
+						if(MatchCheckpoint())return FALSE;
 						c = GoBackAndSingleChar(Pos);
 						if (!TestBit(Srch, c, TRUE)) break;
 						++i;
 					}
 					do {
+						if(MatchCheckpoint())return FALSE;
 						if (c == C_EOF) c = 0;
 						else Advance(Pos, UtfEncoding == 16 ? 2 : 1);
 						SavePos = *Pos;
@@ -638,7 +684,7 @@ BOOL SearchIt(PPOSITION pPos, INT Flags) {
 				*pPos = Pos;
 				return TRUE;
 			}
-			if (Done) break;
+			if (Done || !MatchValid) break;
 			if (CharFlags(c = (*Next)(&Pos)) & 0x21) {
 				if (CheckInterrupt()) return FALSE;
 				if (c == C_EOF || c == C_ERROR || c == C_UNDEF || FirstString)
@@ -1298,7 +1344,7 @@ PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 					if (MagicFlag || ForcedMagic) {
 						ForcedMagic = FALSE;
 #if NEW_SEARCH
-						CreateChoice();
+						if(!CreateChoice()){Done=TRUE;break;}
 						LastMatch->u.NewChoice.Range[0][0] = '\036' + 1;
 						LastMatch->u.NewChoice.Range[1][0] = '\0'	- 1;
 						LastMatch->u.NewChoice.Range[0][1] = '\0'	+ 1;
@@ -1474,7 +1520,7 @@ PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 				default:
 					EnterMatch(*Cmd, Cmd, 3);
 			}
-			if (Done) break;
+			if (Done || !MatchValid) break;
 			if (MagicFlag) {
 				if (*++Cmd == '*') SetSrchDisp(*Cmd++);
 			} else if (*++Cmd == '\\' && Cmd[1] == '*') {
