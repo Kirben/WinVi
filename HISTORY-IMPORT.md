@@ -26,6 +26,13 @@ assets and legacy project files are retained.
 Future changes should be committed by feature or fix with the relevant tests.
 Keep optional compatibility and help review patches separate until approved.
 
+The six snapshot import commits use concise titles. Their shared provenance
+and testing qualifications are documented here rather than repeated in each
+commit message. These commits record existing snapshots; they do not recreate
+the original development chronology or claim that intermediate states were
+separately tested. The archive for each snapshot is listed below, and original
+author and licence notices remain retained.
+
 ## Imported snapshots
 
 | Tag | Source archive | SHA-256 |
