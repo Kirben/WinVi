@@ -1,5 +1,7 @@
 WinVi 3.02 — native x64 port, Windows 10/11
 
+Security update (15 November 2026): see SECURITY-AUDIT.txt for fixes and evidence.
+
 Extract the ZIP and run WinVi64.exe. Keep WinVi-en.htm and WinVi-de.htm beside it for Help.
 There is no fixed GiB file-size cap. Capacity depends on available memory, temporary disk
 space, the filesystem, and signed 64-bit file positions. See SIZE-AUDIT.txt for evidence
@@ -15,6 +17,7 @@ For an AddressSanitizer build, install the MSVC ASan component and run source\bu
 Tests require PowerShell 7; native helper tests require the C++ build tools.
   pwsh -NoProfile -File source\tests\integration.ps1
   pwsh -NoProfile -File source\tests\read-failure.ps1
+  source\tests\security-regression.cmd
   source\tests\hex-layout-test.cmd
   source\tests\page-fault-test.cmd
   source\tests\size-test.cmd
@@ -37,3 +40,11 @@ The original source README and most of the original help are historical document
 The x64 port notes supersede their old operating-system and file-size statements.
 Upstream source: https://www.winvi.de/wvsrc302.zip
 Upstream help distribution: https://www.winvi.de/winvi302.zip
+
+Security regressions require the MSVC ASan component. They intercept unsafe tag
+commands and mock network APIs. They launch trusted System32 cmd.exe with exit 0
+and force-terminate their own temporary child to check paging-file cleanup.
+
+Security restrictions: tags accept numeric/search addresses, not general Ex commands.
+Shell formats must start with %0 or quoted %0. Bare cmd.exe resolves to System32.
+Background BMPs must be validated, uncompressed BI_RGB. See SECURITY-AUDIT.txt.

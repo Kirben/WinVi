@@ -38,7 +38,7 @@ static LPWSTR NativePath(LPCWSTR name)
  if(!n || n>=WV_PATH_CAP-16){SetLastError(ERROR_FILENAME_EXCED_RANGE);goto done;}
  full=(LPWSTR)malloc(n*sizeof(WCHAR));result=(LPWSTR)malloc((n+8)*sizeof(WCHAR));
  if(!full || !result){free(result);result=NULL;SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto done;}
- if(!GetFullPathNameW(name,n,full,NULL)){free(result);result=NULL;goto done;}
+ error=GetFullPathNameW(name,n,full,NULL);if(!error || error>=n){free(result);result=NULL;if(error>=n)SetLastError(ERROR_FILENAME_EXCED_RANGE);goto done;}
  for(i=0;full[i];i++)if(full[i]==L'/')full[i]=L'\\';
  if(!wcsncmp(full,L"\\\\?\\",4) || !wcsncmp(full,L"\\\\.\\",4))WvCopyString(result,full);
  else if(full[0]==L'\\' && full[1]==L'\\'){WvCopyString(result,L"\\\\?\\UNC\\");wcscat(result,full+2);}
@@ -87,12 +87,46 @@ BOOL WvCreateProcessW(LPCWSTR app,LPWSTR cmd,LPSECURITY_ATTRIBUTES processSecuri
  result=CreateProcessW(app,cmd,processSecurity,threadSecurity,inherit,flags,environment,directory,startup,process);
  error=GetLastError();free(logical);SetLastError(error);return result;
 }
+BOOL WvResolveShellExecutable(LPCSTR configured,LPWSTR out,DWORD cap)
+{
+ WCHAR name[WV_PATH_CAP],system[WV_PATH_CAP],*path=NULL,*part,*next;DWORD n;size_t len;
+ if(!configured || !MultiByteToWideChar(CP_ACP,MB_ERR_INVALID_CHARS,configured,-1,name,WV_PATH_CAP))return FALSE;
+ len=wcslen(name);if(len>=2 && name[0]==L'"' && name[len-1]==L'"'){memmove(name,name+1,(len-2)*sizeof(WCHAR));name[len-2]=0;}
+ if(!*name || wcschr(name,L'"')){SetLastError(ERROR_INVALID_NAME);return FALSE;}
+ n=GetSystemDirectoryW(system,WV_PATH_CAP);if(!n || n>=WV_PATH_CAP)return FALSE;
+ if(!_wcsicmp(name,L"cmd") || !_wcsicmp(name,L"cmd.exe")) {
+  if(n+9>=cap){SetLastError(ERROR_INSUFFICIENT_BUFFER);return FALSE;}
+  WvCopyString(out,system);wcscat(out,L"\\cmd.exe");return TRUE;
+ }
+ if(wcschr(name,L'\\') || wcschr(name,L'/') || wcschr(name,L':')) {
+  LPWSTR full=NativePath(name);BOOL ok=FALSE;
+  if(!full)return FALSE;
+  if(wcslen(full)<cap){WvCopyString(out,full);ok=TRUE;}else SetLastError(ERROR_INSUFFICIENT_BUFFER);
+  free(full);return ok;
+ }
+ /* Configured bare shell names search System32 and absolute PATH entries, never implicit CWD. */
+ n=SearchPathW(system,name,L".exe",cap,out,NULL);if(n && n<cap)return TRUE;
+ n=GetEnvironmentVariableW(L"PATH",NULL,0);if(!n || n>32768){SetLastError(ERROR_FILE_NOT_FOUND);return FALSE;}
+ path=(WCHAR*)malloc(n*sizeof(WCHAR));if(!path){SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
+ {DWORD actual=GetEnvironmentVariableW(L"PATH",path,n);if(!actual || actual>=n){free(path);SetLastError(ERROR_INSUFFICIENT_BUFFER);return FALSE;}}
+ part=path;
+ while(part) {
+  next=wcschr(part,L';');if(next)*next++=0;len=wcslen(part);
+  if(len>=2 && part[0]==L'"' && part[len-1]==L'"'){part[len-1]=0;part++;len-=2;}
+  if((len>=3 && part[1]==L':' && (part[2]==L'\\'||part[2]==L'/')) || (len>=2 && part[0]==L'\\'&&part[1]==L'\\')) {
+   n=SearchPathW(part,name,L".exe",cap,out,NULL);if(n && n<cap){free(path);return TRUE;}
+  }
+  part=next;
+ }
+ free(path);SetLastError(ERROR_FILE_NOT_FOUND);return FALSE;
+}
 void InitializeWindowsPlatform(void)
 {
  typedef BOOL (WINAPI *SET_CONTEXT)(HANDLE);
  SET_CONTEXT setContext=(SET_CONTEXT)GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext");
  /* Enhanced GDI scaling keeps this GDI editor's text sharp as monitors change.
     Early Windows 10 builds fall back to system DPI awareness. */
+ SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32|LOAD_LIBRARY_SEARCH_USER_DIRS);
  if(!setContext || !setContext((HANDLE)(INT_PTR)-5)) SetProcessDPIAware();
 }
 

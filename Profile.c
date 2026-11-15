@@ -1297,7 +1297,7 @@ VOID LoadSettings(VOID)
 	MyGetProfileString(pfExtensions,   "", Extensions,	sizeof(Extensions));
 	MyGetProfileStringW(pfBitmap,  L"", BitmapFilename,	sizeof(BitmapFilename));
 	MyGetProfileNewString(pfShell,		  "",			&Shell);
-	MyGetProfileNewString(pfShellCommand, "%0 /c %1",	&ShellCommand);
+	MyGetProfileNewString(pfShellCommand, "\"%0\" /d /c %1",	&ShellCommand);
 	TabExpandWithSlash = MyGetProfileBool(pfTabExpWithSlash, FALSE);
 	MyGetProfileNewString(pfHelpUrl,	DefaultHelpURL,	&HelpURL);
 	if (*Shell == '\0') {
@@ -1312,7 +1312,7 @@ VOID LoadSettings(VOID)
 				hf = OpenFile(CmdName, &TmpOf, OF_READ);
 				if (hf != (HFILE)INVALID_HANDLE_VALUE) _lclose(hf);
 				else CmdName += 3;	/*can hopefully be found in path*/
-			} else	 CmdName = "cmd.exe";
+			} else	 CmdName = ExpandSys32("cmd.exe");
 			hf = 0;	/*not used as handle anymore, prevent further checks only*/
 		}
 		AllocStringA(&Shell, CmdName);

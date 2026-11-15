@@ -24,6 +24,8 @@
 #include <string.h>
 #include <malloc.h>
 #include <stdio.h>
+#include <bcrypt.h>
+#include <sddl.h>
 #include <wchar.h>
 #include "myassert.h"
 #include "winvi.h"
@@ -86,32 +88,32 @@ void GetSystemTmpDir(PWSTR Path, INT Len)
 }
 
 BOOL CreateTmpFile(void)
-{	INT  c;
-	INT  len;
-	WORD w;
-
-	if (SessionEnding) return (FALSE);
-	if (!DefaultTmpFlag && TmpDirectory!=NULL)
-		wcsncpy(TmpFileName, TmpDirectory, WSIZE(TmpFileName));
-	else GetSystemTmpDir(TmpFileName, WSIZE(TmpFileName));
-	#if defined(WIN32)
-		w = MAKEWORD(GetCurrentTime()&255, GetCurrentProcessId()&255);
-	#else
-		w = (WORD)GetCurrentTask();
-	#endif
-	c = 0;
-	len = wcslen(TmpFileName);
-	do {
-		_snwprintf(TmpFileName + len, WSIZE(TmpFileName) - len,
-				   L"%s~wvi%04x.tmp",
-				   *TmpFileName && (c = TmpFileName[len-1]) != '\\' && c != '/'
-				   ? L"\\" : L"", w);
-		TmpFile = CreateFileW(TmpFileName, GENERIC_READ | GENERIC_WRITE, 0,
-							  NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
-							  NULL);
-		++w;
-	} while (TmpFile == INVALID_HANDLE_VALUE && ++c <= 5);
-	return  (TmpFile != INVALID_HANDLE_VALUE);
+{
+ PSECURITY_DESCRIPTOR sd=NULL;SECURITY_ATTRIBUTES sa;DWORD n,error=ERROR_CANNOT_MAKE;size_t len,i;int attempt;BYTE random[16];
+ static const WCHAR hex[]=L"0123456789abcdef";
+ if(SessionEnding)return FALSE;
+ if(!DefaultTmpFlag && TmpDirectory) {
+  len=wcslen(TmpDirectory);if(len>=WSIZE(TmpFileName)-64){SetLastError(ERROR_FILENAME_EXCED_RANGE);return FALSE;}
+  WvCopyString(TmpFileName,TmpDirectory);
+ } else {
+  n=GetTempPathW(WSIZE(TmpFileName),TmpFileName);if(!n || n>=WSIZE(TmpFileName)-64){SetLastError(ERROR_FILENAME_EXCED_RANGE);return FALSE;}
+  len=n;
+ }
+ if(len && TmpFileName[len-1]!=L'\\' && TmpFileName[len-1]!=L'/')TmpFileName[len++]=L'\\';
+ /* Protected owner/SYSTEM access, non-inheritable handle, deletion even on abnormal exit. */
+ if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;FA;;;OW)(A;;FA;;;SY)",SDDL_REVISION_1,&sd,NULL))return FALSE;
+ sa.nLength=sizeof(sa);sa.lpSecurityDescriptor=sd;sa.bInheritHandle=FALSE;
+ for(attempt=0;attempt<16;attempt++) {
+  if(BCryptGenRandom(NULL,random,sizeof(random),BCRYPT_USE_SYSTEM_PREFERRED_RNG)!=0){error=ERROR_GEN_FAILURE;break;}
+  WvCopyString(TmpFileName+len,L"~winvi-");
+  for(i=0;i<16;i++){TmpFileName[len+7+2*i]=hex[random[i]>>4];TmpFileName[len+8+2*i]=hex[random[i]&15];}
+  WvCopyString(TmpFileName+len+39,L".tmp");
+  TmpFile=CreateFileW(TmpFileName,GENERIC_READ|GENERIC_WRITE|DELETE,0,&sa,CREATE_NEW,
+      FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_DELETE_ON_CLOSE,NULL);
+  if(TmpFile!=INVALID_HANDLE_VALUE){LocalFree(sd);return TRUE;}
+  error=GetLastError();if(error!=ERROR_FILE_EXISTS && error!=ERROR_ALREADY_EXISTS)break;
+ }
+ LocalFree(sd);SetLastError(error);return FALSE;
 }
 
 static WV_LONG LastTmpOffset = 0L;

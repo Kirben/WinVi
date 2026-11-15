@@ -1011,8 +1011,8 @@ static HANDLE EnumShares(PWSTR Name, PWSTR NameSep, FIND_DATA *FindData)
 		Separator = *NameSep;
 		*NameSep  = '\0';
 		if (Compare != NULL) free(Compare);
-		if ((Compare = malloc(wcslen(NameSep))) == NULL)
-			return (INVALID_HANDLE_VALUE);
+		if ((Compare = malloc((wcslen(NameSep+1)+1)*sizeof(WCHAR))) == NULL)
+			{*NameSep=Separator;return (INVALID_HANDLE_VALUE);}
 		WvCopyString(Compare, NameSep+1);
 		if (WNetOpenEnumW(RESOURCE_GLOBALNET, RESOURCETYPE_ANY,
    						  0, &Root, &hEnum[3]) != NO_ERROR) {
@@ -1048,7 +1048,7 @@ static HANDLE EnumShares(PWSTR Name, PWSTR NameSep, FIND_DATA *FindData)
 			PCWSTR p = wcspbrk(NetResource[3]->lpRemoteName+2, L"\\/");
 
 			if (p++ != NULL && Compare != NULL && PatternMatch(p, Compare)) {
-				wcsncpy(FindData->cFileName, p, WSIZE(FindData->cFileName));
+				lstrcpynW(FindData->cFileName,p,WSIZE(FindData->cFileName));
 				FindData->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
 				return((HANDLE)(NetResource+3));
 			}

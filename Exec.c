@@ -344,6 +344,29 @@ BOOL ExecRunning(VOID)
 	#endif
 }
 
+BOOL BuildShellCommandW(LPCSTR shell,LPCSTR format,PCWSTR command,PWSTR *line,PWSTR application,DWORD cap)
+{
+ const char *rest=format;int count;size_t prefix,total,len;BOOL disableAutoRun;PCWSTR base;
+ *line=NULL;
+ if(!WvResolveShellExecutable(shell,application,cap))return FALSE;
+ while(*rest==' ' || *rest=='\t')rest++;
+ if(!strncmp(rest,"\"%0\"",4))rest+=4;
+ else if(!strncmp(rest,"%0",2))rest+=2;
+ else {SetLastError(ERROR_INVALID_PARAMETER);return FALSE;}
+ if(*rest && *rest!=' ' && *rest!='\t'){SetLastError(ERROR_INVALID_PARAMETER);return FALSE;}
+ base=wcsrchr(application,L'\\');base=base?base+1:application;
+ disableAutoRun=!_wcsicmp(base,L"cmd.exe");
+ len=wcslen(application);prefix=len+2+(disableAutoRun?3:0);
+ count=FormatShellW(NULL,(LPSTR)rest,(LPSTR)shell,(PWSTR)command);
+ if(count<0 || prefix>=32767 || (size_t)count>=32767-prefix){SetLastError(ERROR_FILENAME_EXCED_RANGE);return FALSE;}
+ total=prefix+count+1;*line=(WCHAR*)malloc(total*sizeof(WCHAR));
+ if(!*line){SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
+ (*line)[0]=L'"';memcpy(*line+1,application,len*sizeof(WCHAR));(*line)[len+1]=L'"';
+ if(disableAutoRun)memcpy(*line+len+2,L" /d",3*sizeof(WCHAR));
+ FormatShellW(*line+prefix,(LPSTR)rest,(LPSTR)shell,(PWSTR)command);
+ return TRUE;
+}
+
 BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 	/*Flags: 1=use input  pipe (selected part piped from winvi)
 	 *		 2=use output pipe (insert command output into current file)
@@ -358,6 +381,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 		static STARTUPINFOW	si;
 		DWORD				dwFlags;
 		PWSTR				Cmd2 = NULL, NewCmd;
+        WCHAR ShellApplication[WV_PATH_CAP];LPCWSTR Application=NULL;
 
 		if (ViewOnlyFlag || pi.hProcess) {
 			Error(236);
@@ -437,11 +461,11 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 			extern PSTR Shell, ShellCommand;
 			INT			Length;
 
-			Length = FormatShellW(NULL, ShellCommand, Shell, Cmd);
-			if ((Cmd2 = malloc(2*Length + 2)) != NULL) {
-				FormatShellW(Cmd2, ShellCommand, Shell, Cmd);
-				Cmd = Cmd2;
-			}
+            if(!BuildShellCommandW(Shell,ShellCommand,Cmd,&Cmd2,ShellApplication,WSIZE(ShellApplication))) {
+                CloseHandle(PipeCvc);CloseHandle(PipeVvc);CloseHandle(PipeVcv);CloseHandle(PipeCcv);
+                NewStatus(0,L"Cannot safely resolve or construct the configured shell command.",NS_ERROR);return FALSE;
+            }
+            Cmd=Cmd2;Application=ShellApplication;
 			si.wShowWindow = 0 /* Windows 10+ always uses the NT platform */ /*Win95/98/Me*/
 			 				 ? SW_SHOWMINNOACTIVE : SW_HIDE;
 			si.dwFlags |= STARTF_USESHOWWINDOW;
@@ -449,7 +473,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 		QueryTime = 0;
 		CreateConsole();
 		/*OutputDebugStringW(Cmd);*/
-		if (CreateProcessW(NULL,	Cmd,  NULL, NULL, TRUE,
+		if (CreateProcessW(Application,Cmd,  NULL, NULL, TRUE,
 						   dwFlags, NULL, NULL, &si,  &pi)) {
 			extern HGLOBAL YankHandles[27];
 			extern WV_ULONG   YankLength[27];

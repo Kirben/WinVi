@@ -88,8 +88,7 @@ PWSTR Compare(PWSTR Cmd, PWSTR CompareWith, INT MinLength, INT CheckMask)
 			if (CheckMask & 0x10) {
 				PWSTR p, p1, p2;
 
-				for (p = Cmd+wcslen(Cmd)-1; p>=Cmd && *p==' '; --p)
-					*p = '\0';
+				{size_t n=wcslen(Cmd);while(n && Cmd[n-1]==L' ')Cmd[--n]=0;}
 				p = Cmd;
 				if (!wcscmp(p, L"#")) IsAltFile = TRUE;
 				for (;;) {
@@ -102,7 +101,8 @@ PWSTR Compare(PWSTR Cmd, PWSTR CompareWith, INT MinLength, INT CheckMask)
 					else if (p2==NULL) break;
 					if (p2!=NULL && (p1==NULL || p2<p)) p = p2;
 					if (Cmd != FileNameBuf2) {
-						WvCopyString(FileNameBuf2, Cmd);
+						if (wcslen(Cmd)>=WSIZE(FileNameBuf2)) {ExecError=106;return NULL;}
+                        WvCopyString(FileNameBuf2, Cmd);
 						p = FileNameBuf2 + (p-Cmd);
 						Cmd = FileNameBuf2;
 					}
@@ -121,7 +121,12 @@ PWSTR Compare(PWSTR Cmd, PWSTR CompareWith, INT MinLength, INT CheckMask)
 						ExecError = *p=='#' ? 113 : 233;
 						return (NULL);
 					}
-					len = wcslen(lp);
+					len = (INT)wcslen(lp);
+                    {size_t offset=p-Cmd,tail=wcslen(p+1),cap=WSIZE(FileNameBuf2);
+                     if(offset>=cap || (size_t)len>=cap-offset || tail>=cap-offset-len) {
+                       ExecError=106;return NULL;
+                     }
+                    }
 					_fmemmove(p+len, p+1, wcslen(p)*2);
 					_fmemcpy(p, lp, len*2);
 					p += len;

@@ -63,18 +63,29 @@ BOOL InitBmp(HDC hDC, int BmpInx) {
 			OutputDebugString("WinVi: invalid bitmap signature\n");
 			break;
 		}
-		if (sBmpInfo.biSize != sizeof(sBmpInfo)) {
-			if (sBmpInfo.biSize < sizeof(sBmpInfo))
-				memset((char *)&sBmpInfo + sBmpInfo.biSize, 0,
-					   (size_t)(sizeof(sBmpInfo) - sBmpInfo.biSize));
-			_llseek(hf, sBmpInfo.biSize + sizeof(sBmpFile), 0);
-		}
-		if (!(Colors = (UINT)sBmpInfo.biClrUsed) && sBmpInfo.biBitCount)
-			Colors = 1 << (sBmpInfo.biBitCount > 8 ? 8 : sBmpInfo.biBitCount);
-		RgbSize = Colors * sizeof(RGBQUAD);
-		BmpSize = sBmpFile.bfSize - sBmpFile.bfOffBits;
-
-		if (CheckSize(RgbSize, BmpSize)) break;
+        /* Validate all dimensions, palette counts and extents before any GDI call. */
+        {WV_LONG fileSize=_llseek(hf,0,FILE_END);DWORD header=sBmpInfo.biSize;
+         WV_ULONG stride,pixels,height,paletteOffset,paletteEnd;
+         if(fileSize<0 || (header!=40 && header!=108 && header!=124) ||
+            sBmpInfo.biPlanes!=1 || sBmpInfo.biWidth<=0 || !sBmpInfo.biHeight ||
+            sBmpInfo.biCompression!=BI_RGB ||
+            (sBmpInfo.biBitCount!=1 && sBmpInfo.biBitCount!=4 && sBmpInfo.biBitCount!=8 && sBmpInfo.biBitCount!=16 && sBmpInfo.biBitCount!=24 && sBmpInfo.biBitCount!=32))break;
+         height=sBmpInfo.biHeight<0?-(WV_LONG)sBmpInfo.biHeight:sBmpInfo.biHeight;
+         stride=(((WV_ULONG)sBmpInfo.biWidth*sBmpInfo.biBitCount+31)/32)*4;
+         if(!WvSizeMultiply(stride,height,&pixels) || CheckSize(0,pixels))break;
+         Colors=sBmpInfo.biClrUsed;
+         if(sBmpInfo.biBitCount<=8) {
+          UINT maximum=1U<<sBmpInfo.biBitCount;if(!Colors)Colors=maximum;if(Colors>maximum)break;
+         }
+         if(Colors>10000000U/sizeof(RGBQUAD))break;
+         RgbSize=Colors*sizeof(RGBQUAD);paletteOffset=sizeof(sBmpFile)+(WV_ULONG)header;
+         if(!WvSizeAdd(paletteOffset,RgbSize,&paletteEnd) || paletteEnd>sBmpFile.bfOffBits ||
+            sBmpFile.bfOffBits>(WV_ULONG)fileSize || pixels>(WV_ULONG)fileSize-sBmpFile.bfOffBits)break;
+         if(_llseek(hf,paletteOffset,FILE_BEGIN)!=(WV_LONG)paletteOffset)break;
+         BmpSize=pixels;
+         /* Extended color/profile fields are not used by the background renderer. */
+         sBmpInfo.biSize=sizeof(sBmpInfo);sBmpInfo.biSizeImage=(DWORD)pixels;
+        }
 		hBmpInfo = GlobalAlloc(GMEM_MOVEABLE, RgbSize+sizeof(sBmpInfo));
 		if (!hBmpInfo) break;
 		lpBmpInfo = (LPBITMAPINFO)GlobalLock(hBmpInfo);

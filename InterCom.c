@@ -118,54 +118,34 @@ BOOL InterCommCommand(WORD uCmd)
 #endif
 
 VOID InterCommMenu(HWND hWnd, HMENU hMenu)
-{	INT  i;
-	UINT LastItem = 0;
-
-	if (!IcMessage) return;
-
-	/*clear old list of menu entries*/
-	do; while (DeleteMenu(hMenu, 0, MF_BYPOSITION));
-
-	RebuildWindowList();
-	for (i=0; i<MAXDISPLAY; ++i) {
-		static WCHAR Buf[266];
-		PWSTR		 p, p2;
-
-		if (!IcWindows[i]) continue;
-		GetWindowTextW(IcWindows[i], Buf+4, WSIZE(Buf)-4);
-		if (!wcsncmp(Buf+4, L"WinVi - ", 8)) p = Buf + 8;
-		else if (wcscmp(Buf+wcslen(Buf+4)-4, L" - WinVi") == 0) {
-			Buf[wcslen(Buf+4)-4] = '\0';
-			p = Buf;
-		}
-		p2 = p+2;
-		while ((p2 = wcschr(p2+2, '&')) != NULL)
-			memmove(p2+1, p2, 2*wcslen(p2)+2);
-		p[0] = '&'; p[1] = i<9 ? '1'+i : 'a'-9+i; p[2] = ' '; p[3] = '\t';
-		#if defined(WIN32)
-		{	static MENUITEMINFOW mii = {sizeof(MENUITEMINFO),
-										MIIM_ID | MIIM_TYPE | MIIM_STATE,
-										MFT_RADIOCHECK | MFT_STRING};
-
-			MIIRADIOMENU_DWTYPEDATA	= p;
-			mii.wID					= 2000 + i;
-			mii.fState				= IcWindows[i]==hWnd ? MFS_CHECKED : 0;
-			if (InsertMenuItemW(hMenu, LastItem, TRUE, &mii)) {
-				++LastItem;
-				continue;
-			}
-		}
-		#endif
-		InsertMenuW(hMenu, LastItem++,
-				    IcWindows[i]!=hWnd ? MF_BYPOSITION | MF_STRING
-									   : MF_CHECKED | MF_BYPOSITION | MF_STRING,
-				    2000+i, p);
-	}
+{
+ INT i;UINT last=0;
+ if(!IcMessage)return;
+ while(DeleteMenu(hMenu,0,MF_BYPOSITION));
+ RebuildWindowList();
+ for(i=0;i<MAXDISPLAY;i++) {
+  WCHAR title[256],buf[2*256+8],*p;size_t n,k=4,j;
+  if(!IcWindows[i])continue;
+  title[0]=0;GetWindowTextW(IcWindows[i],title,WSIZE(title));title[WSIZE(title)-1]=0;
+  p=title;n=wcslen(title);
+  if(n>=8 && !wcsncmp(title,L"WinVi - ",8))p=title+8;
+  else if(n>=8 && !wcscmp(title+n-8,L" - WinVi"))title[n-8]=0;
+  buf[0]=L'&';buf[1]=(WCHAR)(i<9?L'1'+i:L'a'-9+i);buf[2]=L' ';buf[3]=L'\t';
+  for(j=0;p[j] && k<WSIZE(buf)-1;j++) {
+   if(p[j]==L'&'){if(k>=WSIZE(buf)-2)break;buf[k++]=L'&';}
+   buf[k++]=p[j];
+  }
+  buf[k]=0;
+  {MENUITEMINFOW mii={sizeof(mii)};mii.fMask=MIIM_ID|MIIM_FTYPE|MIIM_STRING|MIIM_STATE;mii.fType=MFT_RADIOCHECK|MFT_STRING;
+   mii.dwTypeData=buf;mii.wID=2000+i;mii.fState=IcWindows[i]==hWnd?MFS_CHECKED:0;
+   if(InsertMenuItemW(hMenu,last,TRUE,&mii))last++;
+  }
+ }
 }
 
 INT IcWindowID(VOID) {
 	if (IcIndex == MAXDISPLAY) return 0;
-	return IcIndex < '9' ? '1' + IcIndex : 'a' - 9 + IcIndex;
+	return IcIndex < 9 ? '1' + IcIndex : 'a' - 9 + IcIndex;
 }
 
 BOOL InterCommActivate(BOOL Backwards)
@@ -174,7 +154,7 @@ BOOL InterCommActivate(BOOL Backwards)
 
 	if (!IcMessage) return (FALSE);
 	RebuildWindowList();
-	for (Start=0; IcWindows[Start]!=hwndMain && Start<MAXDISPLAY; ++Start);
+	for (Start=0; Start<MAXDISPLAY && IcWindows[Start]!=hwndMain; ++Start);
 	if (Start >= MAXDISPLAY) return (FALSE);
 	i = Start;
 	while (++i != Start) {
