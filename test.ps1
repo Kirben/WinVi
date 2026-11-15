@@ -24,7 +24,8 @@ try {
   if($Configuration -in 'Both','Asan'){Run-Step 'build-asan' {& "$root/build-asan.cmd"} $results}
  }
  Run-Step 'build-command-fixture' {& "$tests/command-fixture.cmd"} $results
- foreach($native in 'format','platform','size','io','page-fault','hex-layout','hex-print','ex-global'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ foreach($native in 'compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ if($Configuration -in 'Both','Asan'){Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
  Run-Step 'focused-asan-regressions' {& "$tests/bugs/build-and-test.cmd"} $results
  Copy-Item "$tests/bugs/bug-results.json" "$results/focused-results.json"
  Copy-Item "$tests/bugs/after-command-faults.stdout.txt" "$results/resource-fault-details.txt"
@@ -43,7 +44,7 @@ try {
    Run-Step "$kind-large" {if($DenseLines){& pwsh -NoProfile -File "$tests/large-audit.ps1" -GiB $LargeGiB -DenseLines}else{& pwsh -NoProfile -File "$tests/large-audit.ps1" -GiB $LargeGiB}} $folder
    Copy-Item "$tests/large-$LargeGiB-GiB-results.json" "$folder/large-results.json"
   }
-  [pscustomobject]@{Executable=$env:WINVI_TEST_EXE;SHA256=(Get-FileHash $env:WINVI_TEST_EXE).Hash;Target='Windows 10/11 x64';Runtime=[Environment]::OSVersion.VersionString}|ConvertTo-Json|Set-Content "$folder/build.json"
+  [pscustomobject]@{Executable=$env:WINVI_TEST_EXE;SHA256=(Get-FileHash $env:WINVI_TEST_EXE).Hash;Target=$(if($kind-eq'Release'){'Windows 7 SP1 + KB2533623 / 8 / 8.1 / 10 / 11 x64'}else{'Windows 10/11 x64 ASan diagnostics'});Runtime=[Environment]::OSVersion.VersionString}|ConvertTo-Json|Set-Content "$folder/build.json"
  }
  "PASS: unified suite completed. Results: $results"
 }finally {

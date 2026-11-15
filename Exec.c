@@ -275,8 +275,7 @@ BOOL ExecPiped(PWSTR command,WORD flags)
  }
  s->Job=CreateJobObject(NULL,NULL);limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
  if(!s->Job||!SetInformationJobObject(s->Job,JobObjectExtendedLimitInformation,&limits,sizeof(limits)))goto fail;
- if(!CreateProcessW(application,line,NULL,NULL,TRUE,CREATE_SUSPENDED|CREATE_NEW_PROCESS_GROUP|CREATE_NO_WINDOW|EXTENDED_STARTUPINFO_PRESENT,NULL,NULL,&startup.StartupInfo,&s->Process))goto fail;
- if(!AssignProcessToJobObject(s->Job,s->Process.hProcess))goto fail;
+ if(!WvCreateJobProcessW(application,line,&startup.StartupInfo,s->Job,&s->Process))goto fail;
  CloseHandle(childInput);childInput=NULL;CloseHandle(childOutput);childOutput=NULL;
  InterlockedIncrement(&s->References);s->InputThread=CreateThread(NULL,0,CommandInput,s,0,NULL);
  if(!s->InputThread){InterlockedDecrement(&s->References);goto fail;}

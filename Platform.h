@@ -7,7 +7,8 @@
 static __inline WCHAR *WvCopyString(WCHAR *dst,const WCHAR *src) { return (WCHAR*)memmove(dst,src,(wcslen(src)+1)*sizeof(WCHAR)); }
 #define WV_PATH_CAP 32768
 #define WV_TEXT_CAP (WV_PATH_CAP * 2 + 1024)
-void InitializeWindowsPlatform(void);
+BOOL InitializeWindowsPlatform(void);
+BOOL WvCreateJobProcessW(LPCWSTR,LPWSTR,LPSTARTUPINFOW,HANDLE,LPPROCESS_INFORMATION);
 LPWSTR WvAbsolutePath(LPCWSTR);
 BOOL WvResolveShellExecutable(LPCSTR,LPWSTR,DWORD);
 BOOL WvCreateProcessW(LPCWSTR,LPWSTR,LPSECURITY_ATTRIBUTES,LPSECURITY_ATTRIBUTES,BOOL,DWORD,LPVOID,LPCWSTR,LPSTARTUPINFOW,LPPROCESS_INFORMATION);

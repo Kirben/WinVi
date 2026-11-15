@@ -1,4 +1,4 @@
-/* Windows 10+ integration. GPL-2.0-or-later. */
+/* Windows 7 SP1+ integration. GPL-2.0-or-later. */
 #define WINVI_PLATFORM_IMPLEMENTATION
 #define COBJMACROS
 #include <windows.h>
@@ -122,14 +122,57 @@ BOOL WvResolveShellExecutable(LPCSTR configured,LPWSTR out,DWORD cap)
  }
  free(path);SetLastError(ERROR_FILE_NOT_FOUND);return FALSE;
 }
-void InitializeWindowsPlatform(void)
+/* VerifyVersionInfo compares major/minor/service-pack hierarchically. A newer
+   OS does not need Windows 7's service pack, and no update is detected by KB
+   inventory: the required API must actually be available and succeed. */
+static BOOL WindowsAtLeast(DWORD major,DWORD minor,WORD servicePack)
+{
+ OSVERSIONINFOEXW version={sizeof(version)};ULONGLONG mask=0;
+ version.dwMajorVersion=major;version.dwMinorVersion=minor;version.wServicePackMajor=servicePack;
+ mask=VerSetConditionMask(mask,VER_MAJORVERSION,VER_GREATER_EQUAL);
+ mask=VerSetConditionMask(mask,VER_MINORVERSION,VER_GREATER_EQUAL);
+ mask=VerSetConditionMask(mask,VER_SERVICEPACKMAJOR,VER_GREATER_EQUAL);
+ return VerifyVersionInfoW(&version,VER_MAJORVERSION|VER_MINORVERSION|VER_SERVICEPACKMAJOR,mask);
+}
+BOOL InitializeWindowsPlatform(void)
 {
  typedef BOOL (WINAPI *SET_CONTEXT)(HANDLE);
- SET_CONTEXT setContext=(SET_CONTEXT)GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext");
- /* Enhanced GDI scaling keeps this GDI editor's text sharp as monitors change.
-    Early Windows 10 builds fall back to system DPI awareness. */
- SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32|LOAD_LIBRARY_SEARCH_USER_DIRS);
- if(!setContext || !setContext((HANDLE)(INT_PTR)-5)) SetProcessDPIAware();
+ typedef BOOL (WINAPI *SET_DIRECTORIES)(DWORD);
+ SET_CONTEXT setContext;SET_DIRECTORIES setDirectories;
+ if(!WindowsAtLeast(6,1,1))return FALSE;
+ setDirectories=(SET_DIRECTORIES)GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"SetDefaultDllDirectories");
+ if(!setDirectories){SetLastError(ERROR_PROC_NOT_FOUND);return FALSE;}
+ if(!setDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32|LOAD_LIBRARY_SEARCH_USER_DIRS))return FALSE;
+ setContext=(SET_CONTEXT)GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetProcessDpiAwarenessContext");
+ /* Enhanced GDI scaling on newer systems; system DPI awareness on Windows 7/8. */
+ if(!setContext || !setContext((HANDLE)(INT_PTR)-5))SetProcessDPIAware();
+ return TRUE;
+}
+
+/* Return a suspended child contained in the caller's kill-on-close job.
+   On failure, any remaining process handles belong to the caller for cleanup.
+   Windows 7 cannot nest jobs: retry only a denied assignment in an inherited
+   job, using the launcher's explicit permission to break away. Never resume
+   an uncontained child or retry unrelated failures. */
+BOOL WvCreateJobProcessW(LPCWSTR app,LPWSTR command,LPSTARTUPINFOW startup,
+ HANDLE job,LPPROCESS_INFORMATION process)
+{
+ DWORD flags=CREATE_SUSPENDED|CREATE_NEW_PROCESS_GROUP|CREATE_NO_WINDOW|EXTENDED_STARTUPINFO_PRESENT;
+ DWORD error;BOOL inJob=FALSE;LPWSTR retryLine;size_t length;
+ length=wcslen(command)+1;retryLine=malloc(length*sizeof(WCHAR));
+ if(!retryLine){SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
+ memcpy(retryLine,command,length*sizeof(WCHAR));
+ if(!WvCreateProcessW(app,command,NULL,NULL,TRUE,flags,NULL,NULL,startup,process)){error=GetLastError();free(retryLine);SetLastError(error);return FALSE;}
+ if(AssignProcessToJobObject(job,process->hProcess)){free(retryLine);return TRUE;}
+ error=GetLastError();
+ if(error!=ERROR_ACCESS_DENIED || WindowsAtLeast(6,2,0) || GetLastError()!=ERROR_OLD_WIN_VERSION ||
+    !IsProcessInJob(GetCurrentProcess(),NULL,&inJob) || !inJob){free(retryLine);SetLastError(error);return FALSE;}
+ if(!TerminateProcess(process->hProcess,error)){error=GetLastError();free(retryLine);SetLastError(error);return FALSE;}
+ CloseHandle(process->hThread);CloseHandle(process->hProcess);ZeroMemory(process,sizeof(*process));
+ if(!WvCreateProcessW(app,retryLine,NULL,NULL,TRUE,flags|CREATE_BREAKAWAY_FROM_JOB,NULL,NULL,startup,process)){
+  error=GetLastError();free(retryLine);SetLastError(error);return FALSE;
+ }
+ free(retryLine);return AssignProcessToJobObject(job,process->hProcess);
 }
 
 BOOL WvOpenFileDialog(LPOPENFILENAMEW ofn,BOOL save)

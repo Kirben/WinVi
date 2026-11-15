@@ -2,6 +2,7 @@
 $fixture=Join-Path $PSScriptRoot 'command-fixture.exe'
 $results=[Collections.Generic.List[object]]::new()
 function Run-Case($name,[scriptblock]$test){
+ if($env:WINVI_TEST_FILTER -and $name -notmatch $env:WINVI_TEST_FILTER){return}
  $script:v=$null;$clock=[Diagnostics.Stopwatch]::StartNew()
  try{& $test;if($script:v -and !$script:v.P.HasExited -and (Get-Item $script:v.Log).Length){throw ([IO.File]::ReadAllText($script:v.Log))};$results.Add([pscustomobject]@{Test=$name;Result='PASS';Milliseconds=$clock.ElapsedMilliseconds});"PASS $name"}
  catch{$results.Add([pscustomobject]@{Test=$name;Result='FAIL';Detail=$_.Exception.Message});"FAIL $name : $($_.Exception.Message)"}

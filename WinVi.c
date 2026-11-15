@@ -1924,7 +1924,12 @@ INT WINAPI WinMain(HINST hCurr, HINST hPrev, LPSTR lpCmd, INT nShow)
 {	INT Ret;
 
 	hInst = hCurr;
-    InitializeWindowsPlatform();
+    if(!InitializeWindowsPlatform()) {
+        WCHAR message[400];DWORD error=GetLastError();
+        _snwprintf(message,WSIZE(message),L"WinVi requires Windows 7 SP1 with KB2533623 (or a superseding update), or Windows 8/8.1, 10 or 11.\n\nRequired DLL-search hardening could not be enabled, or this Windows version is unsupported. Windows error: %lu.",error);
+        MessageBoxW(NULL,message,L"WinVi - unsupported Windows installation",MB_OK|MB_ICONERROR);
+        return 1;
+    }
 	//ArgList = lpCmd;
 	Language = GetDefaultLanguage(FALSE);
 	Ctl3dRegister(hInst);

@@ -1,5 +1,5 @@
 WinVi 3.02 native x64 community port - reliability update
-Windows 10 and Windows 11
+Windows 7 SP1 + KB2533623 (or superseding update), 8/8.1, 10 and 11 x64
 
 Extract the ZIP and run WinVi64.exe. Keep WinVi-en.htm and WinVi-de.htm beside it.
 The original GPL license and author notices are retained. See COPYING.txt.
@@ -35,9 +35,9 @@ undo/yank allocation and temporary disk space. Historical audits describe earlie
 RELIABILITY-AUDIT.txt and test-results describe this release.
 
 Build
-Install Visual Studio C++ x64 tools and a Windows SDK:
+Install MSVC v143 14.44 C++ x64 tools and a Windows SDK (see WINDOWS-COMPATIBILITY.md):
   source\build-x64.cmd
-For AddressSanitizer, install the MSVC ASan component:
+For Windows 10/11 AddressSanitizer diagnostics, install the MSVC ASan component:
   source\build-asan.cmd
 Release uses the static CRT. No separate Visual C++ redistributable is needed.
 

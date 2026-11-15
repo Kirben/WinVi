@@ -4,8 +4,9 @@ Unofficial continuation of Raphael Molle's WinVi 3.02. Original project:
 https://www.winvi.de/en/ . Source archive: https://www.winvi.de/wvsrc302.zip .
 The original author notices and GPL licence remain in the source and COPYING.txt.
 
-The current build targets Windows 10/11 x64. Windows 7/8 compatibility is not
-implemented or claimed. See README-x64.txt for build and test instructions;
+The release targets Windows 7 SP1 with KB2533623 (or a superseding update),
+Windows 8/8.1, 10 and 11 x64. See WINDOWS-COMPATIBILITY.md for requirements,
+toolset selection and the legacy runtime validation still needed. See README-x64.txt for build and test instructions;
 when working from this repository, run test.ps1 in this directory (the older
 packaged instructions use a source/ prefix).
 

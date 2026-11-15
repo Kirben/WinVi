@@ -30,3 +30,7 @@ static HFILE Win64Open(LPCSTR name,LPOFSTRUCT info,UINT mode) {
 #define OpenFile Win64Open
 #endif
 #endif
+
+#if defined(WINVI_LEGACY_TARGET) && defined(_MSC_VER) && _MSC_VER >= 1950
+#error Windows 7 distributable builds require the v143 toolset, not v145 or later.
+#endif
