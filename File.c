@@ -39,6 +39,7 @@
 #include "winvi.h"
 #include "map.h"
 #include "page.h"
+#include "SafeSave.h"
 
 #if !defined(WIN32)
 #	include <cderr.h>
@@ -242,116 +243,6 @@ void WatchMessage(PWSTR FileName)
 			_snwprintf(Format, WSIZE(Format), L"%s", L"Modified on disk: %s");
 		_snwprintf(Message, WSIZE(Message), Format, FileName);
 		MessageBoxW(hwndMain, Message, L"WinVi", MB_OK | MB_ICONEXCLAMATION);
-	#endif
-}
-
-#if defined(WIN32)
-
-static WCHAR  WatchName[WV_PATH_CAP+2];
-static HANDLE WatchEvents[2] = {INVALID_HANDLE_VALUE, 0};
-							   /*0: ChangeNotification, 1:QuitEvent*/
-
-DWORD WINAPI WatchFileThread(LPVOID Unused)
-{	PWSTR	 p1, p2;
-	FILETIME FileTime;
-	BOOL	 Done;
-
-	PARAM_NOT_USED(Unused);
-	p1 = wcsrchr(WatchName, '\\');
-	p2 = wcsrchr(WatchName, '/' );
-	if (p1 != NULL || p2 != NULL) {
-		if (p1 == NULL || (p2 != NULL && p2 > p1)) p1 = p2;
-		*p1++ = '\0';
-	} else {
-		memmove(p1=WatchName+2, WatchName, 2*wcslen(WatchName)+2);
-		WatchName[0] = '.';
-		WatchName[1] = '\0';
-	}
-	WatchEvents[0] = FindFirstChangeNotificationW(WatchName, FALSE,
-					   FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE);
-	if (WatchEvents[0] == INVALID_HANDLE_VALUE) return (1);
-	p1[-1] = '\\';
-	Done = FALSE;
-	do {
-		HANDLE hFile;
-		DWORD  WaitResult;
-		INT    i;
-
-		WaitResult = WaitForMultipleObjects(2, WatchEvents, FALSE, INFINITE);
-		switch (WaitResult) {
-			case WAIT_OBJECT_0:
-				/*directory modified*/
-				break;
-			default:
-				/*quit signal or error*/
-				Done = TRUE;
-				break;
-		}
-		if (Done) break;
-		for (i=0; i<3; ++i) {
-			hFile = CreateFileW(WatchName, 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
-							    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-							    NULL);
-			if (hFile != INVALID_HANDLE_VALUE) break;
-			Sleep(200);	/*try again after 200 ms...*/
-		}
-		if (hFile != INVALID_HANDLE_VALUE) {
-			BOOL Ok = GetFileTime(hFile, NULL, NULL, &FileTime);
-
-			CloseHandle(hFile);
-			if (Ok && (FileTime.dwLowDateTime  != LastTime.dwLowDateTime ||
-					   FileTime.dwHighDateTime != LastTime.dwHighDateTime)) {
-				static BOOL FlashState;
-
-				FlashState = FALSE;
-				while (!CaretActive) {
-					INT i;
-
-					FlashWindow(hwndMain, FlashState ^= TRUE ^ FALSE);
-					for (i=0; i<5 && !CaretActive; ++i) Sleep(100);
-				}
-				if (FlashState) FlashWindow(hwndMain, FlashState = FALSE);
-				PostMessage(hwndMain, WM_USER+1236, 0, (LPARAM)p1);
-				break;
-			}
-			Sleep(200);	/*avoid drawbacks from change notification bursts*/
-		}
-	} while (FindNextChangeNotification(WatchEvents[0]));
-	FindCloseChangeNotification(WatchEvents[0]);
-	ExitThread(0);		/*...not necessary to warn once more*/
-	return (0);
-}
-
-#endif
-
-BOOL WatchFile(const WCHAR *FileName)
-{
-	#if defined(WIN32)
-		static HANDLE hThread = 0;
-		static DWORD  dwThreadId;
-
-		if (WatchEvents[1] == 0) {
-			WatchEvents[1] = CreateEvent(NULL, FALSE, FALSE, NULL);
-			if (WatchEvents[1] == 0) return (FALSE);
-		}
-		if (hThread != 0) {
-			SetEvent(WatchEvents[1]);
-			if (WaitForSingleObject(hThread, 2000) == WAIT_TIMEOUT)
-				TerminateThread(hThread, 2);
-			CloseHandle(hThread);
-		}
-		ResetEvent(WatchEvents[1]);
-		if (FileName == NULL ||
-				(LastTime.dwHighDateTime==0 && LastTime.dwLowDateTime==0)) {
-			hThread = 0;
-			return (TRUE);
-		}
-		wcsncpy(WatchName, FileName, WSIZE(WatchName) - 2);
-		hThread = CreateThread(NULL, 1024, WatchFileThread, (LPVOID)NULL,
-							   0, &dwThreadId);
-		return (hThread != 0);
-	#else
-		return (FALSE);
 	#endif
 }
 
@@ -1328,6 +1219,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		BOOL   FileExists;
 		INT	   i;
 		INT    ErrorVal		= 0;
+        WV_SAVE transaction={0};
 		PWSTR  DispFileName = FileName;
 
 		if (!wcschr(FileName, '\\') && !wcschr(FileName, '/')) {
@@ -1345,7 +1237,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		DragAcceptFiles(hwndMain, FALSE);
 
 		/*open for checking file date/time first...*/
-		hf = (HFILE)CreateFileW(FileName, GENERIC_READ, 0, NULL,
+		hf = (HFILE)CreateFileW(FileName, FILE_READ_ATTRIBUTES, 0, NULL,
 								OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
 								NULL);
 		FileExists = hf!=HFILE_ERROR;
@@ -1452,14 +1344,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 					CreateAttr = Attr | FILE_FLAG_SEQUENTIAL_SCAN;
 				}
 			}
-			hf = (HFILE)CreateFileW(FileName, GENERIC_WRITE, 0, NULL,
-									#if WRITE_WITH_CREAT
-									  OpenMode==OF_WRITE ? OPEN_ALWAYS
-									  					 : CREATE_ALWAYS,
-									#else
-									  OPEN_ALWAYS,
-									#endif
-									CreateAttr, NULL);
+            hf=WvBeginSave(FileName,OpenMode==OF_WRITE,&transaction) ? (HFILE)transaction.File : HFILE_ERROR;
 		}
 		if (hf != HFILE_ERROR) {
 			INT  i, n;
@@ -1510,16 +1395,12 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 					Length += i;
 				}
 			} while (FALSE);
-			if (!ErrorVal) {
-				#if defined(WIN32)
-					if (!SetEndOfFile((HANDLE)hf)) ErrorVal = 107;
-    				i = !CloseHandle((HANDLE)(hf));
-				#else
-					_chsize(hf, _llseek(hf, 0L, 1));
-					i = _lclose(hf);
-				#endif
-				if (i) ErrorVal = 107;
-			} else _lclose(hf);
+            if (!ErrorVal && !WvCommitSave(&transaction)) ErrorVal=107;
+            if(transaction.RetainRecovery) {
+                _snwprintf(BufferW,WSIZE(BufferW),L"Save failed during replacement. Recovery files were retained:\n%s\n%s",transaction.Backup,transaction.Temporary);
+                BufferW[WSIZE(BufferW)-1]=0;
+                MessageBoxW(hwndMain,BufferW,L"WinVi save recovery",MB_OK|MB_ICONEXCLAMATION);
+            }
 			AddToFileList(DispFileName);
 			Enable();
 			Interruptable = SavInterruptable;
@@ -1529,6 +1410,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		#else
 		//	else ErrorVal = OpenMode==OF_WRITE ? 111 : 110;
 		#endif
+        WvAbortSave(&transaction);
 		if (ErrorVal) {
 			PWSTR p;
 
@@ -1574,6 +1456,7 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		}
 		if (SetSafeAfterWrite) SetSafe(IsCurrFile);
 		else if (IsCurrFile) SetUnsafe();
+        if(SetReadOnly){DWORD attributes=GetFileAttributesW(FileName);if(attributes!=INVALID_FILE_ATTRIBUTES)SetFileAttributesW(FileName,attributes|FILE_ATTRIBUTE_READONLY);}
 		if (hf!=HFILE_ERROR) {
 			#if defined(WIN32)
 				if (SetReadOnly) {

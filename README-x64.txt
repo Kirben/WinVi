@@ -1,57 +1,73 @@
-Stability update: see BUG-AUDIT.txt for reproduced failures, fixes and current tests.
+WinVi 3.02 native x64 community port - reliability update
+Windows 10 and Windows 11
 
-WinVi 3.02 — native x64 port, Windows 10/11
+Extract the ZIP and run WinVi64.exe. Keep WinVi-en.htm and WinVi-de.htm beside it.
+The original GPL license and author notices are retained. See COPYING.txt.
 
-Security update (15 November 2026): see SECURITY-AUDIT.txt for fixes and evidence.
+This update adds:
+- Staged ordinary saves: write a same-directory temporary file, flush it, then replace
+  the destination. Write/flush failures do not overwrite the original. Replacement
+  failures retain recovery data when necessary. Existing creation time, ACLs and named
+  streams are preserved through the Windows replacement API.
+- Cooperative command/file-watcher shutdown, operation-owned buffers and contexts,
+  checked worker/event creation, and generation-checked asynchronous completion.
+- A single portable build-and-test entry point, with isolated per-build scratch data
+  and machine-readable results.
 
-Extract the ZIP and run WinVi64.exe. Keep WinVi-en.htm and WinVi-de.htm beside it for Help.
-There is no fixed GiB file-size cap. Capacity depends on available memory, temporary disk
-space, the filesystem, and signed 64-bit file positions. See SIZE-AUDIT.txt for evidence
-and the remaining operation-specific limits.
+Append writes, hard-linked files, reparse-point paths and alternate data streams retain
+in-place writing to preserve their identity/append semantics; those writes are not
+transactional. Ordinary staged saves need space for an additional copy of the file and
+permission to create/replace files in the destination directory. There is no unsafe
+in-place fallback if staging fails.
 
-Source and original GPL license are included in source/ and COPYING.txt.
-Build on Windows with Visual Studio C++ x64 tools and Windows SDK:
+If an unusual replacement failure leaves recovery files, WinVi reports their paths.
+Files named ~wv-save-<random>.tmp/.bak belong to staged saves. After a forced process
+termination a partial temporary file can remain; the original is not overwritten until
+the commit step. Do not assume a temporary file contains a complete document.
+
+Shell commands run in an owned job. Cancelling a command or closing its editor stops
+that command and its descendants. Background descendants also end with their command
+session. Command output remains editable/undoable through the editor's normal mechanisms.
+
+The earlier x64, Unicode, security and large-file changes remain. There is no fixed GiB
+file-size cap; real limits include signed 64-bit positions, memory, filesystem capacity,
+undo/yank allocation and temporary disk space. Historical audits describe earlier builds;
+RELIABILITY-AUDIT.txt and test-results describe this release.
+
+Build
+Install Visual Studio C++ x64 tools and a Windows SDK:
   source\build-x64.cmd
-The rebuilt executable and manuals are placed in source\x64\.
-The release uses the static CRT; no separate Visual C++ redistributable is needed.
-For an AddressSanitizer build, install the MSVC ASan component and run source\build-asan.cmd.
+For AddressSanitizer, install the MSVC ASan component:
+  source\build-asan.cmd
+Release uses the static CRT. No separate Visual C++ redistributable is needed.
 
-Tests require PowerShell 7; native helper tests require the C++ build tools.
-  pwsh -NoProfile -File source\tests\integration.ps1
-  pwsh -NoProfile -File source\tests\read-failure.ps1
-  source\tests\security-regression.cmd
-  source\tests\hex-layout-test.cmd
-  source\tests\page-fault-test.cmd
-  source\tests\size-test.cmd
-  source\tests\io-test.cmd
-  source\tests\format-test.cmd
-  source\tests\platform-test.cmd
-By default the PowerShell tests use the shipped executable. Set WINVI_TEST_EXE to an
-absolute executable path to test a rebuilt or sanitizer version.
+Unified verification (PowerShell 7 plus MSVC x64 tools and the ASan component):
+  pwsh -NoProfile -File source\test.ps1 -Configuration Both
+  pwsh -NoProfile -File source\test.ps1 -Configuration Both -LargeFiles -LargeGiB 17 -DenseLines
+Options:
+  -Configuration Release|Asan|Both
+  -SkipBuild        skip rebuilding application executables; native helpers still build
+  -LargeFiles       run full-content generated-file open/edit/undo/save/hash tests
+  -LargeGiB N       generated input size, default 17 GiB
+  -DenseLines       use two-byte lines for line-count stress
+The runner writes isolated cases, logs, JSON results and executable hashes under
+source/tests/results/<timestamp>. It runs formatting/path/size/I/O/pager/hex tests,
+focused ASan regressions, save-failure injection, editing, read-failure preservation,
+regex cancellation and command/watcher lifecycle checks.
 
-Optional full-content stress tests:
-  pwsh -NoProfile -File source\tests\large-audit.ps1 -GiB 17 -DenseLines
-  pwsh -NoProfile -File source\tests\large-audit.ps1 -GiB 32
-Allow disk space for both the generated input and the editor's temporary page store.
-Large fixtures are removed by default; -KeepFile retains them. -ReuseInput restores and
-reuses a previously generated -KeepFile fixture. Do not run two tests on the same fixture.
-The tests edit only their scratch files under source\tests\cases and close their own
-editor processes. They also exercise normal editor settings and recent-file behavior.
+The runner builds x64/WinVi64-reliable.exe and asan/WinVi64.exe. Individual tests accept
+WINVI_TEST_EXE as an absolute executable path. Tests operate on local dummy data and
+close only their own child processes. Inherited security tests mock network enumeration
+and unsafe dispatch; their trusted shell test runs System32 cmd.exe with "exit 0".
 
-The original source README and most of the original help are historical documentation.
-The x64 port notes supersede their old operating-system and file-size statements.
-Upstream source: https://www.winvi.de/wvsrc302.zip
-Upstream help distribution: https://www.winvi.de/winvi302.zip
+Allow ample temporary disk space for large tests: input, paging store and staged output
+can coexist. Large fixtures are removed by default. Timings reflect host load, not a
+controlled performance benchmark.
 
-Security regressions require the MSVC ASan component. They intercept unsafe tag
-commands and mock network APIs. They launch trusted System32 cmd.exe with exit 0
-and force-terminate their own temporary child to check paging-file cleanup.
+Runtime verification here used Windows 11. Windows 10 remains the supported minimum
+target but was not separately runtime-tested on another installation.
 
-Security restrictions: tags accept numeric/search addresses, not general Ex commands.
-Shell formats must start with %0 or quoted %0. Bare cmd.exe resolves to System32.
-Background BMPs must be validated, uncompressed BI_RGB. See SECURITY-AUDIT.txt.
-
-Additional local stability tests:
-  source\tests\bugs\build-and-test.cmd
-  pwsh -NoProfile -File source\tests\search-cancel.ps1
-
+Original upstream source: https://www.winvi.de/wvsrc302.zip
+Original upstream help: https://www.winvi.de/winvi302.zip
+An existing public source mirror/VS project is https://github.com/FigBug/WinVi .
+This community port is distinct from the upstream 32-bit 3.02 release.

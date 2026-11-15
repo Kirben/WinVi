@@ -481,3 +481,7 @@ PWSTR GetViVersion(void);
 void WmUnicodeScalar(WPARAM);
 
 void DeleteBackward(UINT);
+
+void WvWatchMessage(WPARAM,LPARAM);
+
+void WvWatchFlash(WPARAM,LPARAM);

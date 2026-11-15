@@ -44,7 +44,9 @@ static LPWSTR NativePath(LPCWSTR name)
  else if(full[0]==L'\\' && full[1]==L'\\'){WvCopyString(result,L"\\\\?\\UNC\\");wcscat(result,full+2);}
  else{WvCopyString(result,L"\\\\?\\");wcscat(result,full);}
  done:error=GetLastError();free(full);free(joined);SetLastError(error);return result;
-}HANDLE WvCreateFileW(LPCWSTR n,DWORD a,DWORD s,LPSECURITY_ATTRIBUTES sa,DWORD c,DWORD f,HANDLE t) {
+}
+LPWSTR WvAbsolutePath(LPCWSTR name){return NativePath(name);}
+HANDLE WvCreateFileW(LPCWSTR n,DWORD a,DWORD s,LPSECURITY_ATTRIBUTES sa,DWORD c,DWORD f,HANDLE t) {
  LPWSTR p=NativePath(n);HANDLE h;DWORD e;if(!p)return INVALID_HANDLE_VALUE;h=CreateFileW(p,a,s,sa,c,f,t);e=GetLastError();free(p);SetLastError(e);return h;
 }
 BOOL WvDeleteFileW(LPCWSTR n) {LPWSTR p=NativePath(n);BOOL r;DWORD e;if(!p)return FALSE;r=DeleteFileW(p);e=GetLastError();free(p);SetLastError(e);return r;}

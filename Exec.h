@@ -19,3 +19,5 @@ VOID ReleaseXOff(VOID);
 BOOL ExecPiped(PWSTR, WORD);
 VOID ExecInput(WPARAM, LPARAM);
 VOID ExecInterrupt(int);
+
+void ExecShutdown(void);

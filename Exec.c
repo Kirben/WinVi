@@ -37,223 +37,166 @@
 #include "page.h"
 #include "exec.h"
 
-#if defined(WIN32)
 
+extern LPSTR Shell,ShellCommand;
+extern WCHAR BufferW[WV_TEXT_CAP];
+/* Owned command sessions; workers never access editor document/UI state. */
 extern PWSTR LastCmd;
-extern CHAR  QueryString[150];
+extern CHAR QueryString[150];
 extern DWORD QueryTime;
+typedef struct {DWORD Size;BYTE Bytes[2048];} WV_OUTPUT;
+typedef struct {
+ volatile LONG References,Error;
+ HANDLE Stop,Start,Continue,Run,Job,InputThread,OutputThread;
+ HANDLE InputPipe,OutputPipe;
+ PROCESS_INFORMATION Process;
+ BYTE *Input;WV_ULONG InputSize;
+ HWND Window;ULONG_PTR Generation;WORD Flags;
+} WV_COMMAND;
+static WV_COMMAND *ActiveCommand;
+static ULONG_PTR CommandGeneration;
+BOOL XOffState=FALSE;
+POSITION ExecInsertPos;
 
-static LPSTR lpMemData;
-static WV_ULONG dwMemSize;
-
-DWORD WINAPI InputThread(LPVOID lpParam)
-	/*this thread handles command input*/
-{	HANDLE Pipe = (HANDLE)lpParam;
-	DWORD  Written;
-
-	if (lpMemData) {
-        WV_ULONG offset=0;
-        while(offset<dwMemSize) {
-            DWORD amount=(DWORD)(dwMemSize-offset>1048576 ? 1048576 : dwMemSize-offset);
-            if(!WriteFile(Pipe,lpMemData+offset,amount,&Written,NULL) || !Written)break;
-            offset+=Written;
-        }
-    }
-	CloseHandle(Pipe);
-	return (0);
+static void CommandError(WV_COMMAND *s,DWORD error){InterlockedCompareExchange(&s->Error,(LONG)error,0);}
+static void ReleaseCommand(WV_COMMAND *s)
+{
+ if(InterlockedDecrement(&s->References))return;
+ if(s->InputThread)CloseHandle(s->InputThread);if(s->OutputThread)CloseHandle(s->OutputThread);
+ if(s->InputPipe)CloseHandle(s->InputPipe);if(s->OutputPipe)CloseHandle(s->OutputPipe);
+ if(s->Process.hThread)CloseHandle(s->Process.hThread);if(s->Process.hProcess)CloseHandle(s->Process.hProcess);
+ if(s->Job)CloseHandle(s->Job);
+ if(s->Stop)CloseHandle(s->Stop);if(s->Start)CloseHandle(s->Start);
+ if(s->Continue)CloseHandle(s->Continue);if(s->Run)CloseHandle(s->Run);
+ free(s->Input);free(s);
 }
-
-static HANDLE			   hSemaContinueReading, hSemaWaitXOff;
-static PROCESS_INFORMATION pi;
-static volatile LPSTR	   pError = "No problem";
-static volatile BOOL	   Done, GotFromPipe, WaitingForPaint;
-static volatile HANDLE	   hThread1, hThread2, hThread3;
-static volatile BOOL	   XOffWaiting1, XOffWaiting2;
-static BOOL				   DiscardOutput;
-
-BOOL XOffState = FALSE;
-
-DWORD WINAPI OutputThread(LPVOID lpParam)
-	/*this thread handles command output, i.e. WinVi input*/
-{	HANDLE PipeVcv = (HANDLE)lpParam;
-	BOOL   Ok	   = TRUE;
-
-	for (;;) {
-		static CHAR	Buf[2048];
-		DWORD		Read;
-
-		if (!DiscardOutput) {
-			WaitingForPaint = TRUE;
-			WaitForSingleObject(hSemaContinueReading, INFINITE);
-			WaitingForPaint = FALSE;
-		}
-		PeekNamedPipe(PipeVcv, NULL, 0, NULL, &Read, NULL);
-		if (Read <= 0 && Ok && !Done) Read = 1;
-		else if (Read > sizeof(Buf)) Read = sizeof(Buf);
-		if (Read && !(Ok = ReadFile(PipeVcv, Buf, Read, &Read, NULL))) Read = 0;
-		GotFromPipe = TRUE;
-		if (Read <= 0) {
-			CloseHandle(PipeVcv);
-			PostMessage(hwndMain, WM_USER+1235, 0, 0);
-			return (0);
-		}
-		XOffWaiting1 = TRUE;
-		if (XOffState) {
-			XOffWaiting2 = TRUE;
-			WaitForSingleObject(hSemaWaitXOff, INFINITE);
-		}
-		XOffWaiting1 = FALSE;
-		if (!DiscardOutput)
-			PostMessage(hwndMain, WM_USER+1235, (WPARAM)Read, (LPARAM)Buf);
-	}
+static BOOL CommandWait(WV_COMMAND *s,HANDLE ready)
+{
+ HANDLE events[2]={s->Stop,ready};return WaitForMultipleObjects(2,events,FALSE,INFINITE)==WAIT_OBJECT_0+1;
 }
-
+static DWORD WINAPI CommandInput(LPVOID parameter)
+{
+ WV_COMMAND *s=parameter;WV_ULONG offset=0;
+ if(CommandWait(s,s->Start))while(offset<s->InputSize){
+  DWORD amount=(DWORD)(s->InputSize-offset>1048576?1048576:s->InputSize-offset),written=0;
+  if(WaitForSingleObject(s->Stop,0)==WAIT_OBJECT_0)break;
+  if(!WriteFile(s->InputPipe,s->Input+offset,amount,&written,NULL)||!written)break;
+  offset+=written;
+ }
+ CloseHandle(s->InputPipe);s->InputPipe=NULL;ReleaseCommand(s);return 0;
+}
+static DWORD WINAPI CommandOutput(LPVOID parameter)
+{
+ WV_COMMAND *s=parameter;BOOL broken=FALSE;
+ if(!CommandWait(s,s->Start))goto done;
+ for(;;){
+  DWORD available=0,read=0;WV_OUTPUT *packet;BYTE discard[2048];
+  if(WaitForSingleObject(s->Stop,0)==WAIT_OBJECT_0)break;
+  if(s->Flags&2){if(!CommandWait(s,s->Continue)||!CommandWait(s,s->Run))break;}
+  for(;;){
+   HANDLE events[2]={s->Stop,s->Process.hProcess};
+   if(WaitForSingleObject(s->Stop,0)==WAIT_OBJECT_0)goto done;
+   if(!broken && !PeekNamedPipe(s->OutputPipe,NULL,0,NULL,&available,NULL)){
+    DWORD error=GetLastError();broken=TRUE;
+    if(error!=ERROR_BROKEN_PIPE && error!=ERROR_NO_DATA && error!=ERROR_OPERATION_ABORTED)CommandError(s,error);
+   }
+   if(available)break;
+   {DWORD result=WaitForMultipleObjects(2,events,FALSE,25);
+    if(result==WAIT_OBJECT_0)goto done;
+    if(result==WAIT_OBJECT_0+1){if(!broken && PeekNamedPipe(s->OutputPipe,NULL,0,NULL,&available,NULL) && available)break;goto done;}
+    if(result==WAIT_FAILED){CommandError(s,GetLastError());goto done;}
+   }
+  }
+  if(available>sizeof(discard))available=sizeof(discard);
+  packet=(s->Flags&2)?malloc(sizeof(*packet)):NULL;
+  if((s->Flags&2)&&!packet){CommandError(s,ERROR_NOT_ENOUGH_MEMORY);goto done;}
+  if(!ReadFile(s->OutputPipe,packet?packet->Bytes:discard,available,&read,NULL)||!read){
+   free(packet);broken=TRUE;
+   if(s->Flags&2)SetEvent(s->Continue);continue;
+  }
+  if(packet){packet->Size=read;if(!PostMessage(s->Window,WM_USER+1235,s->Generation,(LPARAM)packet)){free(packet);goto done;}}
+ }
+done:
+ CloseHandle(s->OutputPipe);s->OutputPipe=NULL;
+ PostMessage(s->Window,WM_USER+1235,s->Generation,0);ReleaseCommand(s);return 0;
+}
+static void StopCommand(WV_COMMAND *s)
+{
+ HANDLE threads[2]={s->InputThread,s->OutputThread};DWORD i,start=GetTickCount();
+ SetEvent(s->Stop);SetEvent(s->Start);SetEvent(s->Continue);SetEvent(s->Run);
+ if(s->Job)TerminateJobObject(s->Job,ERROR_CANCELLED);
+ for(;;){
+  BOOL done=TRUE;
+  for(i=0;i<2;i++)if(threads[i]&&WaitForSingleObject(threads[i],0)==WAIT_TIMEOUT){done=FALSE;CancelSynchronousIo(threads[i]);}
+  if(done || GetTickCount()-start>=1000)break;Sleep(10);
+ }
+ /* Delayed I/O completion retains its own reference, never a dangling context. */
+ ReleaseCommand(s);
+}
 VOID ReleaseXOff(VOID)
 {
-	while (XOffWaiting1) {
-		if (XOffWaiting2) {
-			XOffWaiting2 = FALSE;
-			ReleaseSemaphore(hSemaWaitXOff, 1, NULL);
-			return;
-		}
-		Sleep(10);
-	}
+ if(ActiveCommand){if(XOffState)ResetEvent(ActiveCommand->Run);else SetEvent(ActiveCommand->Run);}
 }
-
-DWORD WINAPI WatchThread(LPVOID lpParam)
+BOOL ExecRunning(VOID){return ActiveCommand!=NULL;}
+VOID ExecInterrupt(INT event)
 {
-	PARAM_NOT_USED(lpParam);
-	WaitForSingleObject((HANDLE)pi.hProcess, INFINITE);
-	Done = TRUE;
-	if (hThread1 && WaitForSingleObject(hThread1, 0)==WAIT_TIMEOUT)
-		TerminateThread(hThread1, 0);
-	if (XOffState) WaitForSingleObject(hThread2, INFINITE);
-	if (!WaitingForPaint && ViewOnlyFlag) {
-		GotFromPipe = FALSE;
-		Sleep(1000);
-		if (!GotFromPipe && !WaitingForPaint) {
-			if (hThread2) TerminateThread(hThread2, 0);
-			if (ViewOnlyFlag) PostMessage(hwndMain, WM_USER+1235, 0, 0);
-		}
-	}
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
-	pi.hProcess = NULL;
-	return (0);
+ (void)event;if(ActiveCommand){SetEvent(ActiveCommand->Stop);SetEvent(ActiveCommand->Continue);SetEvent(ActiveCommand->Run);TerminateJobObject(ActiveCommand->Job,ERROR_CANCELLED);}
+ XOffState=FALSE;
 }
-
-POSITION	ExecInsertPos;
-static BOOL	ConsoleAttached = FALSE;
-
-#endif
-
-VOID ExecInput(WPARAM Read, LPARAM pBuf)
+VOID ExecShutdown(VOID)
 {
-	#if defined(WIN32)
-		if (Read) {
-			LPSTR		Buf = (LPSTR)pBuf;
-			INT			nActPos;
-			POSITION	OldPos;
-			INT			AdvanceAmount = CurrPos.i;
-			extern BOOL SetSafeAfterWrite;
-			PWSTR		Buf2 = NULL;
-			BOOL		LastWasCr  = Buf[Read-1] == '\r';
-
-			nActPos = ComparePos(&CurrPos, &ExecInsertPos);
-			if (nActPos != 0) {
-				OldPos = CurrPos;
-				if (nActPos > 0) {
-					while (OldPos.p->PageNo > ExecInsertPos.p->PageNo) {
-						OldPos.p = OldPos.p->Prev;
-						AdvanceAmount += OldPos.p->Fill;
-					}
-					AdvanceAmount -= ExecInsertPos.i;
-				}
-				CurrPos = ExecInsertPos;
-			}
-			SetSafeAfterWrite = FALSE; /*write operation may be in progress*/
-			ViewOnlyFlag      = FALSE;
-			if (UtfEncoding) {
-				Buf2 = malloc(Read * sizeof(WCHAR));
-				if (Buf2 == NULL) {
-					/*TODO: display error*/
-				} else {
-					extern INT OemCodePage;
-					INT		   m, n;
-
-					n = MultiByteToWideChar(OemCodePage, 0, Buf, Read,
-											Buf2, Read);
-					if (UtfEncoding == 8) {
-						LPSTR Buf3;
-
-						m = WideCharToMultiByte(CP_UTF8, 0, Buf2, n,
-												NULL, 0, NULL, NULL);
-						Buf3 = malloc(m);
-						if (Buf3 == NULL) {
-							/*TODO: display error*/
-						} else {
-							n = WideCharToMultiByte(CP_UTF8, 0, Buf2, n,
-													Buf3, m, NULL, NULL);
-							free(Buf2);
-							Buf2 = (PWSTR)Buf3;
-						}
-					} else {
-						if (!UtfLsbFirst) {
-							for (m=0; m<n; ++m)
-								Buf2[m] = (Buf2[m] << 8) | (Buf2[m] >> 8);
-						}
-						n *= sizeof(WCHAR);
-					}
-					Buf  = (LPSTR)Buf2;
-					Read = n;
-				}
-			}
-			InsertBuffer(Buf, Read, 0);
-			ExecInsertPos = CurrPos;
-			if (Buf2 != NULL) free(Buf2);
-			if (LastWasCr) {
-				GoBackAndChar(&ExecInsertPos);
-				Advance(&ExecInsertPos, UtfEncoding == 16 ? 2 : 1);
-			}
-			if (nActPos > 0) {
-				OldPos = ExecInsertPos;
-				Advance(&OldPos, AdvanceAmount);
-			}
-			NewPosition(nActPos == 0 ? &ExecInsertPos : &OldPos);
-			ShowEditCaret();
-			ViewOnlyFlag  = TRUE;
-			ReleaseSemaphore(hSemaContinueReading, 1, NULL);
-		} else if (ViewOnlyFlag) {
-			ViewOnlyFlag = FALSE;
-			if (ConsoleAttached) {
-				FreeConsole();
-				ConsoleAttached = FALSE;
-			}
-			GotChar('\033', 0);
-			FindValidPosition(&CurrPos, 0);
-			ShowEditCaret();
-			CloseHandle(hSemaContinueReading);
-			CloseHandle(hSemaWaitXOff);
-			Interruptable = FALSE;
-			EnableToolButton(IDB_NEW, TRUE);
-			EnableToolButton(IDB_OPEN, TRUE);
-			DragAcceptFiles(hwndMain, TRUE);
-			CheckClipboard();
-			if (pError) MessageBox(hwndMain, pError, "Test", MB_OK);
-			if (hThread1) {CloseHandle(hThread1); hThread1 = 0;}
-			if (hThread2) {CloseHandle(hThread2); hThread2 = 0;}
-			if (hThread3) {CloseHandle(hThread3); hThread3 = 0;}
-		}
-	#endif
+ WV_COMMAND *s=ActiveCommand;MSG message;ActiveCommand=NULL;
+ if(s)StopCommand(s);
+ if(hwndMain)while(PeekMessage(&message,hwndMain,WM_USER+1235,WM_USER+1235,PM_REMOVE))free((void*)message.lParam);
 }
-
-BOOL CALLBACK MyControlHandler(DWORD dwCtrlType)
+static BOOL InsertCommandOutput(WV_OUTPUT *packet)
 {
-	/*ignore event*/
-	PARAM_NOT_USED(dwCtrlType);
-	return (TRUE);
+ BYTE *buffer=packet->Bytes,*converted=NULL;DWORD size=packet->Size;
+ POSITION old;INT relation=ComparePos(&CurrPos,&ExecInsertPos);WV_ULONG advance=CurrPos.i;
+ BOOL lastCr=size&&buffer[size-1]=='\r',ok=FALSE;extern BOOL SetSafeAfterWrite;extern INT OemCodePage;
+ if(relation){old=CurrPos;if(relation>0){while(old.p->PageNo>ExecInsertPos.p->PageNo){old.p=old.p->Prev;advance+=old.p->Fill;}advance-=ExecInsertPos.i;}CurrPos=ExecInsertPos;}
+ SetSafeAfterWrite=FALSE;ViewOnlyFlag=FALSE;
+ if(UtfEncoding){
+  WCHAR *wide;INT count,bytes,i;wide=malloc(size*sizeof(WCHAR));
+  if(!wide){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto finish;}
+  count=MultiByteToWideChar(OemCodePage,0,(LPCSTR)buffer,size,wide,size);
+  if(!count){free(wide);goto finish;}
+  if(UtfEncoding==8){
+   bytes=WideCharToMultiByte(CP_UTF8,0,wide,count,NULL,0,NULL,NULL);
+   converted=bytes?malloc(bytes):NULL;
+   if(!converted){free(wide);SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto finish;}
+   if(!WideCharToMultiByte(CP_UTF8,0,wide,count,(LPSTR)converted,bytes,NULL,NULL)){free(wide);goto finish;}
+   free(wide);size=bytes;
+  } else {if(!UtfLsbFirst)for(i=0;i<count;i++)wide[i]=(wide[i]<<8)|(wide[i]>>8);converted=(BYTE*)wide;size=count*sizeof(WCHAR);}
+  buffer=converted;
+ }
+ if(!InsertBuffer(buffer,size,0)){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto finish;}
+ ExecInsertPos=CurrPos;
+ if(lastCr){GoBackAndChar(&ExecInsertPos);Advance(&ExecInsertPos,UtfEncoding==16?2:1);}
+ if(relation>0){old=ExecInsertPos;Advance(&old,advance);}
+ NewPosition(relation?&old:&ExecInsertPos);ShowEditCaret();ok=TRUE;
+finish:
+ free(converted);ViewOnlyFlag=ActiveCommand!=NULL;return ok;
 }
-
+VOID ExecInput(WPARAM generation,LPARAM data)
+{
+ WV_COMMAND *s=ActiveCommand;WV_OUTPUT *packet=(WV_OUTPUT*)data;
+ if(!s || generation!=s->Generation){free(packet);return;}
+ if(packet){
+  InterlockedIncrement(&s->References); /* UI callbacks can reenter shutdown. */
+  if(WaitForSingleObject(s->Stop,0)!=WAIT_OBJECT_0 && !InsertCommandOutput(packet)){
+   CommandError(s,GetLastError());if(ActiveCommand==s)ExecInterrupt(0);
+  }
+  free(packet);if(ActiveCommand==s)ReleaseXOff();SetEvent(s->Continue);ReleaseCommand(s);return;
+ }
+ {
+  DWORD error=(DWORD)s->Error;ActiveCommand=NULL;StopCommand(s);
+  ViewOnlyFlag=FALSE;Interruptable=FALSE;XOffState=FALSE;GotChar('\033',0);
+  FindValidPosition(&CurrPos,0);ShowEditCaret();EnableToolButton(IDB_NEW,TRUE);EnableToolButton(IDB_OPEN,TRUE);
+  DragAcceptFiles(hwndMain,TRUE);CheckClipboard();
+  if(error){_snwprintf(BufferW,WSIZE(BufferW),L"Command I/O stopped (Windows error %lu).",error);NewStatus(0,BufferW,NS_ERROR);}
+ }
+}
 PSTR ExpandSys32(PSTR Dllname)
 {	static CHAR Path[MAX_PATH];
 	INT			len;
@@ -267,289 +210,91 @@ PSTR ExpandSys32(PSTR Dllname)
 	return "";	/*better prevent DLL loading than doing it unsafe*/
 }
 
-VOID ExecInterrupt(INT InterruptEvent)
-{
-	#if defined(WIN32)
-		if (pi.hProcess) {
-			/*first try to use [AttachConsole ->] GenerateConsoleCtrlEvent...*/
-			typedef BOOL (*ATTACHCONSOLEPROC)(DWORD);
-			static HINST hKernel;
-			static ATTACHCONSOLEPROC AttachConsole;
-			BOOL Result;
-			CHAR LastError[32];
-
-			DiscardOutput = TRUE;
-			XOffState = FALSE;
-			ReleaseXOff();
-			if (!ConsoleAttached) {
-				if (!hKernel)
-					if (!(hKernel = LoadLibrary(ExpandSys32("kernel32.dll"))))
-						return;
-				if (AttachConsole == NULL) {
-					AttachConsole = (ATTACHCONSOLEPROC)
-									GetProcAddress(hKernel, "AttachConsole");
-					if (AttachConsole == NULL) return;
-				}
-				if (!AttachConsole(pi.dwProcessId)) return;
-			}
-			SetConsoleCtrlHandler(MyControlHandler, TRUE);
-			#if 1	/*CTRL_C_EVENT does not work, so enforce a CTRL_BREAK*/
-				InterruptEvent = CTRL_BREAK_EVENT;
-			#endif
-			Result = GenerateConsoleCtrlEvent(InterruptEvent, pi.dwProcessId);
-			wsprintf(LastError, Result ? "ok" : "failed (LastError=%d)",
-					 GetLastError());
-			if (!ConsoleAttached) FreeConsole();
-			wsprintf(QueryString, "GenerateConsoleCtrlEvent(%d) %s",
-								  InterruptEvent, LastError);
-			QueryTime = GetTickCount();
-			if (Result) return;
-		}
-	#endif
-}
-
-#if defined(WIN32)
-VOID CreateConsole(VOID)
-{
-	CHAR Title[40];
-	HWND ConsoleWindow;
-	INT  i;
-
-	if (WinVersion < MAKEWORD(1,5)) {
-		/*only for non-WinXP, in WinXP AttachConsole is used*/
-		wsprintf(Title, "WinVi 0x%08x", GetCurrentProcessId());
-		AllocConsole();
-		SetConsoleCtrlHandler(MyControlHandler, TRUE);
-		SetConsoleTitle(Title);
-		for (i=20; i; --i) {
-			if ((ConsoleWindow = FindWindow(NULL, Title)) != NULL) {
-				ShowWindow(ConsoleWindow,
-					0 /* Windows 10+ always uses the NT platform */ ? SW_SHOWMINNOACTIVE : SW_HIDE);
-				break;
-			}
-			Sleep(1);
-		}
-		ConsoleAttached = TRUE;
-		SetForegroundWindow(hwndMain);
-	}
-}
-#endif
-
-BOOL ExecRunning(VOID)
-{
-	#if defined(WIN32)
-		return (ViewOnlyFlag && pi.hProcess != 0);
-	#else
-		return (FALSE);
-	#endif
-}
-
 BOOL BuildShellCommandW(LPCSTR shell,LPCSTR format,PCWSTR command,PWSTR *line,PWSTR application,DWORD cap)
 {
- const char *rest=format;int count;size_t prefix,total,len;BOOL disableAutoRun;PCWSTR base;
- *line=NULL;
- if(!WvResolveShellExecutable(shell,application,cap))return FALSE;
- while(*rest==' ' || *rest=='\t')rest++;
+ const char *rest=format;int count;size_t prefix,total,len;BOOL cmd;PCWSTR base;PWSTR quoted=NULL;PCWSTR argument=command;
+ *line=NULL;if(!WvResolveShellExecutable(shell,application,cap))return FALSE;
+ while(*rest==' '||*rest=='\t')rest++;
  if(!strncmp(rest,"\"%0\"",4))rest+=4;
  else if(!strncmp(rest,"%0",2))rest+=2;
  else {SetLastError(ERROR_INVALID_PARAMETER);return FALSE;}
- if(*rest && *rest!=' ' && *rest!='\t'){SetLastError(ERROR_INVALID_PARAMETER);return FALSE;}
- base=wcsrchr(application,L'\\');base=base?base+1:application;
- disableAutoRun=!_wcsicmp(base,L"cmd.exe");
- len=wcslen(application);prefix=len+2+(disableAutoRun?3:0);
- count=FormatShellW(NULL,(LPSTR)rest,(LPSTR)shell,(PWSTR)command);
- if(count<0 || prefix>=32767 || (size_t)count>=32767-prefix){SetLastError(ERROR_FILENAME_EXCED_RANGE);return FALSE;}
- total=prefix+count+1;*line=(WCHAR*)malloc(total*sizeof(WCHAR));
- if(!*line){SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
- (*line)[0]=L'"';memcpy(*line+1,application,len*sizeof(WCHAR));(*line)[len+1]=L'"';
- if(disableAutoRun)memcpy(*line+len+2,L" /d",3*sizeof(WCHAR));
- FormatShellW(*line+prefix,(LPSTR)rest,(LPSTR)shell,(PWSTR)command);
- return TRUE;
+ if(*rest&&*rest!=' '&&*rest!='\t'){SetLastError(ERROR_INVALID_PARAMETER);return FALSE;}
+ base=wcsrchr(application,L'\\');base=base?base+1:application;cmd=!_wcsicmp(base,L"cmd.exe");
+ if(cmd){
+  size_t n=wcslen(command);quoted=malloc((n+3)*sizeof(WCHAR));if(!quoted){SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
+  quoted[0]='"';memcpy(quoted+1,command,n*sizeof(WCHAR));quoted[n+1]='"';quoted[n+2]=0;argument=quoted;
+ }
+ len=wcslen(application);prefix=len+2+(cmd?6:0);
+ count=FormatShellW(NULL,(LPSTR)rest,(LPSTR)shell,(PWSTR)argument);
+ if(count<0||prefix>=32767||(size_t)count>=32767-prefix){free(quoted);SetLastError(ERROR_FILENAME_EXCED_RANGE);return FALSE;}
+ total=prefix+count+1;*line=malloc(total*sizeof(WCHAR));
+ if(!*line){free(quoted);SetLastError(ERROR_NOT_ENOUGH_MEMORY);return FALSE;}
+ (*line)[0]='"';memcpy(*line+1,application,len*sizeof(WCHAR));(*line)[len+1]='"';
+ if(cmd)memcpy(*line+len+2,L" /d /s",6*sizeof(WCHAR));
+ FormatShellW(*line+prefix,(LPSTR)rest,(LPSTR)shell,(PWSTR)argument);free(quoted);return TRUE;
 }
 
-BOOL ExecPiped(PWSTR Cmd, WORD Flags)
-	/*Flags: 1=use input  pipe (selected part piped from winvi)
-	 *		 2=use output pipe (insert command output into current file)
-	 */
+BOOL ExecPiped(PWSTR command,WORD flags)
 {
-	#if defined(WIN32)
-		HANDLE					   PipeVvc, PipeCvc, PipeVcv, PipeCcv;
-		/*PipeXyz =	pipe to be used in X for data flow from y to z,
-		 *			V/v:	vi end of pipe,
-		 *			C/c:	command end of pipe.
-		 */
-		static STARTUPINFOW	si;
-		DWORD				dwFlags;
-		PWSTR				Cmd2 = NULL, NewCmd;
-        WCHAR ShellApplication[WV_PATH_CAP];LPCWSTR Application=NULL;
-
-		if (ViewOnlyFlag || pi.hProcess) {
-			Error(236);
-			return (FALSE);
-		}
-		if (*Cmd == '!') {
-			if (!LastCmd) {
-				Error(235);
-				return (FALSE);
-			}
-			NewCmd = malloc((wcslen(LastCmd) + wcslen(Cmd)) * sizeof(WCHAR));
-			if (NewCmd == NULL) {
-				Error(300, 3);
-				return (FALSE);
-			}
-			WvCopyString(NewCmd, LastCmd);
-			wcscat(NewCmd, Cmd+1);
-		} else {
-			NewCmd = malloc((wcslen(Cmd) + 2) * sizeof(WCHAR));
-			if (NewCmd == NULL) {
-				Error(300, 4);
-				return (FALSE);
-			}
-			*NewCmd = '!';
-			WvCopyString(NewCmd+1, Cmd);
-		}
-		if (LastCmd != NULL) free(LastCmd);
-		LastCmd = NewCmd;
-		NewStatus(0, LastCmd, NS_NORMAL);
-		Cmd = LastCmd + 1;
-		#if 0 && defined(WIN32)
-		//	if (0 /* Windows 10+ always uses the NT platform */) {
-		//		/*Win9x/ME, check for working directory on network path,
-		//		 *command.com refuses any action on such a drive...
-		//		 */
-		//		CHAR Cwd[MAX_PATH];
-		//
-		//		if (GetCurrentDirectory(sizeof(Cwd), Cwd)
-		//				&& Cwd[0]=='\\' && Cwd[1]=='\\') {
-		//			Error(416);
-		//			return (FALSE);
-		//		}
-		//	}
-		#endif
-
-		if (!CreatePipe(&PipeCvc, &PipeVvc, NULL, 0)) return (FALSE);
-		if (!CreatePipe(&PipeVcv, &PipeCcv, NULL, 0)) {
-			CloseHandle(PipeCvc);
-			CloseHandle(PipeVvc);
-			return (FALSE);
-		}
-		Interrupted = FALSE;
-		if (0 /* Windows 10+ always uses the NT platform */) {
-			/*Win95/98/Me*/
-			DuplicateHandle(GetCurrentProcess(),  PipeCvc,
-							GetCurrentProcess(), &PipeCvc, 0, TRUE,
-							DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE);
-			DuplicateHandle(GetCurrentProcess(),  PipeCcv,
-							GetCurrentProcess(), &PipeCcv, 0, TRUE,
-							DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE);
-		} else {
-			/*WinNT/2K/XP*/
-			SetHandleInformation(PipeCvc,
-				HANDLE_FLAG_INHERIT | HANDLE_FLAG_PROTECT_FROM_CLOSE,
-				HANDLE_FLAG_INHERIT);
-			SetHandleInformation(PipeCcv,
-				HANDLE_FLAG_INHERIT | HANDLE_FLAG_PROTECT_FROM_CLOSE,
-				HANDLE_FLAG_INHERIT);
-		}
-		dwFlags = CREATE_NEW_PROCESS_GROUP;
-		si.cb		  = sizeof(si);
-		si.dwFlags	  = STARTF_USESTDHANDLES;
-		si.hStdInput  = PipeCvc;
-		si.hStdOutput =
-		si.hStdError  = PipeCcv;
-		if (Flags & 2) {
-			extern PSTR Shell, ShellCommand;
-			INT			Length;
-
-            if(!BuildShellCommandW(Shell,ShellCommand,Cmd,&Cmd2,ShellApplication,WSIZE(ShellApplication))) {
-                CloseHandle(PipeCvc);CloseHandle(PipeVvc);CloseHandle(PipeVcv);CloseHandle(PipeCcv);
-                NewStatus(0,L"Cannot safely resolve or construct the configured shell command.",NS_ERROR);return FALSE;
-            }
-            Cmd=Cmd2;Application=ShellApplication;
-			si.wShowWindow = 0 /* Windows 10+ always uses the NT platform */ /*Win95/98/Me*/
-			 				 ? SW_SHOWMINNOACTIVE : SW_HIDE;
-			si.dwFlags |= STARTF_USESHOWWINDOW;
-		}
-		QueryTime = 0;
-		CreateConsole();
-		/*OutputDebugStringW(Cmd);*/
-		if (CreateProcessW(Application,Cmd,  NULL, NULL, TRUE,
-						   dwFlags, NULL, NULL, &si,  &pi)) {
-			extern HGLOBAL YankHandles[27];
-			extern WV_ULONG   YankLength[27];
-			extern INT	   YankIndex;
-
-			CloseHandle(PipeCvc);
-			CloseHandle(PipeCcv);
-			if (!SelectCount) Flags &= ~1;
-			if (SelectCount) DeleteSelected(25);
-			if (Flags & 1) {
-				DWORD TId;
-
-				lpMemData = (LPSTR)GlobalLock(YankHandles[YankIndex]);
-				dwMemSize = YankLength[YankIndex];
-				hThread1 = CreateThread(NULL, 0, InputThread, PipeVvc, 0, &TId);
-			} else {
-				CloseHandle(PipeVvc);
-				hThread1 = NULL;
-			}
-			ExecInsertPos = CurrPos;
-			Interruptable = TRUE;
-			if (Flags & 2) {
-				DWORD TId2, TId3;
-
-				Mode = InsertMode;
-				NewPosition(&CurrPos);
-				SwitchCursor(SWC_TEXTCURSOR);
-				ShowEditCaret();
-				pError = NULL;
-				if (Cmd2) free(Cmd2);
-				XOffState = Done = WaitingForPaint = DiscardOutput
-						  = XOffWaiting1 = XOffWaiting2 = FALSE;
-				hSemaContinueReading = CreateSemaphore(NULL, 1, 1, NULL);
-				hSemaWaitXOff		 = CreateSemaphore(NULL, 0, 1, NULL);
-				ViewOnlyFlag = TRUE;
-				DragAcceptFiles(hwndMain, FALSE);
-				EnableToolButton(IDB_NEW, FALSE);
-				EnableToolButton(IDB_OPEN, FALSE);
-				CheckClipboard();
-				hThread2 = CreateThread(NULL, 0, OutputThread,PipeVcv,0, &TId2);
-				hThread3 = CreateThread(NULL, 0, WatchThread, NULL,   0, &TId3);
-				return (TRUE);
-			}
-			hThread2 = hThread3 = NULL;
-			ShowEditCaret();
-			if (Flags & 1) {
-				if (hThread1) {
-					WaitForSingleObject(hThread1, INFINITE);
-					CloseHandle(hThread1);
-				}
-				if (lpMemData) {
-					GlobalUnlock(YankHandles[YankIndex]);
-					lpMemData = NULL;
-				}
-			}
-			CloseHandle(PipeVcv);
-			CloseHandle(pi.hThread);
-			CloseHandle(pi.hProcess);
-			Interruptable = FALSE;
-			return (TRUE);
-		}
-		wsprintf(QueryString,
-				 "CreateProcess failed, error %ld", GetLastError());
-		QueryTime = GetTickCount();
-		if (ConsoleAttached) {
-			FreeConsole();
-			ConsoleAttached = FALSE;
-		}
-		if (Cmd2) free(Cmd2);
-		CloseHandle(PipeVcv);
-		CloseHandle(PipeCcv);
-		CloseHandle(PipeVvc);
-		CloseHandle(PipeCvc);
-		Interruptable = FALSE;
-	#else
-		Error(125);
-	#endif
-	return (FALSE);
+ WV_COMMAND *s=NULL;WCHAR application[WV_PATH_CAP],*line=NULL,*history=NULL;
+ HANDLE childInput=NULL,childOutput=NULL;STARTUPINFOEXW startup={0};SIZE_T attrSize=0;DWORD error;
+ JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits={0};extern HGLOBAL YankHandles[36];extern WV_ULONG YankLength[36];extern INT YankIndex;
+ if(ViewOnlyFlag || ActiveCommand){Error(236);return FALSE;}
+ if(*command=='!'){
+  if(!LastCmd){Error(235);return FALSE;}
+  history=malloc((wcslen(LastCmd)+wcslen(command))*sizeof(WCHAR));
+  if(history){WvCopyString(history,LastCmd);wcscat(history,command+1);}
+ } else {
+  history=malloc((wcslen(command)+2)*sizeof(WCHAR));
+  if(history){history[0]='!';WvCopyString(history+1,command);}
+ }
+ if(!history){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+ if(!BuildShellCommandW(Shell,ShellCommand,history+1,&line,application,WSIZE(application)))goto fail;
+ s=calloc(1,sizeof(*s));if(!s){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+ s->References=1;s->Window=hwndMain;s->Generation=++CommandGeneration;s->Flags=flags;
+ s->Stop=CreateEvent(NULL,TRUE,FALSE,NULL);s->Start=CreateEvent(NULL,TRUE,FALSE,NULL);
+ s->Continue=CreateEvent(NULL,FALSE,TRUE,NULL);s->Run=CreateEvent(NULL,TRUE,TRUE,NULL);
+ if(!s->Stop||!s->Start||!s->Continue||!s->Run)goto fail;
+ if((flags&1)&&SelectCount){
+  BYTE *input;
+  if(!Yank(&SelectStart,SelectCount,0)){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+  s->InputSize=YankLength[YankIndex];s->Input=malloc((size_t)s->InputSize);
+  if(!s->Input){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+  input=GlobalLock(YankHandles[YankIndex]);if(!input){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+  memcpy(s->Input,input,(size_t)s->InputSize);GlobalUnlock(YankHandles[YankIndex]);
+ }
+ if(!CreatePipe(&childInput,&s->InputPipe,NULL,0)||!CreatePipe(&s->OutputPipe,&childOutput,NULL,0))goto fail;
+ if(!SetHandleInformation(childInput,HANDLE_FLAG_INHERIT,HANDLE_FLAG_INHERIT)||!SetHandleInformation(childOutput,HANDLE_FLAG_INHERIT,HANDLE_FLAG_INHERIT))goto fail;
+ startup.StartupInfo.cb=sizeof(startup);startup.StartupInfo.dwFlags=STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
+ startup.StartupInfo.wShowWindow=SW_HIDE;startup.StartupInfo.hStdInput=childInput;startup.StartupInfo.hStdOutput=startup.StartupInfo.hStdError=childOutput;
+ InitializeProcThreadAttributeList(NULL,1,0,&attrSize);
+ startup.lpAttributeList=malloc(attrSize);if(!startup.lpAttributeList){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+ if(!InitializeProcThreadAttributeList(startup.lpAttributeList,1,0,&attrSize)){free(startup.lpAttributeList);startup.lpAttributeList=NULL;goto fail;}
+ {HANDLE inherit[2]={childInput,childOutput};
+  if(!UpdateProcThreadAttribute(startup.lpAttributeList,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,inherit,sizeof(inherit),NULL,NULL))goto fail;
+ }
+ s->Job=CreateJobObject(NULL,NULL);limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+ if(!s->Job||!SetInformationJobObject(s->Job,JobObjectExtendedLimitInformation,&limits,sizeof(limits)))goto fail;
+ if(!CreateProcessW(application,line,NULL,NULL,TRUE,CREATE_SUSPENDED|CREATE_NEW_PROCESS_GROUP|CREATE_NO_WINDOW|EXTENDED_STARTUPINFO_PRESENT,NULL,NULL,&startup.StartupInfo,&s->Process))goto fail;
+ if(!AssignProcessToJobObject(s->Job,s->Process.hProcess))goto fail;
+ CloseHandle(childInput);childInput=NULL;CloseHandle(childOutput);childOutput=NULL;
+ InterlockedIncrement(&s->References);s->InputThread=CreateThread(NULL,0,CommandInput,s,0,NULL);
+ if(!s->InputThread){InterlockedDecrement(&s->References);goto fail;}
+ InterlockedIncrement(&s->References);s->OutputThread=CreateThread(NULL,0,CommandOutput,s,0,NULL);
+ if(!s->OutputThread){InterlockedDecrement(&s->References);goto fail;}
+ if(ResumeThread(s->Process.hThread)==(DWORD)-1)goto fail;
+ if((flags&1)&&SelectCount)DeleteSelected(27);
+ free(LastCmd);LastCmd=history;history=NULL;NewStatus(0,LastCmd,NS_NORMAL);
+ ActiveCommand=s;ExecInsertPos=CurrPos;XOffState=FALSE;ViewOnlyFlag=TRUE;Interruptable=TRUE;
+ Mode=InsertMode;NewPosition(&CurrPos);SwitchCursor(SWC_TEXTCURSOR);ShowEditCaret();
+ DragAcceptFiles(hwndMain,FALSE);EnableToolButton(IDB_NEW,FALSE);EnableToolButton(IDB_OPEN,FALSE);CheckClipboard();
+ SetEvent(s->Start);
+ DeleteProcThreadAttributeList(startup.lpAttributeList);free(startup.lpAttributeList);free(line);return TRUE;
+fail:
+ error=GetLastError();
+ if(childInput)CloseHandle(childInput);if(childOutput)CloseHandle(childOutput);
+ if(startup.lpAttributeList){DeleteProcThreadAttributeList(startup.lpAttributeList);free(startup.lpAttributeList);}
+ if(s){if(s->Process.hProcess)TerminateProcess(s->Process.hProcess,ERROR_CANCELLED);StopCommand(s);}
+ free(history);free(line);
+ _snwprintf(BufferW,WSIZE(BufferW),L"Cannot start command safely (Windows error %lu).",error);NewStatus(0,BufferW,NS_ERROR);SetLastError(error);return FALSE;
 }

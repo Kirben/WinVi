@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 $exe=Join-Path $PSScriptRoot 'review-probes.exe'
-$results=foreach($case in 'wildcard','popup','search-oom','search-cancel','search-depth','wildcard-oracle'){
+$results=foreach($case in 'wildcard','popup','search-oom','search-cancel','search-depth','wildcard-oracle','command-faults','command-ui-shutdown'){
  $watch=[Diagnostics.Stopwatch]::StartNew()
  $p=Start-Process -FilePath $exe -ArgumentList "--$case" -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput "$PSScriptRoot/after-$case.stdout.txt" -RedirectStandardError "$PSScriptRoot/after-$case.stderr.txt" -PassThru
  $timeout=!$p.WaitForExit(5000)

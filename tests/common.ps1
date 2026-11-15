@@ -12,6 +12,9 @@ public class WV {
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetClassNameW(IntPtr h,StringBuilder s,int n);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowTextW(IntPtr h,StringBuilder s,int n);
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern bool SetWindowTextW(IntPtr h,string s);
+ [DllImport("user32.dll")] public static extern IntPtr GetMenu(IntPtr h);
+ [DllImport("user32.dll")] public static extern IntPtr GetSubMenu(IntPtr h,int i);
+ [DllImport("user32.dll")] public static extern uint GetMenuState(IntPtr h,uint id,uint flags);
  [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h,int id);
  [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr h,uint m,UIntPtr w,IntPtr l);
  [DllImport("user32.dll",SetLastError=true)] static extern IntPtr SendMessageTimeoutW(IntPtr h,uint m,UIntPtr w,IntPtr l,uint f,uint t,out UIntPtr result);
@@ -25,8 +28,8 @@ public class WV {
 }
 "@
 $ErrorActionPreference='Stop'
-$script:exe=if($env:WINVI_TEST_EXE){$env:WINVI_TEST_EXE}else{Join-Path $PSScriptRoot '..\..\WinVi64.exe'}
-$script:cases=Join-Path $PSScriptRoot 'cases'
+$script:exe=if($env:WINVI_TEST_EXE){$env:WINVI_TEST_EXE}else{Join-Path $PSScriptRoot '..\x64\WinVi64-reliable.exe'}
+$script:cases=if($env:WINVI_TEST_CASES){$env:WINVI_TEST_CASES}else{Join-Path $PSScriptRoot 'cases'}
 New-Item -ItemType Directory -Force $cases | Out-Null
 function Wait-WVQuiet($v,[int]$seconds=120) {
  $deadline=(Get-Date).AddSeconds($seconds);$quiet=0;$last=$null
@@ -48,7 +51,7 @@ function Start-WV($path) {
   try {
    [void][WV]::Send($h,0x111,119,0);[void][WV]::Send($h,0x102,58,1)
    $edit=[WV]::GetDlgItem($h,161)
-   if($edit -ne [IntPtr]::Zero){[WV]::SetText($edit,':1');[void][WV]::Send($h,2258,0,0);return $v}
+   if($edit -ne [IntPtr]::Zero){[WV]::SetText($edit,':1');[void][WV]::Send($h,2258,0,0);$initialization=[WV]::RegisterWindowMessageW('WinVi - Message');if([WV]::Send($h,$initialization,[uint64]$h.ToInt64(),0) -lt 20){return $v}}
   }catch{}
   Start-Sleep -Milliseconds 200
  }while((Get-Date) -lt $readyDeadline)
@@ -70,3 +73,9 @@ function Equal-Bytes($path,[byte[]]$expected) { $actual=[IO.File]::ReadAllBytes(
 
 
 
+
+function Wait-WVCommand($v,[int]$seconds=15) {
+ $deadline=(Get-Date).AddSeconds($seconds);$menu=[WV]::GetSubMenu([WV]::GetMenu($v.H),0)
+ do {if($v.P.HasExited){throw "Editor exited during command"};[void][WV]::Send($v.H,0x117,[uint64]$menu.ToInt64(),0);$state=[WV]::GetMenuState($menu,101,0);if($state -eq [uint32]::MaxValue){throw "Missing File/New menu state"};if(($state-band3)-eq0){return};Start-Sleep -Milliseconds 50}while((Get-Date)-lt$deadline)
+ throw "Command did not finish"
+}

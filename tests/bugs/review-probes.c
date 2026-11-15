@@ -72,8 +72,10 @@ static int ShellCases(void) {
 }
 int SecurityTempCrashChild(void);int SecurityTempCrash(void);
 int BugWildcard(void);int BugPopup(void);int BugSearchOOM(void);int BugSearchCancel(void);
-int BugSearchDepth(void);int BugWildcardOracle(void);
+int BugSearchDepth(void);int BugWildcardOracle(void);int BugCommandFaults(void);int BugCommandUiShutdown(void);
 int main(int argc,char **argv) {
+ if(argc==2 && !strcmp(argv[1],"--command-ui-shutdown"))return BugCommandUiShutdown();
+ if(argc==2 && !strcmp(argv[1],"--command-faults"))return BugCommandFaults();
  if(argc==2 && !strcmp(argv[1],"--wildcard"))return BugWildcard();
  if(argc==2 && !strcmp(argv[1],"--popup"))return BugPopup();
  if(argc==2 && !strcmp(argv[1],"--search-oom"))return BugSearchOOM();

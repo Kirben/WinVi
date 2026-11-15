@@ -12,8 +12,8 @@ if errorlevel 1 exit /b 1
 cd /d "%~dp0..\.."
 if not exist tests\bugs\obj mkdir tests\bugs\obj
 set "REVIEW_SOURCES="
-for %%f in (*.c) do if /i not "%%~nxf"=="Tags.c" if /i not "%%~nxf"=="PathExp.c" if /i not "%%~nxf"=="Page.c" if /i not "%%~nxf"=="InterCom.c" if /i not "%%~nxf"=="Bmp.c" if /i not "%%~nxf"=="Search.c" set REVIEW_SOURCES=!REVIEW_SOURCES! %%f
-cl /nologo /GS /guard:cf /MP4 /O1 /Zi /FS /fsanitize=address /MT /DWIN32 /D_WIN32_WINNT=0x0A00 /D_WIN32_IE=0x0A00 /D_CRT_SECURE_NO_WARNINGS /DWinMain=WvOriginalWinMain /Fotests\bugs\obj\ /Fdtests\bugs\obj\compiler.pdb /Fetests\bugs\review-probes.exe !REVIEW_SOURCES! tests\bugs\review-probes.c tests\bugs\review-path.c tests\bugs\review-page.c tests\bugs\review-peer.c tests\bugs\review-bitmap.c tests\bugs\review-search.c /link /DYNAMICBASE /HIGHENTROPYVA /NXCOMPAT /GUARD:CF /SUBSYSTEM:CONSOLE /STACK:4194304 user32.lib gdi32.lib comdlg32.lib comctl32.lib advapi32.lib shell32.lib mpr.lib ole32.lib uuid.lib shlwapi.lib bcrypt.lib > tests\bugs\build.log 2>&1
+for %%f in (*.c) do if /i not "%%~nxf"=="Tags.c" if /i not "%%~nxf"=="PathExp.c" if /i not "%%~nxf"=="Page.c" if /i not "%%~nxf"=="InterCom.c" if /i not "%%~nxf"=="Bmp.c" if /i not "%%~nxf"=="Search.c" if /i not "%%~nxf"=="Exec.c" set REVIEW_SOURCES=!REVIEW_SOURCES! %%f
+cl /nologo /GS /guard:cf /MP4 /O1 /Zi /FS /fsanitize=address /MT /DWIN32 /D_WIN32_WINNT=0x0A00 /D_WIN32_IE=0x0A00 /D_CRT_SECURE_NO_WARNINGS /DWinMain=WvOriginalWinMain /Fotests\bugs\obj\ /Fdtests\bugs\obj\compiler.pdb /Fetests\bugs\review-probes.exe !REVIEW_SOURCES! tests\bugs\review-probes.c tests\bugs\review-path.c tests\bugs\review-page.c tests\bugs\review-peer.c tests\bugs\review-bitmap.c tests\bugs\review-search.c tests\bugs\review-command.c /link /DYNAMICBASE /HIGHENTROPYVA /NXCOMPAT /GUARD:CF /SUBSYSTEM:CONSOLE /STACK:4194304 user32.lib gdi32.lib comdlg32.lib comctl32.lib advapi32.lib shell32.lib mpr.lib ole32.lib uuid.lib shlwapi.lib bcrypt.lib > tests\bugs\build.log 2>&1
 if errorlevel 1 (type tests\bugs\build.log & exit /b 1)
 copy /y "%VCToolsInstallDir%bin\Hostx64\x64\clang_rt.asan_dynamic-x86_64.dll" tests\bugs\ >nul
 echo Built isolated security probes

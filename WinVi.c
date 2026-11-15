@@ -879,6 +879,7 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			break;
 
 		case WM_DESTROY:
+            ExecShutdown();WatchFile(NULL);
 			ReleasePaintResources();
 			ReleaseBmp(0);
 			if (hPopupMenu) DestroyMenu(hPopupMenu);
@@ -1248,8 +1249,10 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			ExecInput(wPar, lPar);
 			break;
 
+		case WM_USER+1237:
+            WvWatchFlash(wPar,lPar);break;
 		case WM_USER+1236:
-			WatchMessage((PWSTR)lPar);
+			WvWatchMessage(wPar,lPar);
 			break;
 
 		case WM_INITMENUPOPUP:
@@ -1932,7 +1935,7 @@ INT WINAPI WinMain(HINST hCurr, HINST hPrev, LPSTR lpCmd, INT nShow)
 		PrintImmediate(hwndMain);
 		Ret = 0;
 	} else Ret = MessageLoop(TRUE);
-	ExecInterrupt(CTRL_BREAK_EVENT);
+	ExecShutdown();WatchFile(NULL);
 	Ctl3dUnregister(hInst);
 	return (Ret);
 }
