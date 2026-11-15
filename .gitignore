@@ -16,3 +16,4 @@
 /tests/bugs/obj/
 /tests/bugs/*-results.json
 /tests/bugs/after-*.txt
+/tests/WinVi-*.htm
