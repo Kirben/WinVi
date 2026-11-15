@@ -160,6 +160,8 @@ INT GoBackAndSingleChar(PPOSITION Pos) {
 	return c;
 }
 
+static BOOL CheckBranchTail(PPOSITION pos,PSEARCHPART part,BOOL backward);
+
 BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 	INT         c;
 	PSEARCHPART Srch = *pSrch;
@@ -201,7 +203,7 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 					assert(Srch != NULL);
 					assert(Srch->u.SpecialMatch.Char == '|');
 					++RecursiveBranch;
-					while (!CheckBkwd(Pos, Srch)) {
+					while (!CheckBranchTail(Pos, Srch,TRUE)) {
 						Srch = Srch->u.SpecialMatch.NextBranch;
 						assert(Srch != NULL);
 						if (Srch->u.SpecialMatch.Char == '(') {
@@ -216,7 +218,7 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
                     Boundary=Srch;while(Boundary->u.SpecialMatch.Char!=')')Boundary=Boundary->u.SpecialMatch.NextBranch;
                     SavedBoundary=ForwardBranchEnd;ForwardBranchEnd=Boundary;
 					++RecursiveBranch;
-					while (!CheckFwd(Pos, Srch->Next)) {
+					while (!CheckBranchTail(Pos, Srch->Next,FALSE)) {
 						Srch = Srch->u.SpecialMatch.NextBranch;
 						assert(Srch != NULL);
 						if (Srch->u.SpecialMatch.Char == ')') {
@@ -358,10 +360,10 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 #endif
 }
 
-/* A repeated atom inside an alternative must test the suffix outside the
-   group before committing to its greedy length. Restore the group's boundary
+/* An alternative (including a repeated atom) must test its outside suffix
+   before committing to a branch or greedy length. Restore the group's boundary
    afterwards so the ordinary group caller does not consume the suffix twice. */
-static BOOL CheckRepeatTail(PPOSITION pos,PSEARCHPART part,BOOL backward)
+static BOOL CheckBranchTail(PPOSITION pos,PSEARCHPART part,BOOL backward)
 {
  PSEARCHPART boundary=backward?BackwardBranchStart:ForwardBranchEnd;
  PSEARCHPART savedForward=ForwardBranchEnd,savedBackward=BackwardBranchStart;
@@ -445,7 +447,7 @@ static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						POSITION SavePos;
 
 						SavePos = *Pos;
-						if (!Srch->Next || CheckRepeatTail(Pos, Srch->Next,FALSE))
+						if (!Srch->Next || CheckBranchTail(Pos, Srch->Next,FALSE))
 							return (RecursiveBranch || !MatchAtEndOfLine ||
 									CharFlags(CharAt(Pos)) & 0x21);
 						*Pos = SavePos;
@@ -558,7 +560,7 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						for (;;) {
 						if(MatchCheckpoint())return FALSE;
 							SavePos = *Pos;
-							if (CheckRepeatTail(Pos, Srch,TRUE)) return TRUE;
+							if (CheckBranchTail(Pos, Srch,TRUE)) return TRUE;
 							*Pos = SavePos;
 							c = ReadChoice(Pos,Srch,TRUE);
 							if (!TestBit(Srch, c, TRUE)) return FALSE;
@@ -575,8 +577,9 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 						if(MatchCheckpoint())return FALSE;
 
 						SavePos = *Pos;
-						if (CheckRepeatTail(Pos, Srch,TRUE)) return TRUE;
+						if (CheckBranchTail(Pos, Srch,TRUE)) return TRUE;
 						*Pos = SavePos;
+                        if(i)ReadChoice(Pos,Srch,FALSE);
 					} while (i--);
 					return (FALSE);
 				} else {
