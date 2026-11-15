@@ -147,7 +147,7 @@ END
 # endif
 #endif
 
-1 MANIFEST "WinVi32.exe.manifest"
+1 MANIFEST "WinVi64.exe.manifest"
 
 #endif    // !_MAC
 
@@ -331,9 +331,9 @@ BEGIN
     9238                    "String not found"
     9239                    "Illegal hexadecimal input"
     9240                    "1 substitution"
-    9241                    "%ld substitutions"
-    9242                    "%ld substitutions in 1 line"
-    9243                    "%ld substitutions in %ld lines"
+    9241                    "%I64d substitutions"
+    9242                    "%I64d substitutions in 1 line"
+    9243                    "%I64d substitutions in %I64d lines"
     9244                    "«%s»  (read-only) not saved yet.\n\nDirectory is being changed!"
     9245                    "Untitled read-only file not saved yet.\n\nDirectory is being changed!"
     9246                    "inch"
@@ -367,8 +367,8 @@ BEGIN
     9285                    " [New file]"
     9286                    " [Reading...]"
     9287                    " [Writing...]"
-    9288                    " line %lu of %lu"
-    9289                    " %ld lines, %ld characters"
+    9288                    " line %I64u of %I64u"
+    9289                    " %I64d lines, %I64d characters"
     9290                    "Unexpected error %04lx"
     9291                    "All Files (*.*),*.*,"
     9292                    "Bitmap Files (*.bmp;*.dib),*.bmp;*.dib,"
@@ -734,9 +734,9 @@ END
 STRINGTABLE DISCARDABLE 
 BEGIN
     10240                   "1 substitución"
-    10241                   "%ld substituciones"
-    10242                   "%ld substituciones en 1 línea"
-    10243                   "%ld substitutciones en %ld líneas"
+    10241                   "%I64d substituciones"
+    10242                   "%I64d substituciones en 1 línea"
+    10243                   "%I64d substitutciones en %I64d líneas"
     10244                   "«%s» (sólo-lectura) no guardado todavía.\n\n¡El directorio está siendo cambidado!"
     10245                   "Fichero sin nombre (sólo-lectura) no guardado todavía.\n\n¡El directorio está siendo cambidado!"
     10246                   "pulgada"
@@ -774,8 +774,8 @@ END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    10288                   " línea %lu de %lu"
-    10289                   " %ld líneas, %ld caracteres"
+    10288                   " línea %I64u de %I64u"
+    10289                   " %I64d líneas, %I64d caracteres"
     10290                   "Error inesperado %04lx"
     10291                   "Todos los archivos (*.*),*.*,"
     10292                   "Archivos de mapas de bits (*.bmp;*.dib),*.bmp;*.dib,"
@@ -1145,9 +1145,9 @@ END
 STRINGTABLE DISCARDABLE 
 BEGIN
     12240                   "1 substitution"
-    12241                   "%ld substitutions"
-    12242                   "%ld substitutions sur 1 ligne"
-    12243                   "%ld substitutions sur %ld lignes"
+    12241                   "%I64d substitutions"
+    12242                   "%I64d substitutions sur 1 ligne"
+    12243                   "%I64d substitutions sur %I64d lignes"
     12244                   "«%s», en lecture seulement, n'a pas encore été enregistré.\n\nLe répertoire de travail changera !"
     12245                   "Le fichier, sans titre et en lecture seulement, n'a pas encore été enregistré.\n\nLe répertoire de travail changera !"
     12246                   "pouce"
@@ -1185,8 +1185,8 @@ END
 
 STRINGTABLE DISCARDABLE 
 BEGIN
-    12288                   " ligne %lu de %lu"
-    12289                   " %ld lignes, %ld caractères"
+    12288                   " ligne %I64u de %I64u"
+    12289                   " %I64d lignes, %I64d caractères"
     12290                   "Erreur inattendue %04lx"
     12291                   "Tous les fichiers (*.*),*.*,"
     12292                   "Fichiers images (*.bmp;*.dib),*.bmp;*.dib,"
@@ -2099,9 +2099,9 @@ BEGIN
     7238                    "Suchstring nicht gefunden"
     7239                    "Hexadezimale Eingabe fehlerhaft"
     7240                    "1 Ersetzung"
-    7241                    "%ld Ersetzungen"
-    7242                    "%ld Ersetzungen in 1 Zeile"
-    7243                    "%ld Ersetzungen in %ld Zeilen"
+    7241                    "%I64d Ersetzungen"
+    7242                    "%I64d Ersetzungen in 1 Zeile"
+    7243                    "%I64d Ersetzungen in %I64d Zeilen"
     7244                    "«%s» (schreibgeschützt) noch nicht gespeichert.\n\nVerzeichnis wird nun gewechselt!"
     7245                    "Unbenannte Datei (schreibgeschützt) noch nicht gespeichert.\n\nVerzeichnis wird nun gewechselt!"
     7246                    "Zoll"
@@ -2135,8 +2135,8 @@ BEGIN
     7285                    " [neue Datei]"
     7286                    " [Lesen...]"
     7287                    " [Schreiben...]"
-    7288                    " Zeile %lu von %lu"
-    7289                    " %ld Zeilen, %ld Zeichen"
+    7288                    " Zeile %I64u von %I64u"
+    7289                    " %I64d Zeilen, %I64d Zeichen"
     7290                    "Unerwarteter Fehler %04lx"
     7291                    "Alle Dateien (*.*),*.*,"
     7292                    "Bitmap-Dateien (*.bmp;*.dib),*.bmp;*.dib,"

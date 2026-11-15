@@ -47,7 +47,7 @@ extern LPSTR Shell, ShellCommand;
 PWSTR		 Args;
 INT 		 CmdMask;
 static INT	 ExecError;
-WCHAR		 FileNameBuf2[260];	/*used in [command.c]Compare:Substitute[#%],
+WCHAR		 FileNameBuf2[WV_PATH_CAP];	/*used in [command.c]Compare:Substitute[#%],
 								 *		  [command.c]CdCmd:_getcwd(),
 								 *		  [winvi.c]MainProc:WM_DROPFILES and
 								 *		  [file.c]Open/WriteCmd:OPENFILENAME
@@ -102,7 +102,7 @@ PWSTR Compare(PWSTR Cmd, PWSTR CompareWith, INT MinLength, INT CheckMask)
 					else if (p2==NULL) break;
 					if (p2!=NULL && (p1==NULL || p2<p)) p = p2;
 					if (Cmd != FileNameBuf2) {
-						wcscpy(FileNameBuf2, Cmd);
+						WvCopyString(FileNameBuf2, Cmd);
 						p = FileNameBuf2 + (p-Cmd);
 						Cmd = FileNameBuf2;
 					}
@@ -156,7 +156,7 @@ UINT WinExecW(PWSTR Cmd, WORD Mode)
 	EnumThreadWindows(pi.dwThreadId, SetForegroundWndProc, 0);
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
-	return (UINT)pi.hProcess;
+	return 33; /* WinExec-compatible success after closing process handle. */
 }
 
 BOOL NewViEditCmd(PWSTR Args)
@@ -164,10 +164,10 @@ BOOL NewViEditCmd(PWSTR Args)
 	UINT  Err = 0;
 	INT   Size;
 
-	Size = wcslen(Args) + 266;
+	Size = wcslen(Args) + WV_PATH_CAP + 6;
 	if ((p = malloc(Size*sizeof(WCHAR))) != NULL) {
 		*p = '"';
-		if (GetModuleFileNameW(hInst, p+1, 260) > 0) {
+		if (GetModuleFileNameW(hInst, p+1, WV_PATH_CAP) > 0) {
 			_snwprintf(p+wcslen(p), Size-wcslen(p), L"\" \"%s\"", Args);
 			if (*Args) SetAltFileName(Args, NULL);
 			if ((Err = WinExecW(p, SW_NORMAL)) < 32)
@@ -215,7 +215,7 @@ BOOL QuitCmd(BOOL AskIfMoreFiles)
 }
 
 extern CHAR  Buffer[300];
-extern WCHAR BufferW[300];
+extern WCHAR BufferW[WV_TEXT_CAP];
 PWSTR		 PreviousWorkingDir = NULL;
 
 static BOOL CdCmd(PWSTR Dir)
@@ -254,7 +254,7 @@ static BOOL CdCmd(PWSTR Dir)
 		if (PreviousWorkingDir != NULL) free(PreviousWorkingDir);
 		if (p != NULL) {
 			PreviousWorkingDir = malloc(wcslen(p) * 2 + 2);
-			if (PreviousWorkingDir != NULL) wcscpy(PreviousWorkingDir, p);
+			if (PreviousWorkingDir != NULL) WvCopyString(PreviousWorkingDir, p);
 		} else PreviousWorkingDir = NULL;
 		NotEdited = OtherLocation;
 		SwitchToMatchingProfile(CurrFile);
@@ -398,7 +398,7 @@ static BOOL SetCmd(PWSTR Args)
 			} else if (VarDescr[i].VarFlags & VF_DECIMAL) {
 				if (Off || *Args++!='=') Error(222);	/*not a boolean*/
 				else {
-					LONG Value;
+					WV_LONG Value;
 
 					Value = wcstol(Args, &Args, 10);
 					if (Value < VarDescr[i].Min || Value > VarDescr[i].Max)
@@ -463,7 +463,7 @@ static BOOL SetCmd(PWSTR Args)
 	return (TRUE);
 }
 
-static void DeleteCmd(LONG StartLine, LONG EndLine, PWSTR Args)
+static void DeleteCmd(WV_LONG StartLine, WV_LONG EndLine, PWSTR Args)
 {
 	PARAM_NOT_USED(Args);
 	SelectCount = 0;
@@ -492,13 +492,13 @@ static BOOL ExecCmd(PWSTR Args)
 			}
 			NewCmd = malloc((wcslen(LastCmd) + wcslen(Args)) * 2);
 			if (NewCmd == NULL) break;
-			wcscpy(NewCmd, LastCmd);
+			WvCopyString(NewCmd, LastCmd);
 			wcscat(NewCmd, Args+1);
 		} else {
 			NewCmd = malloc(wcslen(Args) * 2 + 4);
 			if (NewCmd == NULL) break;
 			*NewCmd = '!';
-			wcscpy(NewCmd+1, Args);
+			WvCopyString(NewCmd+1, Args);
 		}
 		if (LastCmd != NULL) free(LastCmd);
 		LastCmd = NewCmd;
@@ -517,7 +517,7 @@ static void VersionCmd(void)
 	NewStatus(0, BufferW, NS_NORMAL);
 }
 
-static PWSTR GetAddr(PWSTR Line, ULONG *Ptr)
+static PWSTR GetAddr(PWSTR Line, WV_ULONG *Ptr)
 {
 	CmdMask = 0;
 	switch (*Line) {
@@ -593,7 +593,7 @@ static PWSTR GetAddr(PWSTR Line, ULONG *Ptr)
 			*Ptr = 0;
 			Sign = 1;
 		} else return (Line);
-		{	LONG n;
+		{	WV_LONG n;
 
 			n = 0;
 			while (*Line >= '0' && *Line <= '9') n = 10 * n + *Line++ - '0';
@@ -606,7 +606,7 @@ static PWSTR GetAddr(PWSTR Line, ULONG *Ptr)
 
 BOOL CommandExec(PWSTR Cmd)
 {	BOOL  Ok = FALSE;
-	ULONG StartLine, EndLine;
+	WV_ULONG StartLine, EndLine;
 	WCHAR *CmdStart = Cmd;
 	/* StartLine:					EndLine:
 	 *		-1: unspecified,			-1: unspecified,
@@ -630,11 +630,11 @@ BOOL CommandExec(PWSTR Cmd)
 	}
 	do; while (*++Cmd==' ' || *Cmd==':');
 	if (!*Cmd) return (TRUE);
-	StartLine = EndLine = (ULONG)-1L;
+	StartLine = EndLine = (WV_ULONG)-1L;
 	if (*Cmd == '%') {
 		++Cmd;
 		StartLine = 0;
-		EndLine = (ULONG)-2L;
+		EndLine = (WV_ULONG)-2L;
 		CmdMask = 3;
 	} else {
 		Cmd = GetAddr(Cmd, &StartLine);
@@ -643,8 +643,8 @@ BOOL CommandExec(PWSTR Cmd)
 			if (!(CmdMask & 1)) StartLine = EndLine;
 			Cmd = GetAddr(Cmd+1, &EndLine);
 			if (EndLine >= LinesInFile + IncompleteLastLine() &&
-				EndLine != (ULONG)-1L)
-					EndLine = (ULONG)-2L;
+				EndLine != (WV_ULONG)-1L)
+					EndLine = (WV_ULONG)-2L;
 			CmdMask = 3;
 		}
 		if (Cmd == NULL) return (FALSE);
@@ -668,7 +668,7 @@ BOOL CommandExec(PWSTR Cmd)
 	} else if ((Args = Compare(Cmd, L"next",	   1, 0x1c)) != NULL) {
 		Ok = NextCmd(Args);
 	} else if ((Args = Compare(Cmd, L"wq",		   2, 0x1f)) != NULL) {
-		if ((StartLine!=(ULONG)-1L && (StartLine>1U || EndLine!=(ULONG)-2L))
+		if ((StartLine!=(WV_ULONG)-1L && (StartLine>1U || EndLine!=(WV_ULONG)-2L))
 				&& !CommandWithExclamation)
 			Error(224);
 		else if (WriteCmd(StartLine, EndLine, Args,
@@ -677,7 +677,7 @@ BOOL CommandExec(PWSTR Cmd)
 			Ok = QuitCmd(FALSE);
 		}
 	} else if ((Args = Compare(Cmd, L"xit",		   1, 0x1f)) != NULL) {
-		if (StartLine!=(ULONG)-1L && (StartLine>1U || EndLine!=(ULONG)-2L))
+		if (StartLine!=(WV_ULONG)-1L && (StartLine>1U || EndLine!=(WV_ULONG)-2L))
 			Error(225);
 		else if (!Unsafe || WriteCmd(StartLine, EndLine, Args,
 									 (WORD)CommandWithExclamation)) {
@@ -706,7 +706,7 @@ BOOL CommandExec(PWSTR Cmd)
 		if (!(CmdMask & 1)) StartLine = CountLines(&CurrPos) + 1;
 		else if (StartLine == 0) StartLine = 1;
 		if (!(CmdMask & 2)) EndLine = StartLine;
-		else if (EndLine == (ULONG)-2) EndLine = 2147000000;
+		else if (EndLine == (WV_ULONG)-2) EndLine = 2147000000;
 		DeleteCmd(StartLine, EndLine, Args);
 		Ok = TRUE;
 	#if 0
@@ -719,7 +719,7 @@ BOOL CommandExec(PWSTR Cmd)
 		Ok = TRUE;
 	} else if ((Args = Compare(Cmd, L"=",		   1,	 1)) != NULL) {
 		_snwprintf(BufferW, WSIZE(BufferW),
-				   L"%ld", CmdMask&1 ? StartLine : CountLines(&CurrPos)+1);
+				   L"%I64d", CmdMask&1 ? StartLine : CountLines(&CurrPos)+1);
 		NewStatus(0, BufferW, NS_NORMAL);
 		Ok = TRUE;
 	} else if ((Args = Compare(Cmd, L"!",		   1, 0x14)) != NULL) {

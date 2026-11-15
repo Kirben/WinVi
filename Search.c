@@ -565,10 +565,10 @@ BOOL CheckBkwd(PPOSITION Pos, PSEARCHPART Srch)
 	return TRUE;
 }
 
-LONG StartTime;
+WV_LONG StartTime;
 
 BOOL CheckInterrupt(void) {
-	LONG Time;
+	WV_LONG Time;
 
 	Time = GetCurrentTime();
 	if (Disabled) MessageLoop(FALSE);
@@ -840,7 +840,7 @@ BOOL SearchAndStatus(PPOSITION Pos, WORD Flags) {
 			len = wcslen(p) + 1;
 			if (len >= (INT)WSIZE(SrchDispBuf) - (p-SrchDispBuf)) {
 				--len;
-				wcscpy(SrchDispBuf + WSIZE(SrchDispBuf) - 5, L"...");
+				WvCopyString(SrchDispBuf + WSIZE(SrchDispBuf) - 5, L"...");
 			}
 			_fmemmove(p+1, p, len*sizeof(WCHAR));
 			*p = '\\';
@@ -1053,7 +1053,7 @@ void SetSrchDisp(INT c)
 {
 	if (pDisp < SrchDispBuf + WSIZE(SrchDispBuf) - 4) *pDisp++ = c;
 	else if (pDisp == SrchDispBuf + WSIZE(SrchDispBuf) - 4) {
-		wcscpy(pDisp, L"...");
+		WvCopyString(pDisp, L"...");
 		pDisp += 3;
 	}
 }
@@ -1511,7 +1511,7 @@ BOOL SaveMatchList(VOID)
 {	INT Size = sizeof(SEARCH_DESCR) + wcslen(SrchDispBuf) * sizeof(WCHAR);
 
 	if ((SavedSearch = _fcalloc(Size, 1)) == NULL) return (FALSE);
-	wcscpy(SavedSearch->DisplayBuffer, SrchDispBuf);
+	WvCopyString(SavedSearch->DisplayBuffer, SrchDispBuf);
 	SavedSearch->FirstMatch			= FirstMatch;
 	SavedSearch->FirstString		= FirstString;
 	SavedSearch->LastMatch			= LastMatch;
@@ -1533,7 +1533,7 @@ BOOL RestoreMatchList(VOID)
 		free(FirstMatch);
 		FirstMatch = LastMatch;
 	}
-	wcscpy(SrchDispBuf,  SavedSearch->DisplayBuffer);
+	WvCopyString(SrchDispBuf,  SavedSearch->DisplayBuffer);
 	FirstMatch			= SavedSearch->FirstMatch;
 	FirstString			= SavedSearch->FirstString;
 	LastMatch			= SavedSearch->LastMatch;
@@ -1602,7 +1602,7 @@ BOOL CheckParenPairs(VOID)
 }
 
 BOOL BuildReplaceString
-	 (PWSTR Source, LONG *DestLen, PPOSITION Pos, LONG Len, WORD Flags)
+	 (PWSTR Source, WV_LONG *DestLen, PPOSITION Pos, WV_LONG Len, WORD Flags)
 	/*Flags: 1=hex input flag checked in dialog box
 	 *		 2=display error in box
 	 *		 4=double any \'s (nomagic)
@@ -1723,7 +1723,7 @@ BOOL BuildReplaceString
 			case '&':
 				if (MagicFlag && !(Flags & 4)) {
 					POSITION p;
-					LONG	 n;
+					WV_LONG	 n;
 
 				HandleAmpersand:
 					p = *Pos;
@@ -1829,16 +1829,16 @@ void InsertSubstChar(PPOSITION Pos, INT Len, WORD Flags, PWSTR Buf)
 	}
 }
 
-BOOL SubstituteCmd(LONG StartLine, LONG EndLine, PWSTR Args)
+BOOL SubstituteCmd(WV_LONG StartLine, WV_LONG EndLine, PWSTR Args)
 {	PWSTR		pSearch = NULL;
 	PWSTR		pReplace = NULL;
 	INT			c;
 	BOOL		SaveWrapFlag, ReportLineCount, GlobalFlag = FALSE;
 	BOOL		DoSetUnsafe = FALSE, AtByte0 = FALSE, ConfirmFlag = FALSE;
-	LONG		lMatched;
+	WV_LONG		lMatched;
 	POSITION	Pos, Start, SkipNullMatch;
-	LONG		LineCount = 0, LastSubstLine = -1, DiffLines = 0, SaveDiff;
-	LONG		RepaintLength = 0;
+	WV_LONG		LineCount = 0, LastSubstLine = -1, DiffLines = 0, SaveDiff;
+	WV_LONG		RepaintLength = 0;
 	POSITION	RepaintPosition;
 	UINT		RepaintFlags = 1;
 
@@ -1887,7 +1887,7 @@ BOOL SubstituteCmd(LONG StartLine, LONG EndLine, PWSTR Args)
 			Error(312);
 			return (FALSE);
 		}
-		wcscpy(pLastReplace, pReplace);
+		WvCopyString(pLastReplace, pReplace);
 	}
 	if (!StartSearch()) return (FALSE);
 	Start.p = NULL;
@@ -1916,7 +1916,7 @@ BOOL SubstituteCmd(LONG StartLine, LONG EndLine, PWSTR Args)
 
 	/*and finally, do the substitutions...*/
 	while (!(CharFlags(CharAt(&Pos)) & 0x20)) {
-		LONG Length, CurrLine, ReplaceLength, Lines;
+		WV_LONG Length, CurrLine, ReplaceLength, Lines;
 		BOOL ContinueOnSameLine = GlobalFlag;
 
 		/*search...*/
@@ -2060,7 +2060,7 @@ BOOL SubstituteCmd(LONG StartLine, LONG EndLine, PWSTR Args)
 	else if (!lMatched) Error(214);
 	else {
 		/*display number of matches...*/
-		extern WCHAR BufferW[300];
+		extern WCHAR BufferW[WV_TEXT_CAP];
 		static WCHAR Fmt[36];
 
 		if (ReportLineCount && lMatched>1)

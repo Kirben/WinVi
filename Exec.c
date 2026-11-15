@@ -44,14 +44,21 @@ extern CHAR  QueryString[150];
 extern DWORD QueryTime;
 
 static LPSTR lpMemData;
-static DWORD dwMemSize;
+static WV_ULONG dwMemSize;
 
 DWORD WINAPI InputThread(LPVOID lpParam)
 	/*this thread handles command input*/
 {	HANDLE Pipe = (HANDLE)lpParam;
 	DWORD  Written;
 
-	if (lpMemData) WriteFile(Pipe, lpMemData, dwMemSize, &Written, NULL);
+	if (lpMemData) {
+        WV_ULONG offset=0;
+        while(offset<dwMemSize) {
+            DWORD amount=(DWORD)(dwMemSize-offset>1048576 ? 1048576 : dwMemSize-offset);
+            if(!WriteFile(Pipe,lpMemData+offset,amount,&Written,NULL) || !Written)break;
+            offset+=Written;
+        }
+    }
 	CloseHandle(Pipe);
 	return (0);
 }
@@ -317,7 +324,7 @@ VOID CreateConsole(VOID)
 		for (i=20; i; --i) {
 			if ((ConsoleWindow = FindWindow(NULL, Title)) != NULL) {
 				ShowWindow(ConsoleWindow,
-					GetVersion() & 0x80000000U ? SW_SHOWMINNOACTIVE : SW_HIDE);
+					0 /* Windows 10+ always uses the NT platform */ ? SW_SHOWMINNOACTIVE : SW_HIDE);
 				break;
 			}
 			Sleep(1);
@@ -366,7 +373,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 				Error(300, 3);
 				return (FALSE);
 			}
-			wcscpy(NewCmd, LastCmd);
+			WvCopyString(NewCmd, LastCmd);
 			wcscat(NewCmd, Cmd+1);
 		} else {
 			NewCmd = malloc((wcslen(Cmd) + 2) * sizeof(WCHAR));
@@ -375,14 +382,14 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 				return (FALSE);
 			}
 			*NewCmd = '!';
-			wcscpy(NewCmd+1, Cmd);
+			WvCopyString(NewCmd+1, Cmd);
 		}
 		if (LastCmd != NULL) free(LastCmd);
 		LastCmd = NewCmd;
 		NewStatus(0, LastCmd, NS_NORMAL);
 		Cmd = LastCmd + 1;
 		#if 0 && defined(WIN32)
-		//	if (GetVersion() & 0x80000000U) {
+		//	if (0 /* Windows 10+ always uses the NT platform */) {
 		//		/*Win9x/ME, check for working directory on network path,
 		//		 *command.com refuses any action on such a drive...
 		//		 */
@@ -403,7 +410,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 			return (FALSE);
 		}
 		Interrupted = FALSE;
-		if (GetVersion() & 0x80000000U) {
+		if (0 /* Windows 10+ always uses the NT platform */) {
 			/*Win95/98/Me*/
 			DuplicateHandle(GetCurrentProcess(),  PipeCvc,
 							GetCurrentProcess(), &PipeCvc, 0, TRUE,
@@ -435,7 +442,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 				FormatShellW(Cmd2, ShellCommand, Shell, Cmd);
 				Cmd = Cmd2;
 			}
-			si.wShowWindow = GetVersion() & 0x80000000U /*Win95/98/Me*/
+			si.wShowWindow = 0 /* Windows 10+ always uses the NT platform */ /*Win95/98/Me*/
 			 				 ? SW_SHOWMINNOACTIVE : SW_HIDE;
 			si.dwFlags |= STARTF_USESHOWWINDOW;
 		}
@@ -445,7 +452,7 @@ BOOL ExecPiped(PWSTR Cmd, WORD Flags)
 		if (CreateProcessW(NULL,	Cmd,  NULL, NULL, TRUE,
 						   dwFlags, NULL, NULL, &si,  &pi)) {
 			extern HGLOBAL YankHandles[27];
-			extern ULONG   YankLength[27];
+			extern WV_ULONG   YankLength[27];
 			extern INT	   YankIndex;
 
 			CloseHandle(PipeCvc);

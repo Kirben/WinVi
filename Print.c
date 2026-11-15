@@ -77,7 +77,7 @@ INT GetBorderWidth(HWND hDlg, INT nCtl)
 	return (MulDiv(Value, iMeasure ? 50 : 20, Decimals));
 }
 
-extern UINT CALLBACK ChooseFontHook(HWND, UINT, WPARAM, LPARAM);
+extern UINT_PTR CALLBACK ChooseFontHook(HWND, UINT, WPARAM, LPARAM);
 
 PRINTDLG   pd;
 LOGFONT	   lf = {0};
@@ -86,7 +86,7 @@ CHOOSEFONT cf = {
 	CF_PRINTERFONTS | CF_INITTOLOGFONTSTRUCT | CF_ENABLEHOOK
 };
 
-BOOL PrintCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR PrintCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
@@ -250,7 +250,7 @@ BOOL PrintCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						if (!*Buf) Header = NULL;
 						else {
 							Header = _fcalloc(wcslen(Buf)+1, sizeof(WCHAR));
-							if (Header != NULL) wcscpy(Header, Buf);
+							if (Header != NULL) WvCopyString(Header, Buf);
 						}
 					}
 					GetDlgItemTextW(hDlg, IDC_FOOTER, Buf, WSIZE(Buf));
@@ -259,7 +259,7 @@ BOOL PrintCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						if (!*Buf) Footer = NULL;
 						else {
 							Footer = _fcalloc(wcslen(Buf)+1, sizeof(WCHAR));
-							if (Footer != NULL) wcscpy(Footer, Buf);
+							if (Footer != NULL) WvCopyString(Footer, Buf);
 						}
 					}
 					DlgResult = TRUE;
@@ -324,8 +324,8 @@ VOID PrintHeaderFooter(HDC hDC, PWSTR Text, INT LeftX, INT RightX, INT Y)
 					if (!p1 || (p2 && p1 < p2)) p1 = p2;
 					if (!p1 || dp-BufW+wcslen(p1)+wcslen(sp) > WSIZE(BufW)-1)
 						continue;
-					wcscpy(dp, p1);
-				} else wcscpy(dp, CurrFile);
+					WvCopyString(dp, p1);
+				} else WvCopyString(dp, CurrFile);
 				dp += wcslen(dp);
 				continue;
 
@@ -358,7 +358,7 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 	POSITION	 Pos, StartPos;
 	INT			 c, LineStart, LineWidth, HalfWidth, PageStart, PageHeight;
 	INT			 LineNoWidth = 0, LinesPerPage = 0, nCopy = 0;
-	long		 LineNo = 0, StartLineNo;
+	WV_LONG		 LineNo = 0, StartLineNo;
 	BOOL		 NewLine = TRUE, StartNewLine, CountLines = TRUE;
 	HFONT		 hFont = NULL, hOldFont = NULL;
 	INT			 Lpx, Lpy, FrameDist;
@@ -375,10 +375,10 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 			*pw = '\0';
 		else {
 			if (pw > DocTitle) {
-				wcscpy(pw, L" - ");
+				WvCopyString(pw, L" - ");
 				pw += 3;
 			}
-			wcscpy(pw, ApplNameW);
+			WvCopyString(pw, ApplNameW);
 		}
 		if (StartDocW(hDC, &di) == SP_ERROR) {
 			AbortDoc(hDC);
@@ -521,7 +521,7 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 					x = Start;
 					++LineNo;
 					if (LineNumbering && RealPrint) {
-						INT Len = _snwprintf(Buf,WSIZE(Buf), L"%ld:  ", LineNo);
+						INT Len = _snwprintf(Buf,WSIZE(Buf), L"%I64d:  ", LineNo);
 
 						TextOutW(hDC, x-PrintWidthW(hDC,Buf,Len), y, Buf, Len);
 					}
@@ -604,7 +604,7 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 			LineNo	= StartLineNo;
 			c		= CharAt(&Pos);
 		}
-		{	LONG n;
+		{	WV_LONG n;
 
 			if ((n = LineNo + LinesPerPage) >= 1000) {
 				if (n < 10000) LineNoWidth = PrintWidth(hDC, "0000:  ",  7);
@@ -635,7 +635,7 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 	if (fEndDoc) EndDoc(hDC);
 }
 
-BOOL WINAPI PrintCancelCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR WINAPI PrintCancelCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {

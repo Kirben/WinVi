@@ -15,7 +15,7 @@
  *     29-Sep-2002	ShowMatch for EBCDIC
  *     14-Nov-2002	prevent mouse positioning after Ctrl+Alt+V
  *      1-Jan-2009	can now be compiled with VC++ 2008 Express
- *      9-Jan-2011	bugfix: mouse drag above or below the text in long lines
+ *      9-Jan-2011	bugfix: mouse drag above or below the text in WV_LONG lines
  */
 
 #include <windows.h>
@@ -31,27 +31,27 @@
   #define WS_EX_TOOLWINDOW 0x00000080L
 #endif
 
-extern LONG xOffset;
+extern WV_LONG xOffset;
 extern BOOL EscapeInput;
 
 BOOL       Selecting = FALSE, LButtonPushed = FALSE;
 UINT	   TimerRunning = 0;
 POSITION   SelectAnchor;
-ULONG	   SelectAnchorCount;
+WV_ULONG	   SelectAnchorCount;
 POSITION   PrevMousePos;
-LONG       PrevMouseCount;
+WV_LONG       PrevMouseCount;
 
 static void MouseSelect(void)
-{	long CurrCount;
+{	WV_LONG CurrCount;
 
 	if (!ComparePos(&CurrPos, &PrevMousePos)) return;
 	CurrCount = CountBytes(&CurrPos);
 	if (ComparePos(&CurrPos, &PrevMousePos) > 0) {
-		long Amount = CurrCount - PrevMouseCount;
+		WV_LONG Amount = CurrCount - PrevMouseCount;
 
 		InvalidateArea(&PrevMousePos, Amount, 1);
 	} else {
-		long Amount = PrevMouseCount - CurrCount;
+		WV_LONG Amount = PrevMouseCount - CurrCount;
 
 		InvalidateArea(&CurrPos, Amount, 1);
 	}
@@ -179,7 +179,7 @@ void MouseInTextArea(UINT uMsg, WPARAM wPar, int Line, int xPixel, int yPixel,
 	}
 }
 
-void MouseSelectText(UINT uMsg, WPARAM wPar, LONG xPixel, BOOL BelowText)
+void MouseSelectText(UINT uMsg, WPARAM wPar, WV_LONG xPixel, BOOL BelowText)
 {
 	PARAM_NOT_USED(wPar);
 	if (LButtonPushed) {
@@ -193,7 +193,7 @@ void MouseSelectText(UINT uMsg, WPARAM wPar, LONG xPixel, BOOL BelowText)
 		} else {
 			int i;
 			static BOOL SaveBelowText;
-			static LONG SaveXPixel;
+			static WV_LONG SaveXPixel;
 			UINT        Flags = 0x402;
 
 			if (uMsg == WM_TIMER) {
@@ -293,16 +293,16 @@ BOOL MouseHandle(UINT uMsg, WPARAM wPar, LPARAM lPar)
 											  0 /*no parent*/,	NULL,
 											  hInst,			NULL
 											 );
-							SetWindowLong(hwndStatusTip, 0*sizeof(LONG),
-										  (LONG)StatusStyle
+							SetWindowLongPtr(hwndStatusTip, 0*sizeof(LONG_PTR),
+										  (WV_LONG)StatusStyle
 												[StatusFields[0].Style].Color);
-							SetWindowLong(hwndStatusTip, 1*sizeof(LONG),
+							SetWindowLongPtr(hwndStatusTip, 1*sizeof(LONG_PTR),
 										  GetSysColor(COLOR_BTNFACE));
-							SetWindowLong(hwndStatusTip, 2*sizeof(LONG),
-										  (UINT)StatusFont);
-							SetWindowLong(hwndStatusTip, 3*sizeof(LONG), -1);
-							SetWindowLong(hwndStatusTip, GWL_EXSTYLE,
-									  GetWindowLong(hwndStatusTip, GWL_EXSTYLE)
+							SetWindowLongPtr(hwndStatusTip, 2*sizeof(LONG_PTR),
+										  (LONG_PTR)StatusFont);
+							SetWindowLongPtr(hwndStatusTip, 3*sizeof(LONG_PTR), -1);
+							SetWindowLongPtr(hwndStatusTip, GWL_EXSTYLE,
+									  GetWindowLongPtr(hwndStatusTip, GWL_EXSTYLE)
 									  | WS_EX_TOOLWINDOW);
 							SetCapture(hwndMain);
 							ShowWindow(hwndStatusTip, SW_SHOWNA);

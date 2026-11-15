@@ -32,9 +32,9 @@ extern INT		TfCommandChar,  TfSearchChar, QuoteChar;
 extern BOOL		ShowParenMatch, EscapeInput;
 extern POSITION	MarkPos[27];
 
-LONG			RelativePosition;
+WV_LONG			RelativePosition;
 
-BOOL Position(LONG Repeat, INT Command, INT Flags)
+BOOL Position(WV_LONG Repeat, INT Command, INT Flags)
 {	/* Flags:	 1 = cursor may be positioned behind last character of line
 	 *			 2 = no display of cursor
 	 *			 4 = compound command, no positioning on display
@@ -337,7 +337,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 		case CTRL('p'):
 		case 'k':
 			if (HexEditMode) {
-				ULONG i;
+				WV_ULONG i;
 				i = GoBack(&NewPos, 16*Repeat) & 15;
 				if (i) Advance(&NewPos, i);
 				break;
@@ -366,7 +366,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 			do; while (!(CharFlags(c=GoBackAndChar(&NewPos)) & 1));
 			if (c != C_EOF) CharAndAdvance(&NewPos);
 			c2 = 1;	/*column count*/
-			while ((LONG)(unsigned)c2 < Repeat) {
+			while ((WV_LONG)(unsigned)c2 < Repeat) {
 				c = CharAndAdvance(&NewPos);
 				if (c == '\t') {
 					--c2;
@@ -464,7 +464,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 		case CTRL('d'):	/*half screen forward*/
 		case CTRL('f'):	/*full screen forward*/
 			FullRowExtend = !HexEditMode;
-			{	LONG i = VisiLines-1;
+			{	WV_LONG i = VisiLines-1;
 
 				if (Command == CTRL('d')) i = (i + 1) >> 1;
 				if (i < 1 || Command == CTRL('e')) i = 1;
@@ -560,7 +560,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 		case CTRL('u'):	/*half screen backward*/
 		case CTRL('b'):	/*full screen backward*/
 			FullRowExtend = !HexEditMode;
-			{	LONG	 i = VisiLines-1;
+			{	WV_LONG	 i = VisiLines-1;
 				INT		 c, Line = CurrLine, ScrollMax;
 				POSITION Pos = ScreenStart;
 
@@ -795,7 +795,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 		}
 	}
 	RelativePosition = NewPos.p == OldPos.p
-					   ? (LONG)NewPos.i-(INT)OldPos.i
+					   ? (WV_LONG)NewPos.i-(INT)OldPos.i
 					   : CountBytes(&NewPos)-CountBytes(&OldPos);
 	if (Flags & 16) {
 		/*add to selected area or subtract from...*/
@@ -809,9 +809,9 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 			/*changing start of selection area...*/
 			if (RelativePosition > 0) {
 				/*positioning forward, selection area gets smaller...*/
-				LONG n;
+				WV_LONG n;
 
-				if ((ULONG)RelativePosition > SelectCount) {
+				if ((WV_ULONG)RelativePosition > SelectCount) {
 					/*position passes end of selected area*/
 					n = SelectCount;
 					SelectBytePos += SelectCount;
@@ -844,7 +844,7 @@ BOOL Position(LONG Repeat, INT Command, INT Flags)
 				SelectCount += RelativePosition;
 				Invalidate = 0;
 			} else {
-				if ((ULONG)-RelativePosition > SelectCount) {
+				if ((WV_ULONG)-RelativePosition > SelectCount) {
 					SelectBytePos -= -RelativePosition - SelectCount;
 					SelectCount    = -RelativePosition - SelectCount;
 					SelectStart    = NewPos;

@@ -80,7 +80,7 @@ static int AppendSingle(PCWSTR lp1, PCWSTR lp2, int nLen)
 	}
 	pFile->Next  = NULL;
 	pFile->Flags = 0;
-	wcscpy(pFile->FileName, lp1);
+	WvCopyString(pFile->FileName, lp1);
 	_fmemcpy(pFile->FileName + wcslen(lp1), lp2, nLen*sizeof(WCHAR));
 	pFile->FileName[wcslen(lp1) + nLen] = '\0';
 	if (pFileList) pLastFile->Next = pFile;
@@ -92,13 +92,13 @@ static int AppendSingle(PCWSTR lp1, PCWSTR lp2, int nLen)
 INT AppendToFileList(PCWSTR pwFile, INT nLen, INT Flags)
 	/*Flags: 1=initial parameter list or next command, expand wildcards
 	 */
-{	WCHAR  FNameBuf[260];
+{	WCHAR  FNameBuf[WV_PATH_CAP];
 	WCHAR  *p	  = FNameBuf, *PathEnd = FNameBuf;
 	PCWSTR pw	  = pwFile;
 	INT	   nRet	  = -1;
 	BOOL   Expand = FALSE;
 
-	while (nLen-- && p-FNameBuf < sizeof(FNameBuf)-1) {
+	while (nLen-- && p-FNameBuf < WSIZE(FNameBuf)-1) {
 		switch (*p++ = *pw++) {
 			case '"':
 				--p;
@@ -148,7 +148,7 @@ PWSTR GetFileListEntry(INT nEntry)
 	return (p->FileName);
 }
 
-BOOL CALLBACK ArgsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK ArgsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	int   i;
 	PWSTR lp;
 	HWND  hwndListBox;

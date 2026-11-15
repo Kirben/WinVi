@@ -40,7 +40,7 @@ BOOL SearchAgain(WORD Flags)
 	 *		 2=pop up dialog if not searched before
 	 */
 {	BOOL  Return;
-	ULONG OldLength;
+	WV_ULONG OldLength;
 
 	HideEditCaret();
 	if (Flags & 2 && !MatchValid) {
@@ -83,7 +83,7 @@ BOOL Magic, HexInput;
 
 void ReplaceSearched(HWND hDlg)
 {	MODEENUM SaveMode = Mode;
-	LONG	 Length;
+	WV_LONG	 Length;
 
 	Magic	 = IsDlgButtonChecked(hDlg, IDC_MAGIC);
 	HexInput = IsDlgButtonChecked(hDlg, IDC_HEXSEARCH);
@@ -103,7 +103,7 @@ void ReplaceSearched(HWND hDlg)
 	HideEditCaret();
 	{	LPREPLIST lpRep = &RepList;
 
-		while (Length > (LONG)sizeof(lpRep->Buf)) {
+		while (Length > (WV_LONG)sizeof(lpRep->Buf)) {
 			InsertBuffer((LPBYTE)lpRep->Buf, sizeof(lpRep->Buf), 2);
 			Length -= sizeof(lpRep->Buf);
 			if ((lpRep = lpRep->Next) == NULL) break;
@@ -219,7 +219,7 @@ PWSTR SetupSearchString(HWND hDlg, INT *Error)
 		pD[1] = *pD;
 		*pD++ = '\\';
 	}
-	if (WholeWord) wcscpy(pD, L"\\>");
+	if (WholeWord) WvCopyString(pD, L"\\>");
 	return BuildMatchList(CommandBuf, *CommandBuf, Error);
 }
 
@@ -334,7 +334,7 @@ void GlobalSubst(HWND hDlg)
 		}
 		++p;
 	}
-	if (n+2 < WSIZE(CommandBuf)) wcscpy(p, L"/g");
+	if (n+2 < WSIZE(CommandBuf)) WvCopyString(p, L"/g");
 	SendMessage(hDlg, DM_SETDEFID, IDCANCEL, 0);
 	SetFocus(GetDlgItem(hDlg, IDCANCEL));
 	EnableControls(hDlg, FALSE);
@@ -345,7 +345,7 @@ void GlobalSubst(HWND hDlg)
 
 HWND hwndSearch;
 
-BOOL CALLBACK SearchCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK SearchCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	extern BOOL SearchBoxPosition, HexEditTextSide;
 	extern INT  SearchBoxX, SearchBoxY;
 	static RECT DlgRect;
@@ -513,7 +513,7 @@ void SearchDialog(void)
 		 CreateDialogW(hInst, MAKEINTRESW(IDD_SEARCH), hwndMain, DlgProc);
 }
 
-BOOL CALLBACK SubstChkCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK SubstChkCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	SEARCHCONFIRMRESULT	Result;
 	static RECT			Rect;
 	static BOOL			RectDefined = FALSE;

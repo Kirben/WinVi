@@ -409,7 +409,7 @@ void ToggleHexMode(void)
 	HideEditCaret();
 	HexEditMode = ToolButtons[IDB_HEX].Locked;
 	if (HexEditMode) {
-		extern LONG xOffset;
+		extern WV_LONG xOffset;
 		INT		    BytePos = (INT)CountBytes(&CurrPos) & 15;
 
 		ScreenStart = CurrPos;
@@ -653,7 +653,7 @@ void SetCharSet(UINT CSet, UINT Flags)
 	}
 	if (FirstPage != NULL) {
 		LPPAGE	Page, PrevPage;
-		LONG	CntNl[9], Newlines, Carry;
+		WV_LONG	CntNl[9], Newlines, Carry;
 		DWORD	Flags2;
 
 		if (CountNewlines) {
@@ -790,7 +790,7 @@ void SetCharSet(UINT CSet, UINT Flags)
 		}
 		if (CurrPos.p != NULL) {
 			if (!HexEditMode) {
-				ULONG i;
+				WV_ULONG i;
 				INT	  i2, c;
 
 				i = CountBytes(&CurrPos);
@@ -886,7 +886,7 @@ LRESULT CALLBACK TooltipProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 				GetClientRect(hWnd, &r);
 				BkBrush = CreateSolidBrush
-								((COLORREF)GetWindowLong(hWnd, sizeof(LONG)));
+								((COLORREF)GetWindowLongPtr(hWnd, sizeof(LONG_PTR)));
 				if (BkBrush) {
 					FillRect((HDC)wPar, &r, BkBrush);
 					DeleteObject(BkBrush);
@@ -903,11 +903,11 @@ LRESULT CALLBACK TooltipProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 				if (!hDC) break;
 				hfontOld = SelectObject(hDC,
-										(HFONT)GetWindowLong(hWnd,
-															 2*sizeof(LONG)));
-				SetTextColor(hDC, (COLORREF)GetWindowLong(hWnd, 0));
+										(HFONT)GetWindowLongPtr(hWnd,
+															 2*sizeof(LONG_PTR)));
+				SetTextColor(hDC, (COLORREF)GetWindowLongPtr(hWnd, 0));
 				SetBkMode(hDC, TRANSPARENT);
-				YPos = (INT)GetWindowLong(hWnd, 3*sizeof(LONG));
+				YPos = (INT)GetWindowLongPtr(hWnd, 3*sizeof(LONG_PTR));
 				GetWindowTextW(hWnd, Buf, WSIZE(Buf));
 				TextOutW(hDC, 2, YPos, Buf, wcslen(Buf));
 				SelectObject(hDC, hfontOld);
@@ -1006,12 +1006,12 @@ void TooltipTimer(void)
 										 WS_BORDER | WS_POPUP,
 										 pt.x, pt.y+19, Size.cx+7, Size.cy+4,
 										 0 /*no parent*/, NULL, hInst, NULL);
-			SetWindowLong(TooltipWindow, 0*sizeof(LONG), TooltipFgColor);
-			SetWindowLong(TooltipWindow, 1*sizeof(LONG), TooltipBgColor);
-			SetWindowLong(TooltipWindow, 2*sizeof(LONG), (UINT)TooltipFont);
-			SetWindowLong(TooltipWindow, 3*sizeof(LONG), 1);
-			SetWindowLong(TooltipWindow, GWL_EXSTYLE,
-						  GetWindowLong(TooltipWindow, GWL_EXSTYLE)
+			SetWindowLongPtr(TooltipWindow, 0*sizeof(LONG_PTR), TooltipFgColor);
+			SetWindowLongPtr(TooltipWindow, 1*sizeof(LONG_PTR), TooltipBgColor);
+			SetWindowLongPtr(TooltipWindow, 2*sizeof(LONG_PTR), (LONG_PTR)TooltipFont);
+			SetWindowLongPtr(TooltipWindow, 3*sizeof(LONG_PTR), 1);
+			SetWindowLongPtr(TooltipWindow, GWL_EXSTYLE,
+						  GetWindowLongPtr(TooltipWindow, GWL_EXSTYLE)
 						  | WS_EX_TOOLWINDOW);
 			ShowWindow(TooltipWindow, SW_SHOWNA);
 			SetCapture(hwndMain);

@@ -42,7 +42,7 @@ static BOOL CheckGlyphs(HDC hDC, BYTE GlyphsAvail[32])
 	CHAR		 *Buf, *Bufn;
 
 	nn = GetGlyphOutline(hDC, 127, GGO_NATIVE, &gm, 0, NULL, &mat2);
-	if ((LONG)nn <= 0) return FALSE;
+	if ((WV_LONG)nn <= 0) return FALSE;
 	Bufn = (CHAR *)LocalAlloc(LPTR, (UINT)(2*nn + 1));
 	if (!Bufn) return FALSE;
 	Buf = Bufn + nn;

@@ -1,0 +1,2112 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+  <title>WinVi Kurzreferenz</title>
+  <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+  <meta name="author" content="P. C. User">
+
+  <style>
+    h1, h2, h3, h4, h5, h6, table {
+      font-family: Arial, Helvetica, sans-serif;}
+    td {
+      font-size: smaller;
+      line-height: 110%;}
+    td, th {
+      vertical-align: top;
+      padding: 1px 4px 1px 4px;
+      background-color: #e0e0e0;}
+    table {
+      color: black;
+      border: 2px;}
+    code {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 100%;
+      line-height: 110%;}
+    b {
+      padding: 0 3px 0 3px;
+      background-color: #e0e0e0;}
+    b.notitle {
+      background-color: #c4c4c4;}
+  </style>
+</head><body bgcolor="#c4c4c4">
+
+<a name="Contents"></a>
+
+<h1>WinVi</h1>
+<h2>Inhalt</h2>
+
+
+<p> <a href="#NotepadCompatible">Notepad - kompatibel</a>           <br>
+    <a href="#ExFileCommand"    >vi - Datei- und Anzeigebefehle</a> <br>
+    <a href="#Positioning"      >vi - Anzeigeposition</a>           <br>
+    <a href="#EditTextmode"     >vi - Text bearbeiten</a>           <br>
+    <a href="#Insertmode"       >vi - Eingabemodus</a>              <br>
+    <a href="#MoveCursor"       >vi - Cursorbewegung</a>            <br>
+    <a href="#ExCommand"        >ex - Kommandos</a>                 <br>
+    <a href="#ExVariables"      >ex - Optionen</a>                  <br>
+    <a href="#SearchDlg"        >Suchen-Dialog</a>                  <br>
+    <a href="#Settings"         >Einstellungen</a>                  <br>
+    <a href="#SettingsProfile"  >Einstellungen - Profil</a>         <br>
+    <a href="#SettingsFiletype" >Einstellungen - Dateityp</a>       <br>
+    <a href="#SettingsDisplay"  >Einstellungen - Anzeige</a>        <br>
+    <a href="#SettingsEdit"     >Einstellungen - Editieren</a>      <br>
+    <a href="#SettingsFiles"    >Einstellungen - Dateien</a>        <br>
+    <a href="#SettingsMapping"  >Einstellungen - Tastatur-Makros</a><br>
+    <a href="#SettingsShell"    >Einstellungen - Shell</a>          <br>
+    <a href="#SettingsColors"   >Einstellungen - Farben</a>         <br>
+    <a href="#SettingsFonts"    >Einstellungen - Schriftart</a>     <br>
+    <a href="#SettingsPrint"    >Einstellungen - Drucken</a>        <br>
+    <a href="#SettingsLang"     >Einstellungen - Sprache</a>        <br>
+</p>
+<br>
+
+
+<h2><a name="NotepadCompatible"></a>Notepad - kompatibel</h2>
+
+
+<p>WinVi bearbeitet Dateien (fast) beliebiger Gr&ouml;&szlig;e und ist nicht
+    auf 32 KB eingeschr&auml;nkt. Um in der Bedienung maximal Notepad-kompatibel
+    zu bleiben, wurden diese besonderen Eigenschaften eingebaut:</p>
+
+<ol>
+<li>Als Voreinstellung wird WinVi im Einf&uuml;gemodus gestartet (das kann
+    umgestellt werden); Tastaturk&uuml;rzel wie Steuerung-C (abgek&uuml;rzt
+    Strg-C oder englisch Control-C bzw. Ctrl-C; im folgenden ^C) f&uuml;r
+    Kopieren eines markierten Textes usw. sind nutzbar; man markiert einen Text,
+    indem man die Umschalt-Taste (englisch Shift) festh&auml;lt und den Cursor
+    bewegt (siehe folgende Tabelle) oder mit gedr&uuml;ckter Maustaste die
+    Maus &uuml;ber einen Teil des Textes bewegt. Mit Doppelklicken kann man ein
+    Wort unter dem Mauscursor markieren.
+<br><br>
+<table width="90%"><tbody>
+<tr>
+    <th>Tastaturk&uuml;rzel</th>
+    <th>Funktion</th>
+</tr><tr>
+    <td>^A<br></td>
+    <td>alles markieren</td>
+</tr><tr>
+    <td>^C</td>
+    <td>Markierten Text in die Zwischenablage kopieren (&bdquo;copy&ldquo;)</td>
+</tr><tr>
+    <td>^X</td>
+    <td>Markierten Text ausschneiden und in die Zwischenablage kopieren</td>
+</tr><tr>
+    <td>^V</td>
+    <td>Text aus der Zwischenablage vor der Cursorposition einf&uuml;gen</td>
+</tr><tr>
+    <td>{Entf}</td>
+    <td>Markierten Text oder ein Zeichen an der Cursorposition l&ouml;schen</td>
+</tr><tr>
+    <td>{Einfg}</td>
+    <td>Umschalten zwischen Einf&uuml;ge- und Ersetzungsmodus</td>
+</tr><tr>
+    <td>^{Pos1}, ^{Ende}</td>
+    <td>Cursor zum Textanfang / zur letzten Textzeile bewegen</td>
+</tr><tr>
+    <td>{Pos1}, {Ende}</td>
+    <td>Cursor zum Zeilenanfang / zum Zeilenende bewegen</td>
+</tr><tr>
+    <td>^{<code>&lt;-</code>}, ^{<code>-&gt;</code>}</td>
+    <td>Cursor zum vorhergehenden / folgenden Wortanfang bewegen</td>
+</tr><tr>
+    <td>Pfeiltasten</td>
+    <td>Cursor nach links/rechts bzw. in die vorige/n&auml;chste
+        Zeile bewegen</td>
+</tr><tr>
+    <td>{Bild ^}, {Bild v}</td>
+    <td>angezeigten Text im Fenster eine Seite zur&uuml;ck / eine
+        Seite weiter rollen bzw. &bdquo;scrollen&ldquo;</td>
+</tr>
+</tbody></table><br>
+    Bei WinVi kommt man mit ^{Ende} nur bis zum Anfang der letzten Zeile; will
+    man ganz bis zum Ende, mu&szlig; man (bei ggf. weiter gedr&uuml;ckter
+    Umschalttaste) {Strg} loslassen und nochmal {Ende} dr&uuml;cken.
+
+</li><li>Um wie beim Notepad gewohnt vom Anfang einer Zeile mit dem Pfeil nach
+    links zum Ende der vorigen Zeile zu kommen, kann man unter Optionen -
+    <a href="#SettingsEdit">Einstellungen - Editieren</a> den Punkt
+    &bdquo;zeilen&uuml;bergreifende Cursor-Bewegungen&ldquo; aktivieren und als
+    &bdquo;dauerhafte Einstellung&ldquo; mit OK speichern.
+</li><li>Wird WinVi32.exe umbenannt und der neue Dateiname beginnt mit dem
+    Buchstaben N, wird der Rest der Befehlszeile als <i>ein</i> Dateiname
+    behandelt - Namen, die Leerzeichen enthalten, m&uuml;ssen jetzt nicht in
+    Anf&uuml;hrungszeichen stehen, daher lassen sich nicht mehrere Dateien zur
+    Bearbeitung angeben.
+</li><li>Mit der Umbenennung WinVi32.exe in <code>N*.exe</code> hei&szlig;t die
+    Option zum Drucken Notepad-kompatibel /p (statt sonst -p).
+</li><li>In Kopf- und Fu&szlig;zeilen k&ouml;nnen zum Drucken neben
+    &bdquo;normalen&ldquo; Zeichen Dateiname und Seitennummer ausgegeben werden
+    (siehe <a href="#SettingsPrint">Einstellungen - Drucken</a>).
+<br><br>
+</li>
+</ol>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="ExFileCommand">vi - Datei- und Anzeigebefehle</a></h2>
+
+
+<p>Diese Befehle werden im Befehls- (Normal- bzw. Command-) Modus eingegeben.
+    Aus dem Einf&uuml;ge- bzw. &Uuml;berschreib-Modus und dem
+    ex-Befehlseingabe-Modus erreicht man diesen mit der {Esc}-Taste.<br>
+</p>
+
+<p>In eckigen Klammern werden optionale Eingaben notiert (die entfallen
+k&ouml;nnen), in geschweiften Klammern werden bestimmte Tasten angegeben;
+an einigen Stellen werden Bezeichnungen f&uuml;r Eingabefolgen zur Hervorhebung
+in spitze Klammern gesetzt, alternative Eingaben werden durch <code>|</code>
+getrennt.<br>
+</p>
+
+<table width="100%">
+<tbody>
+<tr>
+    <th>Befehl</th>
+    <th>&nbsp;</th>
+    <th>Funktion</th>
+</tr><tr>
+    <td nowrap="true"><code>^L</code></td>
+    <td>&nbsp;</td>
+    <td>Text-Anzeige wiederherstellen (aktualisieren)</td>
+</tr><tr>
+    <td nowrap="true"><code>^G</code></td>
+    <td>&nbsp;</td>
+    <td>Anzeige: Dateiname, aktuelle Zeile, Zeilenanzahl
+        (<code>:={Enter}</code> zeigt die Nummer der aktuellen Zeile an)</td>
+</tr><tr>
+    <td nowrap="true"><code>^^</code></td>
+    <td>&nbsp;</td>
+    <td>zuvor bearbeitete Datei &ouml;ffnen</td>
+</tr><tr>
+    <td nowrap="true"><code>:args{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>zeigt die Dateiliste an</td>
+</tr><tr>
+    <td nowrap="true"><code>:n{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>n&auml;chste Datei in der Argumentliste &ouml;ffnen
+        (&bdquo;next&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>:n files{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>Dateiliste duch die angegebenen Dateien ersetzen und die
+        erste Datei &ouml;ffnen (&bdquo;next&ldquo;). In der Dateiliste
+        k&ouml;nnen in diesem Befehl die Platzhalterzeichen * und ? verwendet
+        werden. Dateinamen, die Leerzeichen enthalten, m&uuml;ssen in
+        doppelte Anf&uuml;hrungszeichen gesetzt werden</td>
+</tr><tr>
+    <td nowrap="true"><code>:rew{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>erste Datei der Argumentliste &ouml;ffnen (&bdquo;rewind&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>:e [{Tab}|file]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>Datei zum Bearbeiten &ouml;ffnen (&bdquo;edit&ldquo;); ohne Angabe der
+        Datei wird die aktuelle Datei neu von der Festplatte gelesen, mit {Tab}
+        wird eine Liste zur Auswahl angezeigt ({Tab} = Tabulator =
+        {<code>-&gt;|</code>}); mit der Maus kann eine Datei zum &Ouml;ffnen aus
+        dem Windows-Explorer auf ein vi-Fenster gezogen werden, die Datei wird
+        dann der Argumentliste hinzugef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true">&nbsp;</td>
+    <td><code>!</code></td>
+    <td>mit <code>:n!</code>, <code>:e!</code> oder
+        <code>:q!</code> wird die Warnung unterdr&uuml;ckt, dass
+        &Auml;nderungen im Bearbeitungspuffer noch nicht gespeichert wurden.
+        Diese &Auml;nderungen gehen dann verloren und die angeforderte Datei
+        wird sofort eingelesen bzw. vi verlassen</td>
+</tr><tr>
+    <td nowrap="true">&nbsp;</td>
+    <td><code>%<br>#</code></td>
+    <td>im Dateinamensteil der ex-Befehlszeile (nach
+        <code>:e</code>, <code>:w</code>, etc.)
+        steht <code>%</code> f&uuml;r den Namen der aktuellen Datei,
+        <code>#</code> f&uuml;r den Namen der vorigen Datei, die bearbeitetet
+        wurde; im WinVi kann die Sonderbedeutung durch Verdopplung aufgehoben
+        werden</td>
+</tr><tr>
+    <td nowrap="true"><code>:[.]r {Tab}|file{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>liest den Text der Datei (&bdquo;read&ldquo;) und f&uuml;gt ihn nach der
+        aktuellen (&bdquo;.&ldquo;) oder einer anderen angegebenen Zeile ein,
+        bei Angabe 0 wird der Text am Anfang des Bearbeitungspuffers
+        eingef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true"><code>:f file{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>&bdquo;file&ldquo; &auml;ndert den aktuellen (in <code>%</code>
+        gemerkten) Dateinamen, z. B. f&uuml;r <code>:w</code> oder
+        <code>:e</code> ohne Dateiangabe</td>
+</tr><tr>
+    <td nowrap="true"><code>:[1,$]w [&gt;&gt;][{Tab}|file]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>schreibt Zeilen aus dem Bearbeitungspuffer in eine Datei
+        (&bdquo;write&ldquo;); Standard ist die Auswahl aller Zeilen
+        (<code>$</code> steht f&uuml;r die letzte Zeile), mit
+        <code>&gt;&gt;</code> wird der Text an die (ggf. eigene) Datei
+        angeh&auml;ngt</td>
+</tr><tr>
+    <td nowrap="true"><code>:[1,$]wq [&gt;&gt;][{Tab}|file]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>wie <code>:w</code>, WinVi wird nach erfolgreichem Schreiben
+        beendet</td>
+</tr><tr>
+    <td nowrap="true"><code>:[1,$]x [&gt;&gt;][{Tab}|file]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>(&bdquo;exit&ldquo;) wie <code>:wq</code>, es wird jedoch nur bei
+        &Auml;nderung geschrieben</td>
+</tr><tr>
+    <td nowrap="true">&nbsp;</td>
+    <td><code>!</code></td>
+    <td>nach <code>:w</code>, <code>:wq</code> oder <code>:x</code>
+        unterdr&uuml;ckt Warnungen, dass f&uuml;r die Datei der
+        Schreibschutz gesetzt ist, oder dass eine in der Befehlszeile
+        angegebene Datei vorhanden ist und &uuml;berschrieben wird</td>
+</tr><tr>
+    <td nowrap="true"><code>:q</code></td>
+    <td>&nbsp;</td>
+    <td>vi beenden (&bdquo;quit&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>ZZ</code></td>
+    <td>&nbsp;</td>
+    <td>Abk&uuml;rzung f&uuml;r <code>:x{Enter}</code> &mdash;
+        der Puffer wird bei &Auml;nderungen in die aktuelle Datei geschrieben
+        und vi beendet</td>
+</tr><tr>
+    <td nowrap="true"><code>:cd [..\|{Tab}|dir]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>wechselt das aktuelle Verzeichnis (&bdquo;change directory&ldquo;
+        &mdash; <code>..</code> ist das n&auml;chsth&ouml;here Verzeichnis) oder
+        zeigt das aktuelle Verzeichnis an</td>
+</tr><tr>
+    <td nowrap="true"><code>:vi [{Tab}|file]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>&ouml;ffnet eine (ggf. neue) Datei in einem neuen Fenster
+        (&bdquo;visual&ldquo;) oder nur ein neues Fenster</td>
+</tr><tr>
+    <td nowrap="true"><code>z[n]{Enter}</code></td>
+    <td>&nbsp;</td>
+    <td>stellt die Fenstergr&ouml;&szlig;e auf n Zeilen ein (alternativ
+        <code>:set lines=n{Enter})</code></td>
+</tr><tr>
+    <td nowrap="true"><code>:ve</code></td>
+    <td>&nbsp;</td>
+    <td>zeigt die vi-Version an</td>
+</tr><tr>
+</tr><tr>
+    <td nowrap="true"><code>^]</code></td>
+    <td>&nbsp;</td>
+    <td>sucht das Wort unter dem Cursor in der tags-Datei und wechselt zu der
+        dort angegebenen Position (Datei, Zeilennummer/Suchbefehl)</td>
+</tr><tr>
+    <td nowrap="true"><code>^T</code></td>
+    <td>&nbsp;</td>
+    <td>geht zur vorigen Position im Tag-Stapel</td>
+</tr>
+</tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="Positioning"></a> vi - Anzeigeposition</h2>
+
+
+<table width="100%">
+<tbody>
+<tr>
+    <th>Befehl</th>
+    <th>Funktion</th>
+</tr><tr>
+    <td nowrap="true"><code>[n]^E</code></td>
+    <td>Anzeige eine Zeile (n Zeilen) nach oben scrollen (der Cursor
+        bleibt in der aktuellen Zeile, bis er den Bildrand erreicht)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]^Y</code></td>
+    <td>Anzeige nach unten scrollen</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]^D</code></td>
+    <td>Anzeige einen halben Bildschirm (n-mal) nach oben scrollen
+        (der Cursor beh&auml;lt seine Bildschirmposition, geht in der Datei also
+        nach unten - &bdquo;down&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]^U</code></td>
+    <td>Anzeige wie eben nach unten scrollen (Cursor geht nach oben -
+        &bdquo;up&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]^F</code></td>
+    <td>Anzeige um einen Bildschirm (n-mal) nach oben scrollen (zur
+        n&auml;chsten Seite - &bdquo;forward&ldquo;; der Cursor beh&auml;lt
+        seine Bildposition)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]^B</code></td>
+    <td>Anzeige wie eben nach unten scrollen (&bdquo;back&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>z[n]{Enter}</code></td>
+    <td>aktuelle Zeile mit Cursor wird zum oberen Bildrand gescrollt
+        (und ggf. die Fenstergr&ouml;&szlig;e auf n Zeilen eingestellt)</td>
+</tr><tr>
+    <td nowrap="true"><code>z[n].</code></td>
+    <td>aktuelle Zeile mit Cursor wird in die Mitte des Fensters gescrollt</td>
+</tr><tr>
+    <td nowrap="true"><code>z[n]-</code></td>
+    <td>aktuelle Zeile mit Cursor wird zum unteren Bildrand gescrollt</td>
+</tr>
+</tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="EditTextmode">vi - Text bearbeiten</a></h2>
+
+
+<table width="100%">
+<tbody>
+<tr>
+    <th>Befehl</th>
+    <th>Funktion</th>
+</tr><tr>
+    <td nowrap="true"><code>[n]i[text]{Esc}</code></td>
+    <td>text wird vor der Cursorposition (n-mal) eingef&uuml;gt
+        (&bdquo;<a href="#Insertmode">Eingabemodus</a>&ldquo; nach
+         <code>i I a A s S</code>)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]I[text]{Esc}</code></td>
+    <td>text wird am Anfang der Zeile (n-mal) eingef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]a[text]{Esc}</code></td>
+    <td>text wird nach der Cursorposition (n-mal) eingef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]A[text]{Esc}</code></td>
+    <td>text wird am Zeilenende (n-mal) eingef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]x</code></td>
+    <td>Zeichen unter Cursor auf der aktuellen Zeile l&ouml;schen
+        (bzw. n Zeichen ab Cursor)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]X</code></td>
+    <td>(n) Zeichen vor Cursor auf der aktuellen Zeile l&ouml;schen</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]J</code></td>
+    <td>n (ohne Angabe - 2) Zeilen zusammenf&uuml;gen (am ehemaligen
+        Zeilenende wird ein Leerzeichen eingef&uuml;gt)</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]d&lt;move&gt;</code></td>
+    <td>Text bis zum Ende der (n-ten) <a href="#MoveCursor">Cursorbewegung</a>
+        <code>&lt;move&gt;</code> l&ouml;schen (&bdquo;delete&ldquo;) (und im
+        benannten Puffer <code>"x</code> speichern),
+        bei&nbsp;<code>&lt;move&gt;</code> <code>w</code>, <code>W</code>
+        (&bdquo;delete word&ldquo;) oder <code>`{x}</code> bis vor Ende der
+        Cursorbewegung; au&szlig;erdem wird der zuletzt gel&ouml;schte Text im
+        unbenannten Puffer abgelegt, dessen Inhalt einfach mit <code>P</code>
+        oder <code>p</code> (hinter dem Cursor) wieder eingef&uuml;gt werden
+        kann</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]D</code></td>
+    <td>&Auml;quivalent f&uuml;r <code>d$</code> (L&ouml;schen bis zum
+        Zeilenende)</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]dd</code></td>
+    <td>ganze Zeile(n) l&ouml;schen (werden gleichzeitig in den
+        benannten Puffer <code>"1</code> kopiert; der alte Inhalt von
+        <code>"1</code> kommt in <code>"2</code> usw. bis <code>"9</code>);
+        au&szlig;erdem gleichzeitig Speichern im benannten Puffer
+        <code>"x</code> m&ouml;glich (siehe auch <a href="#Text_kopieren">Text
+        kopieren</a>)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]r{x}</code></td>
+    <td>(n-mal) innerhalb der Zeile ein Zeichen (ab Cursor) durch das
+        Zeichen "x" ersetzen (am Zeilenende wird angeh&auml;ngt)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]R[text]{Esc}</code></td>
+    <td>(n-mal) innerhalb der Zeile die vorhandenen Zeichen durch
+        &bdquo;text&ldquo; &uuml;berschreiben
+        (&bdquo;&Uuml;berschreibmodus&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]~</code></td>
+    <td>(n-mal) innerhalb der Zeile f&uuml;r Zeichen unter (ab) Cursor
+        Gro&szlig;- bzw. Kleinschreibung umschalten</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]c&lt;move&gt;[text]{Esc}</code></td>
+    <td>Text bis zum Ende der (n-ten) <a href="#MoveCursor">Cursorbewegung</a>
+        <code>&lt;move&gt;</code> durch "text" ersetzen; die Angabe
+        <code>w</code> oder <code>W</code> (&bdquo;change word&ldquo;) wirkt
+        hier &auml;hnlich wie <code>ce</code> bzw. <code>cE</code>
+        (&bdquo;change to end of word&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]C[text]{Esc}</code></td>
+    <td>&Auml;quivalent f&uuml;r <code>c$</code> (Ersetzen bis zum
+       Zeilenende)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]!&lt;move&gt;&lt;cmd&gt;{Enter}</code></td>
+    <td>der Text bis zum Ende der (n-ten)
+        <a href="#MoveCursor">Cursorbewegung</a> <code>&lt;move&gt;</code> wird
+        durch Ausgabe des Kommandos <code>&lt;cmd&gt;</code> ersetzt, der
+        markierte Text wird als Standardeingabe an das mit
+        <code>&lt;cmd&gt;</code> gestartete Programm &uuml;bergeben
+        (z.&nbsp;B. sort oder grep)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]s[text]{Esc}</code></td>
+    <td>(n) Zeichen wird (werden) innerhalb der Zeile durch &bdquo;text&ldquo;
+        ersetzt (&bdquo;substitute&ldquo;); &Auml;quivalent f&uuml;r
+        <code>cl</code></td>
+</tr><tr>
+    <td nowrap="true"><code>[n]S[text]{Esc}</code></td>
+    <td>Zeile(n) durch &bdquo;text&ldquo; ersetzen</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]&gt; &lt;move&gt;</code></td>
+    <td>Zeile(n) bis zum Ende der <a href="#MoveCursor">Cursorbewegung</a>
+        <code>&lt;move&gt;</code> werden um den Wert von
+        <code>shiftwidth=</code> einger&uuml;ckt (Standard 4 Leerzeichen)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]&gt;&gt;</code></td>
+    <td>Zeile(n) werden einger&uuml;ckt</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]&lt; &lt;move&gt;</code></td>
+    <td>in (n) Zeile(n) bis zum Ende der
+        <a href="#MoveCursor">Cursorbewegung</a> <code>&lt;move&gt;</code>
+        werden f&uuml;hrende Leerzeichen (Anzahl <code>shiftwidth=</code>)
+        entfernt</td>
+</tr><tr>
+    <td nowrap="true"><code>[n]&lt;&lt;</code></td>
+    <td>Zeile(n) wieder vorziehen</td>
+</tr><tr>
+    <th colspan="2"><a name="Text_kopieren"></a>Text kopieren und
+        einf&uuml;gen</th>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]y&lt;move&gt;</code></td>
+    <td>Text bis zum Ende der (n-ten) <a href="#MoveCursor">Cursorbewegung</a>
+        <code>&lt;move&gt;</code> (in den benannten Puffer <code>"x</code>)
+        speichern (&bdquo;yank&ldquo;); <code>"x</code> kann jeder Buchstabe
+        sein, wird <code>"X</code> gro&szlig; eingegeben, so wird der Text an
+        den bisherigen Pufferinhalt angeh&auml;ngt (ebenso bei
+        <code>d D</code>).  <code>`{x}</code> f&uuml;hrt wie bei <code>d</code>
+        und <code>c</code> nur bis vor die Marke.</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]Y</code></td>
+    <td>ganze Zeile(n) speichern</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]yy</code></td>
+    <td>&Auml;quivalent f&uuml;r <code>Y</code></td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]p</code></td>
+    <td>gespeicherten Text (aus Puffer <code>"x</code>) hinter dem Cursor
+        (n-mal) einf&uuml;gen (&bdquo;put&ldquo;), ganze Zeilen werden erst
+        hinter dem n&auml;chsten Zeilenende eingef&uuml;gt</td>
+</tr><tr>
+    <td nowrap="true"><code>["{x}][n]P</code></td>
+    <td>Text vor dem Cursor bzw. vor der aktuellen Zeile einf&uuml;gen</td>
+</tr><tr>
+    <th colspan="2">R&uuml;ckg&auml;ngigmachen und Wiederholen</th>
+</tr><tr>
+    <td nowrap="true"><code>u</code></td>
+    <td>letzte &Auml;nderung zur&uuml;cknehmen (&bdquo;undo&ldquo;)</td>
+</tr><tr>
+    <td nowrap="true"><code>[n].</code></td>
+    <td>letzte &Auml;nderung (mit neuer Wiederholungs- bzw. Zeilenangabe
+        <code>n</code>) wiederholen; bei WinVi kann mit
+        <code>.</code> nach&nbsp;<code>u</code> auch weiter zur&uuml;ckgegangen
+        werden (wie {Alt}-{R&uuml;ck}), nach einem erneuten <code>u</code> auch
+        wieder vorw&auml;rts; allerdings wird eine dabei eingegebene Anzahl
+        ignoriert</td>
+</tr><tr>
+    <td nowrap="true"><code>"{m}[n]p</code></td>
+    <td>beim m-ten vorhergegangenen L&ouml;schen ganzer Zeilen entfernten
+        Text (n-mal) hinter dem Cursor einf&uuml;gen (<code>P</code> - vor dem
+        Cursor)</td>
+</tr><tr>
+    <td nowrap="true"><code>&</code></td>
+    <td>wiederholen des letzten Substitute-Befehls
+        (<code>:s</code> - siehe <a href="#ExCommand">ex-Kommandos</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="Insertmode"></a>vi - Eingabemodus</h2>
+
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td nowrap="true"><code>^H</code> &nbsp; oder &nbsp; {R&uuml;ck}<br>
+      </td>
+      <td>letztes eingegebenes Zeichen l&ouml;schen (au&szlig;er Zeilenende)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>^W</code><br>
+      </td>
+      <td>letztes eingegebenes Wort l&ouml;schen<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>^D</code><br>
+      </td>
+      <td>aktuelle Zeile um eine Breite von &nbsp; <code>shiftwidth=</code>
+          &nbsp; zur&uuml;ckschieben<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>0^D</code><br>
+      </td>
+      <td>aktuelle Zeile bis zum Zeilenanfang zur&uuml;ckschieben<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>^T</code><br>
+      </td>
+      <td>Zeilenanfang um eine Breite von &nbsp; <code>shiftwidth=</code> &nbsp;
+          einr&uuml;cken<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>{Esc}</code><br>
+      </td>
+      <td>Verlassen des Eingabemodus, weiter im
+        <a href="#EditTextmode">Befehlsmodus</a><br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="MoveCursor"></a>vi - Cursorbewegung</h2>
+
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td nowrap="true"><code>[n]k</code> oder {hoch} oder <code>^P</code><br>
+      </td>
+      <td>(n Zeilen) nach oben<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]h</code> oder {<code>&lt;-</code>}<br>
+      </td>
+      <td>(n Zeichen) nach links<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]l</code> oder {<code>-&gt;</code>} oder
+          {Leertaste}<br>
+      </td>
+      <td>(n Zeichen) nach rechts<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]j</code> oder {runter} oder <code>^N</code><br>
+      </td>
+      <td>(n Zeilen) nach unten<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]-</code><br>
+      </td>
+      <td>zum ersten druckbaren Zeichen (d.h. nicht Leerzeichen oder Tabulator)
+          der (n-ten) vorhergehenden Zeile<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]+</code><br>
+      </td>
+      <td>zum ersten druckbaren Zeichen der (n-ten) folgenden Zeile<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+ <br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td nowrap="true"><code>0</code><br>
+      </td>
+      <td>(null) Zeilenanfang<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]^</code><br>
+      </td>
+      <td>erstes druckbares Zeichen am (n-ten) vorausgehenden Zeilenanfang<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]|</code><br>
+      </td>
+      <td>erste (n-te) Spalte (Zeichenposition)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]$</code><br>
+      </td>
+      <td>(n-tes) folgendes Zeilenende<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+ <br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td nowrap="true"><code>[n]G</code><br>
+      </td>
+      <td>letzte (n-te) Zeile der Datei auf dem ersten druckbaren Zeichen<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>``</code><br>
+      </td>
+      <td>R&uuml;cksprung zur Position vor dem letzten Sprung mit absoluter
+          Adresse<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>''</code><br>
+      </td>
+      <td>R&uuml;cksprung zum Anfang der Zeile vor dem letzten
+          Absolut-Sprung<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]H</code><br>
+      </td>
+      <td>(n-te) Zeile vom oberen Bildrand auf dem ersten druckbaren Zeichen<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>M</code><br>
+      </td>
+      <td>mittlere Zeile auf dem Bildschirm auf dem ersten druckbaren
+          Zeichen<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]L</code><br>
+      </td>
+      <td>(n-te) Zeile vom unteren Bildrand auf dem ersten druckbaren
+          Zeichen<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+ <br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th colspan="2">Suche eines Zeichens innerhalb der Zeile</th>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]f{x}</code><br>
+      </td>
+      <td>finde das (n-te) folgende Zeichen &bdquo;x&ldquo;
+          (&bdquo;find&ldquo;)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]F{x}</code><br>
+      </td>
+      <td>finde das (n-te) vorhergehende Zeichen &bdquo;x&ldquo;<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]t{x}</code><br>
+      </td>
+      <td>Position vor dem (n-ten) folgenden Zeichen &bdquo;x&ldquo;
+          (till x)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]T{x}</code><br>
+      </td>
+      <td>Position hinter dem (n-ten) vorhergehenden Zeichen &bdquo;x&ldquo;<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n];</code><br>
+      </td>
+      <td>wiederhole das vorhergehende <code>f F t T</code> (n-mal)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n],</code><br>
+      </td>
+      <td>wiederhole das vorhergehende <code>f F t T</code> (n-mal), aber in
+          entgegengesetzter Richtung<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>%</code><br>
+      </td>
+      <td>finde die schlie&szlig;ende zur n&auml;chsten (aktuellen)
+          &ouml;ffnenden bzw. die &ouml;ffnende zur n&auml;chsten
+          schlie&szlig;enden Klammer { ( [ ] ) }<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th colspan="2"><a name="Wortsuche"></a>Wortsuche<br>
+      </th>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]w</code><br>
+      </td>
+      <td>(n-ter) folgender Beginn eines Wortes (=Folge aus
+          Buchstaben, Ziffern, Unterstrich oder Folge aus druckbaren Zeichen,
+          die nicht zu dieser Gruppe geh&ouml;ren)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]W</code><br>
+      </td>
+      <td>(n-ter) folgender Beginn eines Wortes, dem ein Leerzeichen, Tabulator
+          oder Zeilenanfang vorausgeht<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]e</code><br>
+      </td>
+      <td>(n-tes) folgendes Ende eines Wortes<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]E</code><br>
+      </td>
+      <td>(n-tes) folgendes Ende eines Wortes, dem ein Leerzeichen, Tabulator,
+          Zeilenende oder Nullzeichen folgt<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]b</code><br>
+      </td>
+      <td>(n-ter) vorausgehender Beginn eines Wortes<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]B</code><br>
+      </td>
+      <td>(n-ter) vorausgehender Beginn eines Wortes hinter einem Leerzeichen,
+          Tabulator oder Zeilenanfang<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<a name="EditMark"></a>
+<br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th colspan="2">Positionsmarken<br>
+      </th>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>m{x}</code><br>
+      </td>
+      <td>markiere die aktuelle Position mit dem Buchstaben &bdquo;x&ldquo;<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>`{x}</code><br>
+      </td>
+      <td>gehe zur Marke &bdquo;x&ldquo;<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>'{x}</code><br>
+      </td>
+      <td>gehe zum ersten druckbaren Zeichen der Zeile mit Marke
+          &bdquo;x&ldquo;<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>``</code><br>
+      </td>
+      <td>gehe zur vorigen Position zur&uuml;ck (vor Eingabe von
+          <code>`x</code> oder <code>'x</code>)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>''</code><br>
+      </td>
+      <td>gehe zum ersten druckbaren Zeichen der Zeile mit der vorigen
+          Position<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th colspan="2">Suche nach Zeichenketten<br>
+      </th>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]/[ausdr][/]{Enter}</code><br>
+      </td>
+      <td>suche nach dem (n-ten) folgenden Auftreten einer Zeichenkette,
+          f&uuml;r die <code>&lt;ausdr&gt;</code> (engl. RE = regular
+          expression) zutrifft; bei fehlender Angabe wird der zuletzt
+          verwendete Ausdruck benutzt<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]?[ausdr][?]{Enter}</code><br>
+      </td>
+      <td>suche nach dem (n-ten) vorhergehenden Auftreten<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]n</code><br>
+      </td>
+      <td>suche nach dem (n-ten) Auftreten des zuletzt gesuchten Ausdrucks
+          (&bdquo;next&ldquo;) in gleicher Richtung wie im urspr&uuml;nglichen
+          Suchbefehl<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]N</code><br>
+      </td>
+      <td>suche nach dem (n-ten) Auftreten des zuletzt gesuchten Ausdrucks in
+          umgekehrter Richtung als im urspr&uuml;nglichen Suchbefehl<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]*</code><br>
+      </td>
+      <td>suche vorw&auml;rts nach dem (n-ten) Auftreten des Wortes unter dem
+          Cursor (dies ist kein Standard-Vi-Befehl)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[n]#</code><br>
+      </td>
+      <td>suche r&uuml;ckw&auml;rts nach dem (n-ten) Auftreten des Wortes unter dem
+          Cursor (dies ist kein Standard-Vi-Befehl)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>``</code><br>
+      </td>
+      <td>gehe zur&uuml;ck zur Position vor der letzten Suche<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>''</code><br>
+      </td>
+      <td>gehe zum ersten druckbaren Zeichen der Zeile mit der Position vor der
+          letzen Suche<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<a name="RegExp"></a>
+<br>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th colspan="2">Elemente f&uuml;r Regul&auml;re Ausdr&uuml;cke
+          (Regular Expressions)<br>
+      </th>
+    </tr>
+    <tr>
+      <td><code>^</code><br>
+      </td>
+      <td>Zeilenanfang<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>$</code><br>
+      </td>
+      <td>Zeilenende<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>.</code><br>
+      </td>
+      <td>beliebiges Zeichen au&szlig;er Zeilenende (CR-LF, CR, LF, RS, NUL)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>\</code><br>
+      </td>
+      <td>&bdquo;quotiert&ldquo; das folgende Zeichen (hebt dessen
+          Sonderbedeutung auf oder aktiviert diese), insbesondere
+          <code>^ $ . * [ ] \</code> und bei Suche &nbsp;<code>/ ?</code><br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>\&lt;</code><br>
+      </td>
+      <td>Wortanfang (siehe <a href="#Wortsuche">Wortsuche</a>)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>\&gt;</code><br>
+      </td>
+      <td>Wortende<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[list]</code><br>
+      </td>
+      <td>ein Zeichen, das in der Liste enthalten ist<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[^list]</code><br>
+      </td>
+      <td>ein Zeichen, das nicht in der Liste enthalten ist<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>[x-y]</code><br>
+      </td>
+      <td>ein Zeichen aus dem Bereich von &bdquo;x&ldquo; bis &bdquo;y&ldquo;
+          (Beispiel: <code>[0-9A-Za-z_]</code>)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>*</code><br>
+      </td>
+      <td>definiert eine beliebige Anzahl des vorhergehenden Zeichens (z. B.
+          <code>.*</code> = jede beliebige einschl. leerer
+          Zeichenkette)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>\(ausdr[\|]ausdr\)</code><br>
+      </td>
+      <td>(alternativ nach einem der beiden Ausdr&uuml;cke suchen), markieren
+          des Ausdrucks, um die gefundene Zeichenkette bei Substitution mit
+          <code>:s</code> zu verwenden<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>\x</code><br>
+      </td>
+      <td>WinVi-spezifisch: &Uuml;bergehen von
+          <code>ignorecase</code> (siehe <a href="#ExVariables">Optionen</a>)
+          f&uuml;r den folgenden Buchstaben<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>\%hh</code><br>
+      </td>
+      <td>WinVi-spezifisch: das Zeichen mit der angegebenen Hexadezimalcodierung
+          <code>&lt;hh&gt;</code> (auch Zeilenende-Zeichen)<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="ExCommand"></a>ex - Kommandos</h2>
+
+
+<p>Bei WinVi kann nach dem Doppelpunkt, der die Eingabe eines ex-Kommandos
+einleitet, mit der {Tabulator}-Taste eine Liste der m&ouml;glichen Eingaben
+aufgerufen werden oder der Befehl wird soweit m&ouml;glich automatisch
+vervollst&auml;ndigt.</p>
+
+<p><a href="#ExFileCommand">Dateibefehle</a> wurden bereits
+oben aufgelistet und werden hier nicht wiederholt.</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <th>Befehl
+      </th>
+      <th>&nbsp;
+      </th>
+      <th>Funktion
+      </th>
+    <tr>
+      <td nowrap="true"><code>:[.[,.]]s/ausdr[/ers[/[g][c]]]{Enter}</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Substitution (von Zeile m bis Zeile n, Default aktuelle Zeile)
+          der ersten (aller bei Angabe <code>g</code> - &bdquo;global&ldquo;)
+          mit <code>&lt;ausdr&gt;</code> gefundenen Zeichenkette durch
+          <code>&lt;ers&gt;</code> (leere Zeichenkette wenn nicht angegeben);
+          statt &bdquo;<code>/</code>&ldquo; kann ein beliebiges anderes
+          Sonderzeichen als Trennung benutzt werden;<br>
+          <code>c</code> fordert vor jeder Ersetzung eine Best&auml;tigung an
+      </td>
+    </tr>
+    <tr>
+      <td><code>:[.[,.]]s [g][c]{Enter}</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Wiederholung der letzten Ersetzung mit den alten Werten f&uuml;r
+          <code>&lt;ausdr&gt;</code> und <code>&lt;ers&gt;</code><br>
+      </td>
+    </tr>
+    <tr>
+      <td>Zeilennummern:<br>
+      </td>
+      <td><code>.</code><br>
+      </td>
+      <td>aktuelle Zeile<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>+|- [n]</code><br>
+      </td>
+      <td>jede gefundene Zeilennummer kann durch Anh&auml;ngen von &nbsp;
+          <code>+|- [n]</code> &nbsp; erh&ouml;ht/verkleinert werden, fehlt n,
+          wird um 1 erh&ouml;ht/verkleinert; geht nichts voraus, wird von der
+          aktuellen Zeile ausgegangen<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td><code>n</code><br>
+      </td>
+      <td>n-te Zeile<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td><code>$</code><br>
+      </td>
+      <td>letzte Zeile (Abk&uuml;rzung <code>%</code> f&uuml;r
+          <code>1,$</code>)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>'{x}</code><br>
+      </td>
+      <td>Zeile, in der Marke &bdquo;x&ldquo; steht<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>/ausdr/</code><br>
+      </td>
+      <td>Zeile, in der&nbsp;<code>&lt;ausdr&gt;</code> gefunden wird, bei Suche
+          vorw&auml;rts von der n&auml;chsten Zeile an<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>?ausdr?</code><br>
+      </td>
+      <td>Zeile, die bei Suche r&uuml;ckw&auml;rts von der vorigen Zeile an
+          gefunden wird<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>&lt;ers&gt;</code> (Ersetzungsstring):<br>
+      </td>
+      <td>&amp;<br>
+      </td>
+      <td>die mit <code>&lt;ausdr&gt;</code> gefundene Zeichenkette<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>\n</code><br>
+      </td>
+      <td>die Zeichenkette, die mit dem n-ten in
+          &nbsp;<code>\( \)</code>&nbsp; eingeschlossenen Suchstring gefunden
+          wurde (Zahl zwischen 1 und 9)<br>
+      </td>
+    </tr><tr>
+      <td>Steuerzeichen:<br>
+      </td>
+      <td><code>^V</code><br>
+      </td>
+      <td>hebt die Funktion eines folgenden Steuerzeichens auf und
+          veranla&szlig;t eine Sondernotation in der ex-Befehlszeile; Beispiel
+          f&uuml;r die Ersetzung eines Unix-Zeilenendes durch ein PC-Zeilenende
+          (^M^J=CR LF) in WinVi: &nbsp;
+          <code>:s/\%0a/\%0d\%0a/{Enter}</code><br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>:[.[,.]]d{Enter}</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>L&ouml;schen der angegebenen Zeile(n) (&Auml;quivalent
+          zu&nbsp;<code>dd</code>)<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>:[.]{Enter}</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Cursor auf erstes druckbares Zeichen der angegebenen Zeile setzen
+          (&Auml;quivalent zu <code>G</code>)<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<h2><a name="ExVariables"></a>ex - Optionen</h2>
+
+
+<p>Logische Werte (gesetzt oder - nicht gesetzt) werden mit der Folge &nbsp;
+    <code>:set &lt;option&gt;{Enter}</code> &nbsp; aktiviert und mit &nbsp;
+    <code>:set no&lt;option&gt;{Enter}</code> &nbsp; wieder deaktiviert, andere
+    Optionen, hier mit &nbsp; <code>=</code> &nbsp; markiert, verlangen Zahlen-
+    oder Zeichenkettenwerte als Einstellung. Viele Optionen k&ouml;nnen
+    abgek&uuml;rzt werden.</p>
+
+<p>Bei WinVi wird nach der Eingabe &nbsp; <code>:set</code> &nbsp; mit
+    der Tabulator-Taste eine Auswahl angezeigt.</p>
+
+<table width="100%">
+  <tbody>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>all</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Auflistung aller Optionen und ihrer aktuellen Einstellung; bei WinVi
+          &Ouml;ffnen des Einstellungs-Dialogs<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>ai</code><br>
+      </td>
+      <td nowrap="true"><code>autoindent</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>automatische Einr&uuml;ckung wie die vorhergehende Zeile, nach O wie
+          die nachfolgende Zeile<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>aw</code><br>
+      </td>
+      <td nowrap="true"><code>autowrite</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>automatisches Speichern beim Schlie&szlig;en der Datei<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>ic</code><br>
+      </td>
+      <td nowrap="true"><code>ignorecase</code><br>
+      </td>
+      <td>1<br>
+      </td>
+      <td>Gro&szlig;- oder Kleinschreibung beim Suchen ignorieren (gilt auch
+        f&uuml;r nationale Sonderzeichen wie z.&nbsp;B. Umlaute)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>magic</code><br>
+      </td>
+      <td>1<br>
+      </td>
+      <td>besondere Behandlung von &nbsp; <code>. * ? [ ]</code> &nbsp; bei
+          Suchbefehlen (bei <code>nomagic</code> werden sie durch
+          vorangestelltes <code>\</code> aktiviert)<br>
+          Achtung: <code>^</code> und <code>$</code> behalten auch nach
+          Setzen von <code>nomagic</code> ihre Sonderbedeutung<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>list</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>Anzeige der Tabulatoren als &nbsp; <code>^I</code>&nbsp;&nbsp; und der
+          Zeilenenden<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>nu</code><br>
+      </td>
+      <td nowrap="true"><code>number</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>Anzeige der Zeilennummern<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>ro</code><br>
+      </td>
+      <td nowrap="true"><code>readonly</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>Warnung vor Versuch, die Datei zu speichern<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>sm</code><br>
+      </td>
+      <td nowrap="true"><code>showmatch</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>w&auml;hrend der Eingabe von schlie&szlig;enden Klammern wird
+          kurzzeitig die zugeh&ouml;rige &ouml;ffnende Klammer
+          hervorgehoben,<br>
+          bei Positionierungen auf Klammern wird die jeweils
+          gegen&uuml;berliegende Klammer hervorgehoben<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>terse</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>einige Meldungen werden verk&uuml;rzt ausgegeben<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>vo</code><br>
+      </td>
+      <td nowrap="true"><code>viewonly</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>verhindert bei WinVi die &Auml;nderung des Bearbeitungspuffers<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>ws</code><br>
+      </td>
+      <td nowrap="true"><code>wrapscan</code><br>
+      </td>
+      <td>1<br>
+      </td>
+      <td>Suche wird bei Erreichen des Dateiendes am Anfang fortgesetzt und
+          umgekehrt<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>am</code><br>
+      </td>
+      <td nowrap="true"><code>ansimode</code><br>
+      </td>
+      <td>1<br>
+      </td>
+      <td>WinVi-spezifisch: Behandlung der Datei als ANSI-Text<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>dm</code><br>
+      </td>
+      <td nowrap="true"><code>dosmode</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>WinVi-spezifisch: Behandlung der Datei als DOS-Datei mit
+          OEM-Zeichensatz<br>
+      </td>
+    </tr>
+    <tr>
+      <td><code>hm</code><br>
+      </td>
+      <td nowrap="true"><code>hexmode</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>WinVi-spezifisch: Anzeige im Hexadezimalmodus<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>co=</code><br>
+      </td>
+      <td nowrap="true"><code>columns=</code><br>
+      </td>
+      <td>80<br>
+      </td>
+      <td>Breite des Bildschirms in Zeichen (angezeigte Zeilenl&auml;nge),<br>
+          bei Proportionalschrift wird die durchschnittliche Zeichenbreite
+          zu Grunde gelegt<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>lines=</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Anzahl der Zeilen im Bildschirmfenster (H&ouml;he)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>scroll=</code><br>
+      </td>
+      <td>0<br>
+      </td>
+      <td>Maximalanzahl der Zeilen, die beim Positionieren durch Rollen des
+          Bildschirminhalts erreicht werden kann, der Wert 0 steht f&uuml;r die
+          Anzahl der sichtbaren Zeilen minus 2<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>sw=</code><br>
+      </td>
+      <td nowrap="true"><code>shiftwidth=</code><br>
+      </td>
+      <td>4<br>
+      </td>
+      <td>Zahl der Leerzeichen, die beim Einr&uuml;cken mit &nbsp; <code>&gt;
+          &lt; ^D ^T</code> &nbsp; am Zeilenanfang eingef&uuml;gt/entfernt
+          werden<br>
+      </td>
+    </tr>
+    <tr>
+      <td nowrap="true"><code>ts=</code><br>
+      </td>
+      <td nowrap="true"><code>tabstop=</code><br>
+      </td>
+      <td>8<br>
+      </td>
+      <td>Zahl der Zeichenpositionen, die einem Standard-Tabulatorsprung
+          entspricht<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>tags=</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Liste von Dateinamen f&uuml;r das
+          &nbsp;<code>:tag</code>-Kommando</td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>tmpdirectory=</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Verzeichnis, in dem tempor&auml;re Dateien abgelegt werden (Standard:
+          System-TEMP-Verzeichnis)<br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td><br>
+      </td>
+      <td><br>
+      </td>
+      <td><br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>ansicodepage=</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>Benennung der NLS-Ressource von Windows, mit der die Anzeige
+          und Eingabe im jeweiligen Modus behandelt wird (Standard ist
+          abh&auml;ngig vom Windows-System),  siehe auch <b>Zeichentabellen</b>
+          unter <a href="#SettingsFiletype">Einstellungen - Dateityp</a><br>
+      </td>
+    </tr>
+    <tr>
+      <td><br>
+      </td>
+      <td nowrap="true"><code>oemcodepage=</code><br>
+      </td>
+      <td><br>
+      </td>
+      <td>wie oben<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<a name="SearchDlg"><h2>Suchen-Dialog</h2></a>
+<p>Dieser Dialog erscheint bei Eingabe von {Alt+F3} oder bei Auswahl der
+entsprechenden Toolbar-Taste oder des Men&uuml;-Eintrags.
+Der Suchen-Dialog enth&auml;lt folgende Felder:</p>
+<ul>
+<li><b>Suchmuster</b><br>
+    Geben Sie hier den Text ein, nach dem gesucht werden soll.
+    Dies ist ein <a href="#RegExp">regul&auml;rer Ausdruck</a>, wenn die
+    n&auml;chste Checkbox aktiviert ist.  Ansonsten wird die Zeichenkette
+    unver&auml;ndert gesucht.</li>
+<li><b>als regul&auml;rer Ausdruck</b><br>
+    Aktivieren Sie diese Option, um ein Muster zu suchen, das den Regeln von
+    <a href="#RegExp">regul&auml;ren Ausdr&uuml;cken</a> folgt.
+    Wenn diese Option deaktiviert ist, so wird das eingegebene Suchmuster als
+    Zeichenkette gesucht.  Ist diese Option mit der folgenden
+    hexadezimal-Checkbox kombiniert, k&ouml;nnen \x-Prefixe im Suchmuster
+    weggelassen werden.  Der Punkt (<code>.</code>) findet dann ganze Bytes,
+    nicht nur eine Hexadezimalziffer.</li>
+<li><b>hexadezimal</b><br>
+    Das Suchmuster wird als Folge von Hexadezimalziffern interpretiert.
+    Leerzeichen k&ouml;nnen eingef&uuml;t werden, um die Hexadezimalcodierungen
+    einzelner Bytes zu trennen.</li>
+<li><b>Gro&szlig;-/Kleinschreibubg unterscheiden</b><br>
+    Gro&szlig;- und Kleinschreibung von Buchstaben werden bei der Suche
+    unterschieden.  Dieses Flag wird entsprechend der
+    <code>ignorecase</code>-Einstellung vorausgef&uuml;llt, kann aber
+    ge&auml;ndert werden.</li>
+<li><b>ganzes Wort</b><br>
+    Diese Option entspricht dem Einklammern des Suchmusters mit den
+    regul&auml;ren-Ausdrucks-Elementen <code>\&lt;</code> und
+    <code>\&gt;</code>.</li>
+<li><b>Rundumsuche</b><br>
+    Die Suche wird am Dateianfang/-ende fortgesetzt, wenn das Suchmuster nicht
+    gefunden werden konnte.  Dieses Flag wird entsprechend der
+    <code>Wrapscan</code>-Einstellung vorausgef&uuml;llt, kann aber
+    ge&auml;ndert werden.</li>
+<li><b>r&uuml;ckw&auml;rts / vorw&auml;rts</b><br>
+    W&auml;hlen Sie hier die Suchrichtung.</li>
+<li><b>Weitersuchen</b><br>
+    Bet&auml;tigen Sie diese Schaltfl&auml;che um die Suche tats&auml;chlich zu
+    starten.  Das n&auml;chste Vorkommen des Suchmusters wird markiert, wenn
+    die Suche erfolgreich ist.</li>
+<li><b>Ersetzen &gt;&gt;</b><br>
+    Diese Schaltfl&auml;che erweitert den Dialog um Ersetzungsoptionen.
+    Sie kann nach einer erfolgreichen Suche bet&auml;tigt werden.</li>
+<li><b>Ersetzung</b><br>
+    Dieses Feld wird nach Dr&uuml;cken der "Ersetzen &gt;&gt;"-Taste sichtbar.
+    Geben Sie hier eine Zeichenkette an, wenn Sie den gefundenen Text ersetzen
+    wollen.</li>
+<li><b>Ersetzen</b><br>
+    Dr&uuml;cken Sie diese Schaltfl&auml;che, um den markierten Text zu
+    ersetzen.  Diese Schaltfl&auml;che ist deaktiviert, wenn kein Text markiert
+    ist.</li>
+<li><b>Alles ersetzen</b><br>
+    Dr&uuml;cken Sie auf diese Schaltfl&auml;che, wenn jedes Vorkommen des
+    Suchmusters in der Datei ersetzt werden soll.</li>
+</ul>
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+
+<a name="Settings"><h2>Einstellungen</h2></a>
+<p>Der Inhalt der Karteikarten wird in den nachfolgenden Abschnitten
+beschrieben.  Au&szlig;erhalb der Karteikarten gibt es am oberen Rand die
+Auswahl eines Profils (dateispezifische Einstellungen).  Bei Auswahl eines
+anderen Profils werden alle Einstellungen so gesetzt, wie sie zuletzt f&uuml;r
+dieses Profil gespeichert wurden.  Das Anlegen und die automatische
+Auswahl von Profilen wird im n&auml;chsten Abschnitt beschrieben.
+Am unteren Rand befindet sich die Auswahl f&uuml;r permanentes Speichern der
+Einstellungen sowie die &uuml;blichen Tasten zum &Uuml;bernehmen,
+Best&auml;tigen und Abbrechen des Dialogs.
+
+<a name="SettingsProfile"><h3>Einstellungen - Profil</h3></a>
+<p>Profile k&ouml;nnen eingerichtet werden, wenn unterschiedliche Einstellungen
+f&uuml;r verschiedene Dateien angewendet werden sollen.
+Unterschieden werden kann nach Dateipfad und/oder -endung.<br>
+Die Einstellungen f&uuml;r ein Profil werden automatisch geladen, wenn eine
+Datei mit entsprechendem Pfad und Endung ge&ouml;ffnet wird oder wenn der Pfad
+oder der Name der aktuellen Datei ge&auml;ndert wird.<br>
+Beim Vergleich des Dateinamens wird Gro&szlig;-/Kleinschreibung ignoriert.  Die
+Pfad-Trennzeichen <code>/</code> und <code>\</code> werden gleich behandelt.
+Bei noch unbenannten Dateien oder bei Dateinamen ohne vollst&auml;ndigem Pfad
+wird das aktuelle Arbeitsverzeichnis f&uuml;r die Profilauswahl
+herangezogen.<br>
+<br>
+Bei mehrfachen Treffern bei der automatischen Profilsuche wird das
+bestm&ouml;gliche Profil gew&auml;hlt.  Diese Suche ermittelt das erste Profil
+aus der folgenden Liste:
+<ol>
+ <li>erstes Profil, bei dem die Endung leer ist und ein m&ouml;glichst
+     gro&szlig;er Teil des Pfades passt, wenn es kein anderes Profil gibt, das
+     mindestens zu dem gleichen Pfadanteil passt und bei dem auch eine passende
+     Endung dabei ist, sonst</li>
+ <li>erstes Profil, bei dem ein m&ouml;glichst gro&szlig;er Anteil eines Pfades
+     und eine Endung passen, sonst</li>
+ <li>erstes Profil, bei dem die Endung leer ist und ein m&ouml;glichst
+     gro&szlig;er Teil des Pfades passt, sonst</li>
+ <li>erstes Profil, bei dem ein leerer Pfad enthalten ist und eine Endung passt,
+     sonst</li>
+ <li>erstes Profil au&szlig;er <code>(default)</code> bei dem ein
+     leerer Pfad und eine leere Endung enthalten sind, sonst</li>
+ <li>das Default-Profil.</li>
+</ol>
+Die Arbeitsschritte zum Anlegen eines neuen Profils sind:<br>
+<ol>
+ <li>Zuerst sollte in der Combobox im oberen Teil des Einstellungsdialoges das
+     Profil ausgew&auml;hlt werden, das die meisten gleichen Einstellungen wie
+     das neue Profil hat.  Dies erspart m&uuml;hsames Nachziehen der
+     Einstellungen.  Beim ersten Anlegen steht hier nur das
+     <code>(default)</code>-Profil zur Verf&uuml;gung.
+     Die Auswahl eines Profils f&uuml;hrt zur sofortigen Anwendung dieser
+     Einstellungen.
+ <li>Taste &bdquo;<u>N</u>eues Profil anlegen...&ldquo; in der
+     Profil-Karteikarte des Einstellungsdialoges dr&uuml;cken und</li>
+ <li>einen Namen zur Benennung des Profils festlegen,
+     &bdquo;OK&ldquo; klicken.</li>
+ <li>Nun k&ouml;nnen Pfade und/oder Dateiendungen in die beiden Felder
+     eingetragen werden, die zur Auswahl des neuen Profils herangezogen werden
+     sollen.  Mehrfachangaben sind durch Komma oder Semikolon zu trennen und
+     werden als Oder-Verkn&uuml;pfung behandelt.
+ <li>Die Checkbox &bdquo;da<u>u</u>erhafte Einstellung als Standard
+     f&uuml;r diesen Dialog&ldquo; legt fest, ob nach dem Laden des
+     Profils im Einstellungsdialog automatisch &bdquo;<u>d</u>auerhafte
+     Einstellung&ldquo; aktiviert sein soll.
+     Dies kann auch f&uuml;r das Default-Profil gesetzt werden.
+ <li>Die aktuellen Einstellungen in den anderen Karteikarten
+     enthalten noch die Werte des zuvor geladenen Profils.
+     Diese k&ouml;nnen nun wie gew&uuml;nscht angepasst werden.</li>
+ <li>Zum Schluss werden die neuen Einstellungen gespeichert und angewendet durch
+     Auswahl von &bdquo;<u>d</u>auerhafte Einstellung&ldquo; und
+     Klicken der &bdquo;OK&ldquo;-Taste.</li>
+</ol>
+</p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsFiletype"><h3>Einstellungen - Dateityp</h3></a>
+<p>Dieser Dialog bestimmt das Verfahren beim &Ouml;ffnen einer Datei.
+Hier werden nicht die aktuellen Einstellungen ver&auml;ndert.
+
+<ul>
+<li><b>Standard-Zeilenvorschub</b><br>
+    Im ersten Teil wird die Standard-Codierung von Zeilenvorsch&uuml;ben
+    festgelegt.  Diese Einstellung legt einerseits fest, wie beim Einf&uuml;gen
+    die Return/Enter-Taste behandelt wird, andererseits wird damit bestimmt,
+    welcher Zeilenvorschub ohne zus&auml;tzliche Sonderzeichen dargestellt wird.
+    Ist die aktuelle Einstellung nicht auf CR/LF, so erscheint bei der
+    Datei-Statusanzeige (nach Strg+G oder nach Lesen oder Schreiben einer Datei)
+    der Hinweis [Lf] oder [Cr], je nach Dateityp.</li>
+
+<li><b>Initialer Text- / Hexadezimalmodus</b><br>
+    Links unten wird eine automatische Umschaltung zwischen Text- und
+    Hexadezimaldarstellung beim &Ouml;ffnen einer Datei eingestellt.<br>
+    Die Umschaltung des Hexadezimalmodus bei bereits geladener Datei kann im
+    Hauptfenster mit der rechten Toolbar-Taste oder mit der
+    Men&uuml;auswahl<code> Optionen</code> -> <code>Hexadezimalmodus
+    </code>erreicht werden.</li>
+
+<li><b>Initialer Zeichensatz</b><br>
+    Rechts oben kann ein automatischen Umstellen der Zeichenbelegung eingestellt
+    werden.  Auch diese Auswahl wird nur beim &Ouml;ffnen einer Datei angewandt.
+    <acronym title="American National Standards Institute">ANSI</acronym>
+    ist die &uuml;bliche Einstellung f&uuml;r Windows-Dateien.
+    Der PC-Zeichensatz (auch
+    <acronym title="Original Equipment Manufacturer">OEM</acronym>-Zeichensatz
+    genannt) verwendet andere Codierungen f&uuml;r verschiedene Sonderzeichen
+    und findet &uuml;berwiegend in DOS-Programmen Anwendung.  Die dritte Auswahl
+(<acronym title="Extended Binary Coded Decimal Interchange Code">EBCDIC</acronym>)
+    wird heute nur noch selten gebraucht und dient der Kompatibilit&auml;t zu
+    entsprechenden Rechnersystemen.</li>
+
+<li><b>Zeichentabellen</b><br>
+    Im rechten unteren Teil dieser Karteikarte kann in der 32-Bit-Version von
+    WinVi jeweils f&uuml;r den ANSI- und den PC-Zeichensatz eine System-Codepage
+    festgelegt werden.  Diese Werte sollten nur beim Bearbeiten von
+    fremdsprachigen Dateien ver&auml;ndert werden.  Bei der Voreinstellung
+    &bdquo;System&ldquo; werden die f&uuml;r das Betriebssystem g&uuml;ltigen
+    Codepages verwendet, z. B. 1252 f&uuml;r westliche ANSI-Zeichencodierungen
+    und 850 f&uuml;r den deutschen oder 437 f&uuml;r den originalen
+    amerikanischen OEM-Zeichensatz.<br>
+    Diese Codepage-Einstellungen finden einerseits bei der Umschaltung zwischen
+    ANSI- und DOS-Zeichensatz Anwendung, andererseits wird die Konvertierung
+    beim Einf&uuml;gen von Unicode-Texten aus der Zwischenablage beeinflusst.
+    <br>
+    Beachten Sie bitte auch, dass die tats&auml;chliche Darstellung in der
+    <a href="#SettingsFonts">Auswahl der Schriftart</a> angepasst wird.
+    Dies ist jedoch nicht bei allen Schriften m&ouml;glich.<br>
+    Unter
+ <code>[HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Nls\Codepage]</code>
+    in der Windows-Registry sind die installierten Ressourcen gelistet, die
+    f&uuml;r die Codepage-Einstellung genutzt werden k&ouml;nnen. Bei Bedarf
+    k&ouml;nnen die n&ouml;tigen Dateien aus den CAB-Dateien der
+    System-Installations-CD extrahiert, ins System-Verzeichnis kopiert und in
+    den Registry-Pfad eingetragen werden.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsDisplay"><h3>Einstellungen - Anzeige</h3></a>
+<p>In diesem Dialog kann die Anzeige beeinflusst werden.
+<ul>
+<li><b>zusammengeh&ouml;rige Klammern anzeigen</b><br>
+    Wenn bei einer Positionierung im Befehlsmodus die Schreibposisition auf eine
+    Klammer gesetzt wird (also (, ), {, }, [ oder ]), so wird eine Sekunde lang
+    die gegen&uuml;berliegende Klammer hervorgehoben, falls sie im angezeigten
+    Fensterbereich liegt.  Im Eingabemodus erfolgt diese Anzeige nur nach der
+    Eingabe einer schlie&szlig;enden Klammer.
+    Dieser Wert kann auch mit
+    &bdquo;<a href="#ExVariables">:set</a>&nbsp;[no]showmatch&ldquo; gesetzt
+    werden.</li>
+<li><b>kurze Meldungen</b><br>
+    Einige Meldungen in der Statuszeile (z. B. nach dem Einlesen einer Datei)
+    werden in verk&uuml;rzter Form angezeigt.
+    Dieser Wert kann auch mit &bdquo;<a
+    href="#ExVariables">:set</a>&nbsp;[no]terse&ldquo; gesetzt werden.</li>
+<li><b>Aktivierung bei Drag & Drop</b><br>
+    Beim Ziehen einer Datei auf den WinVi (beispielsweise aus dem Explorer)
+    wird das WinVi-Fenster in den Vordergrund geholt.</li>
+<li><b>Zeilennummern</b><br>
+    In der Textanzeige wird vor jede Zeile eine Zeilennummer gesetzt.
+    Die Zeilen z&auml;hlen von 1 aufw&auml;rts.
+    Dieser Wert kann auch mit &bdquo;<a
+    href="#ExVariables">:set</a>&nbsp;[no]number&ldquo; gesetzt werden.</li>
+<li><b>Hintergrund-Bitmap aktualisieren</b><br>
+    Bei Verwendung eines Hintergrundbildes kann es beim Einf&uuml;gen oder
+    L&ouml;schen von Zeilen zu einer &bdquo;zerst&uuml;ckelten&ldquo;
+    Hintergrunddarstellung kommen.  Bei Aktivierung dieser Einstellung werden
+    nach Einf&uuml;gen oder L&ouml;schen von Zeilen auch die Folgezeilen erneut
+    ausgegeben, um das Hintergrundbild wieder zu korrigieren.
+    Bei Darstellung ohne Bitmap hat diese Einstellung keine Bedeutung.</li>
+<li><b>hexadezimale Adressen im Hexadezimalmodus</b><br>
+    Die Adressen im Hexadezimalmodus (erste Spalte) werden normalerweise
+    dezimal angezeigt.  Mit dieser Einstellung erfolgt die Anzeige hexadezimal.
+    </li>
+<li><b>Tabulator</b><br>
+    Dieser Wert beschreibt die Abst&auml;nde der Tabulatorpositionen im
+    Textmodus.  Der &uuml;bliche Wert von 8 bedeutet beispielsweise, dass von
+    der ersten Spalte im Abstand von acht Zeichenpositionen jeweils ein weiterer
+    Tabulatorstopp gesetzt wird.  Bei Verwendung einer Proportionalschriftart
+    wird die durchschnittliche Zeichenbreite herangezogen.
+    Dieser Wert kann auch mit &bdquo;<a
+    href="#ExVariables">:set</a>&nbsp;tabstop=N&ldquo; gesetzt werden.</li>
+<li><b>maximaler Rollbereich</b><br>
+    Bei Positionierungen au&szlig;erhalb des angezeigten Textbereichs kann
+    hier eingestellt werden, ab welcher Zeilenzahl ein Direktsprung mit
+    Zeilenzentrierung erfolgt.  Ein Wert von 5 bedeutet, dass Positionierungen
+    innerhalb eines Bereichs von 5 Zeilen vor oder hinter dem gerade angezeigten
+    Fenster durch Rollen des Bildes durchgef&uuml;hrt werden. Positionierungen
+    au&szlig;erhalb dieses Zeilenbereichs f&uuml;hren zum Springen des Bildes,
+    die Zielposition liegt dann - wenn m&ouml;glich - in der Bildmitte.
+    Der Wert 0 hat eine Sonderbedeutung und steht f&uuml;r die Anzahl der
+    angezeigten Zeilen - 2.
+    Dieser Wert kann auch mit &bdquo;<a
+    href="#ExVariables">:set</a>&nbsp;scroll=N&ldquo; gesetzt werden.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsEdit"><h3>Einstellungen - Editieren</h3></a>
+
+<p>In diesem Dialog k&ouml;nnen Einstellungen f&uuml;r die Bearbeitung
+ver&auml;ndert werden.
+<ul>
+<li><b>initialer Einf&uuml;gemodus</b><br>
+    Bei eingeschaltetem initialem Einf&uuml;gemodus k&ouml;nnen nach dem Start
+    von WinVi sofort Eingaben in den Dateipuffer erfolgen.  Ausgeschaltet
+    arbeitet WinVi zun&auml;chst im Befehlsmodus.  Diese Einstellung wirkt sich
+    au&szlig;erdem auf den Betriebsmodus nach einer Dateioperation aus, falls
+    diese im Einf&uuml;gemodus eingeleitet wurde (z. B. aus dem Men&uuml;, oder
+    aus der Toolbar).</li>
+<li><b>automatisch schreiben</b><br>
+    Ist diese Option eingeschaltet, so wird beim &Ouml;ffnen einer neuen Datei
+    die aktuelle Datei automatisch geschrieben, wenn sie ge&auml;ndert
+    wurde.</li>
+<li><b>automatisch einr&uuml;cken</b><br>
+    Beim Einf&uuml;gen einer neuen Zeile mit 'O', 'o' oder mit der
+    Eingabetaste im Einf&uuml;gemodus wird der Cursor in der neuen Zeile
+    genauso weit einger&uuml;ckt, wie die Zeile, in der der Cursor vorher
+    stand.  Die Einr&uuml;ckung wird soweit wie m&ouml;glich mit
+    Tabulatorzeichen durchgef&uuml;hrt und am Schluss mit Leerzeichen
+    aufgef&uuml;llt, falls ein weiterer Tabulator zu weit positionieren
+    w&uuml;rde.  Falls die Tabulatorbreite auf eine Zeichenposition eingestellt
+    ist, wird jedoch nur mit Leerzeichen einger&uuml;ckt.</li>
+<li><b>zeilen&uuml;bergreifende Cursor-Bewegungen</b><br>
+    Die Taste f&uuml;r Cursorbewegung nach rechts positioniert am Ende einer
+    Zeile automatisch an den Anfang der n&auml;chsten Zeile.  Analog
+    positioniert die Cursorbewegung nach links von Anfang einer Zeile an das
+    Ende der vorigen Zeile.  Au&szlig;erden l&ouml;scht im Einf&uuml;gemodus
+    die R&uuml;ckw&auml;rtsl&ouml;schtaste am Anfang einer Zeile den
+    vorangehenden Zeilenvorschub.</li>
+<li><b>zeilen&uuml;bergreifende !/c/d/y-Operationen auf ganzen Zeilen</b><br>
+    Mehrzeilige Operationen werden durch diese Option auf ganze Zeilen
+    ausgedehnt.  So werden beispielsweise wie bei einem Standard-Vi mit dem
+    Befehl <code>dj</code> wie mit <code>2dd</code> zwei vollst&auml;ndige
+    Zeilen gel&ouml;scht.
+    Ist diese Option ausgeschaltet, so l&ouml;scht <code>dj</code> nur den
+    Bereich von der aktuellen Position bis in die gleiche Spalte der
+    n&auml;chsten Zeile, w&auml;hrend <code>2dd</code> die beiden Zeilen
+    vollst&auml;ndig entfernt.
+    </li>
+<li><b>Undo-Speicher</b><br>
+    Der hier eingetragene Wert bestimmt den maximalen Speicherbedarf f&uuml;r
+    das Zwischenspeichern von entfernten oder ersetzten Textbereichen, die
+    sp&auml;ter wieder r&uuml;ckg&auml;ngig gemacht werden k&ouml;nnten.
+    Ist der angegebene Speicherverbrauch erreicht, so werden die &auml;ltesten
+    Informationen gel&ouml;scht, so dass sich nicht mehr alle Operationen
+    r&uuml;ckg&auml;ngig machen lassen.</li>
+<li><b>Schreibschutz als Default</b><br>
+    Ist diese Option eingeschaltet, so wird beim Einlesen automatisch die
+    interne Schreibschutz-Markierung gesetzt, auch wenn die Datei selbst nicht
+    schreibgesch&uuml;tzt ist.  Das Datei-Attribut selbst bleibt
+    unver&auml;ndert.  Es sollte jedoch beachtet werden, dass der Schreibschutz
+    mit dem Befehl <code>:w!</code> umgangen werden kann, so dass diese Option
+    nicht wirklich Schutz vor &Uuml;berschreiben bietet.
+    </li>
+<li><b>Einr&uuml;ckung</b><br>
+    In diesem Feld wird angegeben, um wie viele Leerstellen die Befehle
+    <code>&lt;&lt;</code> und <code>&gt;&gt;</code> die jeweiligen Zeilen ein-
+    bzw. ausr&uuml;cken.</li>
+<li><b>Rundumsuche (WrapScan)</b><br>
+    Ist diese Option eingeschaltet, so wird bei einer erfolglosen
+    Vorw&auml;rtssuche vom Dateianfang weitergesucht.  Entsprechend
+    wird eine erfolglose R&uuml;ckw&auml;rtssuche am Dateiende fortgesetzt.
+    Dies entspricht dem Befehl <code>:set wrapscan</code></li>
+<li><b>Gro&szlig;-/Kleinschreibung ignorieren</b><br>
+    Wenn diese Option eingeschaltet ist, so wird Gro&szlig;- und Kleinschreibung
+    beim Suchen nicht unterschieden.  Im Gegensatz zu vielen anderen Vi-Editoren
+    bezieht sich diese Einstellung auch auf nationale Sonderzeichen wie z. B.
+    Umlaute in der gerade aktiven Zeichensatzauswahl (ANSI / DOS / EBCDIC).
+    Dies entspricht dem Befehl <code>:set ignorecase</code>.</li>
+<li><b>magic (regul&auml;re Ausdr&uuml;cke)</b><br>
+    Bei ausgeschalteter Magic-Option wird in Suchoperationen die
+    Sonderbedeutung der Zeichen <code>.</code>, <code>*</code>, <code>[</code>,
+    <code>]</code> und <code>?</code> aufgehoben.  Ist magic eingeschaltet, so
+    haben diese Zeichen die in der Tabelle <a href="#RegExp">Regul&auml;re
+    Ausdr&uuml;cke</a> beschriebene Sonderbedeutung.  Die Zeichen <code>^</code>
+    und <code>$</code> behalten immer ihre Sonderbedeutung.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsFiles"><h3>Einstellungen - Dateien</h3></a>
+
+<p>In diesem Dialog k&ouml;nnen dateispezifische Einstellungen vorgenommen
+werden.
+<ul>
+<li><b>Auslagern bei Speicherbelegung ab ... KByte</b><br>
+    Ab der angegebenen Dateigr&ouml;&szlig;e wird automatisch im Temp-Ordner
+    eine Auslagerungsdatei angelegt, so dass der Arbeitsspeicherverbrauch
+    begrenzt bleibt.  Solche Auslagerungsdateien werden mit<code>
+    wvi*.tmp </code>benannt.</li>
+<li><b>System-Temp-Ordner verwenden</b><br>
+    An dieser Stelle wird das Verzeichnis festgelegt, in dem die oben
+    beschriebenen Auslagerungsdateien angelegt werden.</li>
+<li><b>Tags-Dateiliste</b><br>
+    Im diesem Feld wird die Liste der Dateien angegeben, die f&uuml;r die
+    Tags-Suche herangezogen werden.  Die einzelnen Dateinamen k&ouml;nnen durch
+    Semikolon oder Komma voneinander getrennt werden.</li>
+<li><b>Beenden ohne Best&auml;tigung bei weiteren zu editierenden
+    Dateien</b><br>
+    Ist diese Option aktiviert, so wird beim Beenden von WinVi nicht
+    &uuml;berpr&uuml;ft, ob alle Dateien der Argumentenliste abgearbeitet
+    wurden.  Bei deaktivierter Option erfolgt ein Hinweis, dass noch weitere
+    unbearbeitete Dateien vorliegen, falls in der Argumentenliste noch nicht
+    abgearbeitet ist.</li>
+<li><b>Server-Tab-Expansion in Domains/Workgroups</b><br>
+    Hier wird eine Liste von NT-Dom&auml;nen oder Arbeitsgruppen angegeben, in
+    denen Rechnernamen bei der automatischen Vervollst&auml;ndigung von
+    Dateinamen mit der Tabulatortaste gesucht werden.  Mehrere Eintr&auml;ge
+    k&ouml;nnen mit<code> , </code>oder<code> ; </code>getrennt werden.  Die
+    Wildcard-Zeichen<code> * </code>und<code> ? </code>finden beliebig viele
+    bzw. ein beliebiges Zeichen.  Der voreingestellte Wert<code>
+    * </code>steht also f&uuml;r alle NT-Dom&auml;nen bzw. Arbeitsgruppen.  In
+    gr&ouml;&szlig;eren Firmennetzen mit vielen Dom&auml;nen kann die
+    Rechnersuche jedoch erheblich schneller erfolgen, wenn hier nur die
+    ben&ouml;tigten Namen eingetragen sind.</li>
+<li><b>Dateinamen in Kleinbuchstaben umwandeln (Vorsicht bei
+    NFS-Dateisystemen)</b><br>
+    Bei Aktivierung dieser Option werden alle Dateinamen zur besseren Lesbarkeit
+    in Kleinbuchstaben umgewandelt.  &Uuml;ber NFS angebundene
+    Netzwerk-Dateisysteme unterscheiden h&auml;ufig zwischen gro&szlig; und
+    klein geschriebenen Dateinamen.  In diesem Fall sollte diese Option nicht
+    aktiviert sein.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsMapping"><h3>Einstellungen - Tastatur-Makros</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie die Belegung der Tastatur.
+werden.
+<ul>
+<li><b>Definierte Makros</b><br>
+    In dieser Listbox werden alle bereits definierten Tastaturmakros angezeigt.
+    Zum &Auml;ndern oder L&ouml;schen kann hier ein Makro ausgew&auml;hlt
+    werden, um ihn dann auf der rechten Seite zu bearbeiten.</li>
+<li><b>Map</b><br>
+    Diese Auswahl erlaubt die Umwandlung beliebiger Eingabezeichenfolgen in eine
+    &bdquo;auszuf&uuml;hrende&ldquo; Zeichenfolge.</li>
+<li><b>Abk&uuml;rzung</b><br>
+    Im Gegensatz zum Map-Eintrag werden mit dieser Auswahl abgek&uuml;rzte
+    W&ouml;rter ersetzt.  Die getippten Zeichen werden w&auml;hrend der Eingabe
+    angezeigt und erst nach Abschluss der Eingabe des abgek&uuml;rzten Wortes
+    nach erfolgreichen Auffinden ersetzt.  Dazu muss nach der Eingabe entweder
+    ein Sonderzeichen eingegeben oder die Eingabe beendet werden.</li>
+<li><b>Name</b><br>
+    Dieses Feld dient lediglich der Benennung und dem Wiederauffinden des
+    Makros.</li>
+<li><b>Eingabe-Tastenfolge</b><br>
+    Hier werden die eingegebenen Tasten beschrieben.  Sondertasten wie die
+    Funktions- oder die Cursorbewegungstasten k&ouml;nnen in lesbarer Form
+    geschrieben werden.  Leerstellen k&ouml;nnen zur Verbesserung der Lesbarkeit
+    beliebig eingestreut werden und werden nicht &uuml;berpr&uuml;ft.  Alle
+    Eingaben, die exakt verglichen werden sollen, sollten in einfache oder
+    doppelte Anf&uuml;hrungszeichen eingeschlossen werden, um m&ouml;gliche
+    Konflikte mit Sondertasten zu vermeiden.</li>
+<li><b>auszuf&uuml;hrende Tastenfolge</b><br>
+    Hier steht die statt der eingegebenen Tastenfolge auszuf&uuml;hrende
+    Tastenfolge.  Dies k&ouml;nnen Texteingaben sein, aber auch Moduswechsel,
+    Cursorbewegungen oder Men&uuml;auswahlen.
+    Hier gelten die gleichen Regeln f&uuml;r die Konvertierung wie oben unter
+    Eingabe-Tastenfolge beschrieben.</li>
+<li><b>Einf&uuml;ge- / Ersetzungsmodus</b><br>
+    Die Ersetzung erfolgt, wenn zu Beginn der Eingabe-Tastenfolge der
+    Einf&uuml;ge- oder der Ersetzungsmodus aktiv war (schmaler Cursor) und die
+    Eingabe im Hauptbereich des Editors erfolgt.</li>
+<li><b>Befehlsmodus</b><br>
+    Die Ersetzung erfolgt, wenn zu Beginn der Eingabe-Tastenfolge der
+    Befehlsmodus aktiv war (Blockcursor) und die Eingabe im Hauptbereich des
+    Editors erfolgt.</li>
+<li><b>Befehlszeilen-Modus (ex-Befehl)</b><br>
+    Die Ersetzung erfolgt nur in der Kommandozeile am unteren Fensterrand.
+    </li>
+<li><b>Setzen</b><br>
+    Die Makrodefinition soll zu der Makroliste hinzugef&uuml;gt werden.</li>
+<li><b>L&ouml;schen</b><br>
+    Die Makrodefinition soll von der Makroliste entfernt werden.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsShell"><h3>Einstellungen - Shell</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie die Einstellungen f&uuml;r externe Befehle.
+<ul>
+<li><b>Pfad- und Dateiname der Shell</b><br>
+    Dies ist der Kommando-Interpreter, der externe Befehle ausf&uuml;hren soll.
+    Im Normalfall ist dies bei Windows 95, Windows 98 oder Windows Me die
+    Datei<code> COMMAND.COM </code>gegenenfalls mit dem entsprechenden Pfad.
+    Unter Windows NT, Windows 2000 und Windows XP hei&szlig;t der
+    Kommando-Interpreter<code> CMD.EXE</code> .</li>
+<li><b>Kommandoaufruf mit Shell</b><br>
+    Dieses Feld beschreibt den Aufruf eines einzelnen Kommandos.<code> %0
+    </code>steht dabei f&uuml;r den oben beschriebenen Kommando-Interpreter,
+    %1 f&uuml;r das eingegebene Kommando.  Die Standard-Vorgabe ist<code>
+    %0 /c %1 </code>.  Bei Verwendung einer anderen Shell (z.B. CygWin-Bash)
+    sollte dieses Feld entsprechend angepasst werden, z. B.<code> %0 -c "%1"
+    </code>.</li>
+<li><b>Tabulator-Expandierung von Verzeichnissen mit
+    Vorw&auml;rts-Schr&auml;gstrich</b><br>
+    Bei einigen Kommando-Interpretern (z. B. CygWin-Bash) muss als
+    Pfad-Trennzeichen der normale Schr&auml;gstrich verwendet werden.
+    In diesem Fall muss diese Option gesetzt werden.</li>
+<li><b>URL f&uuml;r die Hilfedatei</b><br>
+    Hier kann die URL f&uuml;r diese Hilfedatei angegeben werden, wie der
+    Browser sie laden soll.  Eine lokale Datei wird mit<code> file:// </code>
+    eingeleitet, als externe Web-Seite wird die URL mit<code> http:// </code>
+    begonnen.<code> %EXEPATH </code>wird dabei durch den Pfadanteil von
+    WinVi32.exe ersetzt,<code> %LANG </code>steht f&uuml;r die aktuelle
+    Sprache als Zwei-Zeichen-Abk&uuml;rzung.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsColors"><h3>Einstellungen - Farben</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie die Farben f&uuml;r die Textdarstellung
+im Hauptfenster.
+<ul>
+<li><b>Editierbereich</b><br>
+    Hier wird festgelegt, in welchen Farben der Hauptbereich des Editors
+    erscheint.</li>
+<li><b>selektierter Bereich</b><br>
+    Die hier eingestellten Farben werden f&uuml;r die Darstellung von
+    markierten Bereichen verwendet.  Dies gilt auch bei Selektierung durch
+    den <code>c</code>-Befehl (siehe <a href="#EditTextmode">vi - Text
+    bearbeiten</a>).</li>
+<li><b>passende Klammern</b><br>
+    Bei eingeschalteter Showmatch-Option (siehe
+    <a href="#SettingsDisplay">Einstellungen - Anzeige</a>) werden
+    zugeh&ouml;rige Klammern hervorgehoben.
+    Die daf&uuml;r verwendeten Farben k&ouml;nnen hier eingestellt werden.</li>
+<li><b>Zeilenende</b><br>
+    Die Sonderzeichen zur Darstellung der Nicht-Standard-Zeilenvorsch&uuml;be
+    sowie die Tilde f&uuml;r nicht mehr vorhandene Zeilen am Dateiende werden
+    mit dieser Farbe angezeigt.</li>
+<li><b>Grundfarben</b><br>
+    Die hier ausw&auml;hlbaren Farben sind die Grundfarben, die auch bei
+    geringer Anzeige-Farbtiefe ohne Rasterung dargestellt werden.</li>
+<li><b>benutzerdefiniert</b><br>
+    Hier k&ouml;nnen beliebige Farben gemischt werden.</li>
+<li><b>Hintergrund-Bitmap</b><br>
+    Als Hintergrund kann ein Bild im Bitmap-Format (Dateiendung .BMP)
+    ausgew&auml;hlt werden (siehe auch &bdquo;Hintergrund-Bitmap
+    aktualisieren&ldquo; unter <a href="#SettingsDisplay">Einstellungen -
+    Anzeige</a>).</li>
+<li><b>Systemfarbe</b><br>
+    F&uuml;r den Editierbereich und den selektierten Bereich k&ouml;nnen hier
+    die vom System vorgegebenen Farben eingestellt werden.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsFonts"><h3>Einstellungen - Schriftart</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie die Schrift f&uuml;r die Textdarstellung
+im Hauptfenster.
+<ul>
+<li><b>Schrift im Text-Modus</b><br>
+    Die hier eingestellte Schriftart wird f&uuml;r die normale Textanzeige
+    bei ausgeschaltetem Hexadezimal-Modus verwendet.  Neben Schriften mit
+    konstanter Zeichenbreite k&ouml;nnen auch Proportionalschriften verwendet
+    werden, aber die aufw&auml;ndigeren Positionsberechnungen erfordern leider
+    auch zus&auml;tzliche Rechenkapazit&auml;t, was zu einer langsameren
+    Darstellung f&uuml;hrt.<br>
+    Einige Schriften (z. B. Courier New, Lucida Console oder Arial) erlauben
+    die Auswahl verschiedener regionaler Sonderzeichen-Belegungen.  Falls hier
+    nicht der vorgegebene Standardwert ausgew&auml;hlt wird, empfielt sich
+    die gleichzeitige Anpassung der Zeichentabellen (siehe
+    <a href="#SettingsFiletype">Einstellungen - Dateityp</a>).</li>
+<li><b>Schrift im Hexadezimal-Modus</b><br>
+    Die hier eingestellte Schriftart wird f&uuml;r die Anzeige
+    bei eingeschaltetem Hexadezimal-Modus verwendet.  Hier k&ouml;nnen zwar auch
+    Proportionalschriften verwendet werden, wegen der schlechteren Ausrichtung
+    der Zeichen sollte aber eher eine Festbreiten-Schrift verwendet werden.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsPrint"><h3>Einstellungen - Drucken</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie alle Einstellungen f&uuml;r die
+Druckausgabe.
+<ul>
+<li><b>Randabst&auml;nde</b><br>
+    Hier werden die Abst&auml;nde des Papierrandes zum Text (bzw. zu den
+    <b class="notitle">Umrandungslinen</b> wenn aktiviert) eingestellt.</li>
+<li><b>Randbereich Kopfzeile</b><br>
+    Hier kann eine Titelzeile f&uuml;r jede Druckseite festgelegt werden.
+    Es gibt ein paar Zeichenfolgen, die automatisch ersetzt werden:
+    <table>
+    <tr><td>&amp;n</td><td>Hier wird der Name der aktuellen Datei
+        eingef&uuml;gt.</td></tr>
+    <tr><td>&amp;p</td><td>An dieser Stelle wird die laufende Nummer der
+        aktuellen Druckseite eingef&uuml;gt.</td></tr>
+    <tr><td>&amp;&amp;</td><td>Zwei kaufm&auml;nnische Und-Zeichen werden
+        in der Kopf- und Fu&szlig;zeile als ein solches Zeichen gedruckt.
+    </table>
+    </li>
+<li><b>Randbereich Fu&szlig;zeile</b><br>
+    Hier wird eine Zeile festgelegt, die im unteren Bereich einer Druckseite
+    ausgegeben wird (siehe auch
+    <b class="notitle">Randbereich Kopfzeile</b>).</li>
+<li><b>Umrandungslinien</b><br>
+    Bei Aktivierung wird die Druckseite mit einer d&uuml;nnen schwarzen Linie
+    eingerahmt.</li>
+<li><b>Kopf-/Fu&szlig;zeilen einrahmen</b><br>
+    Hiermit werden die Kopf- und Fu&szlig;zeile eingerahmt.  Bei gleichzeitiger
+    Aktivierung von <b class="notitle">Umrandungslinien</b> erscheint nur
+    jeweils eine zus&auml;tzliche Trennlinie zwischen Kopf-/Fu&szlig;bereich und
+    dem Textbereich der Druckseite.</li>
+<li><b>Zeilennummern drucken</b><br>
+    Jeder Textzeile der Datei wird die Zeilennummer vorangestellt.
+    &Uuml;berlange Zeilen, die umbrochen ausgegeben werden, erhalten nur eine
+    Zeilennummer.</li>
+<li><b>Papierformat wie eingestellt</b><br>
+    Mit dieser Auswahl wird die f&uuml;r den Drucker festgelegte
+    Papierausrichtung verwendet.</li>
+<li><b>Papierformat hochkant</b><br>
+    Bei dieser Auswahl wird der Text unabh&auml;ngig von der Voreinstellung des
+    Druckers immer so ausgerichtet, dass die obere Zeile an einer schmalen
+    Kante des Papiers liegt.</li>
+<li><b>Papierformat quer</b><br>
+    Bei dieser Auswahl wird der Text immer so ausgerichtet, dass die
+    obere Zeile an einer breiten Kante des Papiers liegt.</li>
+<li><b>Papierformat doppelspaltig quer</b><br>
+    Bei dieser Auswahl wird der Text so ausgerichtet, dass die
+    obere Zeile an einer breiten Kante des Papiers liegt.  Dabei werden zwei
+    Seiten nebeneinander auf eine Druckseite platziert.  Bei Auswahl von
+    <b class="notitle">mit Trennlinie</b> wird in der Papiermitte eine
+    d&uuml;nne Trennlinie gedruckt.</li>
+<li><b>Schriftart</b><br>
+    Hier wird die Art und Gr&ouml;&szlig;e der zu druckenden Schrift
+    eingestellt.  Diese Schrift wird f&uuml;r alle Textausgaben (auch im
+    Kopf- und Fu&szlig;bereich und f&uuml;r Zeilennummern) verwendet.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+<a name="SettingsLang"><h3>Einstellungen - Sprache</h3></a>
+
+<p>In diesem Dialog &auml;ndern Sie die Sprache f&uuml;r Men&uuml;s,
+Dialogboxen und andere Meldungen in der Statuszeile.<br>
+In der 32-Bit-Version des WinVi gibt ein paar Fehlermeldungen, die vom System
+geliefert werden und nicht an die eingestellte Sprache angepasst werden.
+Dies betrifft die Dateioperationen und das &Auml;ndern des aktuellen
+Arbeitsverzeichnisses.
+<ul>
+<li><b>automatische Auswahl</b><br>
+    Mit dieser Auswahl wird die Systemeinstellung verwendet, die in der
+    Systemsteuerung unter &bdquo;Regionale Einstellungen&ldquo; ge&auml;ndert
+    werden kann.  Falls diese Sprache nicht unterst&uuml;tzt wird, wird Englisch
+    verwendet.</li>
+</ul></p>
+
+<p>^ zum <a href="#Contents">Inhalt</a></p>
+
+
+</body></html>

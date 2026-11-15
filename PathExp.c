@@ -48,7 +48,7 @@ PCWSTR FoundName  (FIND_DATA *);
 
 HMENU PathExpMenu;
 
-static WCHAR Source[280], Result[280], *pTail, *pMultiLastName;
+static WCHAR Source[WV_TEXT_CAP], Result[WV_TEXT_CAP], *pTail, *pMultiLastName;
 static UINT	 Id;
 static struct {
 	WCHAR *Name;
@@ -241,7 +241,7 @@ static void AppendMenuItemW(INT MenuGroup, PWSTR pString)
 	if (NewItem != NULL) {
 		int i;
 
-		wcscpy(NewItem->Name, pString);
+		WvCopyString(NewItem->Name, pString);
 		if ((i = wcslen(pString)) > MaxLen) MaxLen = i;
 		NewItem->MenuGroup = (BYTE)MenuGroup;
 		/*binary array search...*/
@@ -290,7 +290,7 @@ static BOOL ShowPopupMenu(int x, int y)
 		MessageBeep(MB_ICONEXCLAMATION);
 		return (FALSE);
 	}
-	if ((LONG)nMenuItems*nMenuItemHght > 3L*nMenuHeight) {
+	if ((WV_LONG)nMenuItems*nMenuItemHght > 3L*nMenuHeight) {
 		/*too many files for menu (more than 5 columns), split name...*/
 		LPLPPOPUPLIST p2;
 		int			  i, MatchLen[21];
@@ -318,14 +318,14 @@ static BOOL ShowPopupMenu(int x, int y)
 	while (*p != NULL) {
 		WORD wFlags = MF_STRING;
 
-		if (((long)++nMenuItems-(Separator>>1))*nMenuItemHght > nMenuHeight) {
+		if (((WV_LONG)++nMenuItems-(Separator>>1))*nMenuItemHght > nMenuHeight) {
 			wFlags |= MF_MENUBARBREAK;
 			nMenuItems = 1;
 			++Columns;
 			MenuGroup = (*p)->MenuGroup;
 			Separator = 0;
 		} else if (MenuGroup != (*p)->MenuGroup) {
-			if (((long)++nMenuItems-(Separator>>1))*nMenuItemHght>nMenuHeight) {
+			if (((WV_LONG)++nMenuItems-(Separator>>1))*nMenuItemHght>nMenuHeight) {
 				wFlags |= MF_MENUBARBREAK;
 				nMenuItems = 1;
 				++Columns;
@@ -357,7 +357,7 @@ static BOOL ShowPopupMenu(int x, int y)
 				if (p2 != p+1) {
 					WCHAR ps[26];  /*wcslen((*p)->Name) is not larger than 20*/
 
-					wcscpy(ps, (*p)->Name);
+					WvCopyString(ps, (*p)->Name);
 					if (c1 == '&') {
 						/*check for & to double at end of string...*/
 						int n = 1, i=MaxLen;
@@ -430,7 +430,7 @@ BOOL ExpandPath(HWND hwndEdit, WORD wFlags)
 	GetWindowTextW(hwndEdit, Source, WSIZE(Source));
 	CurrSel = SendMessage(hwndEdit, EM_GETSEL, 0, 0L);
 	if (LOWORD(CurrSel) != HIWORD(CurrSel)
-			|| (ULONG)(CurrSel &= 0xffff) > wcslen(Source)) {
+			|| (WV_ULONG)(CurrSel &= 0xffff) > wcslen(Source)) {
 		MessageBeep(MB_ICONEXCLAMATION);
 		return (FALSE);
 	}
@@ -598,14 +598,14 @@ BOOL ExpandPath(HWND hwndEdit, WORD wFlags)
 			memmove(p, p+1, 2*wcslen(p));
 	}
 	pPos = pName + wcslen(pName);
-	wcscpy(Result, Source);
+	WvCopyString(Result, Source);
 	Id = 4000;
 	StartPopupMenu();
 	if (SuffixMask) {
 		pTail = Result + (pName - Source);
 		while (SuffixMask) {
 			if (SuffixMask & 1) {
-				wcscpy(pTail, *SuffixList);
+				WvCopyString(pTail, *SuffixList);
 				AppendMenuItemW(0, pTail);
 			}
 			SuffixMask >>= 1;
@@ -619,7 +619,7 @@ BOOL ExpandPath(HWND hwndEdit, WORD wFlags)
 
 			while (*p1 && LCASE(*p1) == *p2++) ++p1;
 			if (*p1 || (*p2 && *p2!='=' && pCmd->Flags & 32)) continue;
-			wcscpy(pTail, pCmd->Name);
+			WvCopyString(pTail, pCmd->Name);
 			if (/*PopupInUse == 1 &&*/ pCmd->Flags & 27)
 				wcscat(pTail, pCmd->Flags & 16 ? L"/" : L" ");
 			AppendMenuItemW(0, pTail);
@@ -651,7 +651,7 @@ BOOL ExpandPath(HWND hwndEdit, WORD wFlags)
 
 					while (*p1 && LCASE(*p1) == *p2++) ++p1;
 					if (*p1 || pCmd->Flags & 32) continue;
-					wcscpy(pTail, pCmd->Name);
+					WvCopyString(pTail, pCmd->Name);
 					AppendMenuItemW(0, pTail);
 				}
 				#if defined(WIN32)
@@ -663,7 +663,7 @@ BOOL ExpandPath(HWND hwndEdit, WORD wFlags)
 				}
 				#endif
 			}
-			wcscpy(pPos, L"*");
+			WvCopyString(pPos, L"*");
 			hFindHandle = MyFindFirst(pName, &FindData);
 			if (hFindHandle != INVALID_HANDLE_VALUE) {
 				do {
@@ -974,7 +974,7 @@ static HANDLE EnumServers(PCWSTR Name, FIND_DATA *FindData)
 		if (Compare != NULL) free(Compare);
 		if ((Compare = malloc((wcslen(Name) + 1) * sizeof(WCHAR))) == NULL)
 			return (INVALID_HANDLE_VALUE);
-		wcscpy(Compare, Name);
+		WvCopyString(Compare, Name);
 	}
 	while ((n = EnumNetRes(0, 2, NULL)) >= 0) {
 		if (PatternMatch(NetResource[n]->lpRemoteName, Compare)) {
@@ -1013,7 +1013,7 @@ static HANDLE EnumShares(PWSTR Name, PWSTR NameSep, FIND_DATA *FindData)
 		if (Compare != NULL) free(Compare);
 		if ((Compare = malloc(wcslen(NameSep))) == NULL)
 			return (INVALID_HANDLE_VALUE);
-		wcscpy(Compare, NameSep+1);
+		WvCopyString(Compare, NameSep+1);
 		if (WNetOpenEnumW(RESOURCE_GLOBALNET, RESOURCETYPE_ANY,
    						  0, &Root, &hEnum[3]) != NO_ERROR) {
 			*NameSep = Separator;

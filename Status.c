@@ -59,8 +59,8 @@ void RecalcStatusRow(void) {
 	else Right -= XFIELD_OFFSET - 2;
 	if (Right > 0) {
 		INT			 i, w = 0;
-		WCHAR		 b[12];
-		extern WCHAR StatusLineFormat[8], StatusColFormat[8];
+		WCHAR		 b[32];
+		extern WCHAR StatusLineFormat[16], StatusColFormat[16];
 
 		if (SizeGrip) Right -= 15;
 		StatusFields[0].Width = StatusWidth(L"nnnnnnnnnnnnnnnnnnnn");
@@ -68,9 +68,9 @@ void RecalcStatusRow(void) {
 		StatusFields[2].Width = StatusWidth(CapsLock);
 		StatusFields[3].Width = StatusWidth(NumLock);
 		StatusFields[4].Width = StatusWidth(L"--100%--");
-		_snwprintf(b, WSIZE(b), StatusLineFormat, 0L);
+		_snwprintf(b, WSIZE(b), StatusLineFormat, 0ULL);
 		StatusFields[5].Width = StatusWidth(b);
-		_snwprintf(b, WSIZE(b), StatusColFormat, 0L);
+		_snwprintf(b, WSIZE(b), StatusColFormat, 0ULL);
 		StatusFields[6].Width = StatusWidth(b);
 		StatusFields[1].Centered = StatusFields[4].Centered = TRUE;
 		for (i=0; StatusFields[i].Width; ++i)
@@ -282,7 +282,7 @@ void SetStatusCommand(PWSTR pCmd, BOOL InProgress) {
 	BOOL		 Paint;
 
 	Paint = pCmd && wcscmp(pCmd, CmdBuf);
-	if (Paint) wcscpy(CmdBuf, pCmd);
+	if (Paint) WvCopyString(CmdBuf, pCmd);
 	else Paint = WasBlack != InProgress;
 	if (Paint) NewStatus(1, CmdBuf, InProgress ? NS_NORMAL : NS_GRAY);
 	WasBlack = InProgress;

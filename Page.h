@@ -20,11 +20,12 @@
 typedef struct tagPAGE {
 	LPBYTE		   PageBuf;				 /*character buffer of page			*/
 	struct tagPAGE FAR *Next, FAR *Prev; /*page chaining					*/
-	ULONG		   LastAccess;			 /*last access (used for paging)	*/
-	LONG		   PageFilePos;			 /*position on paging file			*/
+	struct tagPAGE *ResidentPrev, *ResidentNext;
+	WV_ULONG		   LastAccess;			 /*last access (used for paging)	*/
+	WV_LONG		   PageFilePos;			 /*position on paging file			*/
 	UINT		   Fill;				 /*used amount of bytes in PageBuf	*/
 	UINT		   PageNo;				 /*length of chain in Prev			*/
-	ULONG		   Newlines;			 /*no of newline character sequences*/
+	WV_ULONG		   Newlines;			 /*no of newline character sequences*/
 	DWORD		   Flags;				 /*page status flags				*/
 } PAGE, *PPAGE, FAR *LPPAGE;
 extern LPPAGE FirstPage, LastPage;
@@ -52,8 +53,8 @@ extern POSITION ScreenStart, CurrPos;
 
 typedef struct {
 	POSITION Pos;
-	ULONG	 ByteCount;
-	ULONG	 Pixels;			/*line width needed for horizontal scrollbar*/
+	WV_ULONG	 ByteCount;
+	WV_ULONG	 Pixels;			/*line width needed for horizontal scrollbar*/
 	INT 	 nthContdLine;
 	INT 	 Flags;
 } LINEINFO, *PLINEINFO;
@@ -89,14 +90,14 @@ extern BYTE const MapAnsiToEbcdic[256];
 
 extern POSITION SelectStart;
 extern BOOL		Selecting;
-extern ULONG	SelectBytePos;
+extern WV_ULONG	SelectBytePos;
 extern BOOL		SessionEnding, AdditionalNullByte;
 
 /*paint.c*/
 void   Jump(PPOSITION);
-long   NewPosition(PPOSITION);
+WV_LONG   NewPosition(PPOSITION);
 int    ComparePos(PPOSITION, PPOSITION);
-void   InvalidateArea(PPOSITION, LONG, UINT);
+void   InvalidateArea(PPOSITION, WV_LONG, UINT);
 
 /*file.c*/
 void   SetAltFileName(PCWSTR, PPOSITION);
@@ -108,7 +109,7 @@ void   AdvanceToCurr(PPOSITION, /*INT,*/ INT);
 /*search.c*/
 BOOL   SearchIt(PPOSITION, INT);
 BOOL   SearchAndStatus(PPOSITION, WORD);
-BOOL   BuildReplaceString(PWSTR, LONG *, PPOSITION, LONG, WORD);
+BOOL   BuildReplaceString(PWSTR, WV_LONG *, PPOSITION, WV_LONG, WORD);
 
 /*page.c*/
 void   GetSystemTmpDir(PWSTR, INT);
@@ -124,23 +125,23 @@ INT    ByteAndAdvance(PPOSITION);
 INT    CharAndAdvance(PPOSITION);
 INT    AdvanceAndByte(PPOSITION);
 INT    AdvanceAndChar(PPOSITION);
-ULONG  GoBack(PPOSITION, ULONG);
+WV_ULONG  GoBack(PPOSITION, WV_ULONG);
 INT    GoBackAndByte(PPOSITION);
 INT    GoBackAndChar(PPOSITION);
-ULONG  Advance(PPOSITION, ULONG);
+WV_ULONG  Advance(PPOSITION, WV_ULONG);
 void   BeginOfFile(PPOSITION);
 void   EndOfFile(PPOSITION);
-INT    CountNewlinesInBuf(LPBYTE, INT, LONG[9], DWORD *);
-void   CorrectLineInfo(LPPAGE, UINT, LPPAGE, UINT, ULONG, INT);
-ULONG  CountBytes(PPOSITION);
-ULONG  CountLines(PPOSITION);
+INT    CountNewlinesInBuf(LPBYTE, INT, WV_LONG[9], DWORD *);
+void   CorrectLineInfo(LPPAGE, UINT, LPPAGE, UINT, WV_ULONG, INT);
+WV_ULONG  CountBytes(PPOSITION);
+WV_ULONG  CountLines(PPOSITION);
 void   VerifyPageStructure(void);
 
 /*insdel.c*/
-BOOL   InsertBuffer(LPBYTE, ULONG, WORD);
-BOOL   Yank(PPOSITION, ULONG, WORD);
-BOOL   EnterDeleteForUndo(PPOSITION, ULONG, WORD);
-BOOL   EnterInsertForUndo(PPOSITION, ULONG);
+BOOL   InsertBuffer(LPBYTE, WV_ULONG, WORD);
+BOOL   Yank(PPOSITION, WV_ULONG, WORD);
+BOOL   EnterDeleteForUndo(PPOSITION, WV_ULONG, WORD);
+BOOL   EnterInsertForUndo(PPOSITION, WV_ULONG);
 
 /*tags.c*/
 PWSTR  ExtractIdentifier(PPOSITION);

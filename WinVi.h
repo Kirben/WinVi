@@ -1,3 +1,8 @@
+#include "Counts.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "Platform.h"
+#include "Win64Compat.h"
 /********************************************************\
 |*                                                      *|
 |*   Program:              WinVi                        *|
@@ -28,9 +33,7 @@
  */
 
 #define HINST HINSTANCE
-#if !defined(ULONG)
-# define ULONG unsigned long
-#endif
+
 #if !defined(MAKEWORD)
 # define MAKEWORD(lo,hi) (WORD)((WORD)((WORD)(hi) << 8) + (BYTE)(lo))
 #endif
@@ -39,7 +42,7 @@
 # define COMMAND	  LOWORD(wPar)
 # define NOTIFICATION HIWORD(wPar)
 # define _fmemmove	  memmove
-# define _fmemcpy	  memcpy
+# define _fmemcpy	  memmove
 # define _fmemcmp	  memcmp
 # define _fmemchr	  memchr
 # define _fmemset	  memset
@@ -52,8 +55,8 @@
 # define _frealloc	  realloc
 # define _ffree		  free
 # define LOWER_CMP(c1,c2)					\
-		(CharLowerW((PWSTR)(DWORD)c1) !=	\
-		 CharLowerW((PWSTR)(DWORD)c2))
+		(CharLowerW((PWSTR)(ULONG_PTR)c1) !=	\
+		 CharLowerW((PWSTR)(ULONG_PTR)c2))
 # define MoveTo(h,x,y) MoveToEx(h,x,y,NULL)
 #else
 # define COMMAND	  wPar
@@ -163,8 +166,8 @@ typedef enum {ProfileSaveAndClear, ProfileRestore, ProfileSwitchAndLoad,
 		PROFILEOP;
 
 typedef struct {
-	LONG ScreenLine;	/*0 for first line, 1 and above for continuation lines*/
-	LONG PixelOffset;	/*number of pixels from left border of leftmost char*/
+	WV_LONG ScreenLine;	/*0 for first line, 1 and above for continuation lines*/
+	WV_LONG PixelOffset;	/*number of pixels from left border of leftmost char*/
 } COLUMN, *PCOLUMN;
 
 typedef struct tagREPLIST {
@@ -186,7 +189,7 @@ extern BOOL		Interruptable, XOffState, FullRowExtend;
 extern UINT		Interrupted, CmdFirstChar, Number;
 extern INT		TextHeight;  /*screen line y difference in pixels*/
 extern INT		VisiLines;	 /*number of fully or partly displayed text lines*/
-extern LONG		FirstVisible;/*line numbr (starting at 0) for bitmap alignment*/
+extern WV_LONG		FirstVisible;/*line numbr (starting at 0) for bitmap alignment*/
 extern INT		AveCharWidth;
 extern COLORREF TextColor;
 extern HCURSOR	hcurCurrent, hcurArrow, hcurIBeam, hcurHourGlass, hcurSizeNwSe;
@@ -207,33 +210,33 @@ extern BOOL		MoreFilesWarned;
 extern BOOL		ViewOnlyFlag;	/*view-only=restrictive read-only w/o editing*/
 extern BOOL		ReadOnlyFile;	/*read-only for this file only*/
 extern COLUMN	CurrCol;		/*aspired pixel position in logical line*/
-extern ULONG	CurrColumn;	/*displayed character offset within line (for status)*/
-extern ULONG	LinesInFile, SelectCount;
+extern WV_ULONG	CurrColumn;	/*displayed character offset within line (for status)*/
+extern WV_ULONG	LinesInFile, SelectCount;
 extern INT		CrsrLines;		/*number of positionable displayed text lines*/
 							/*CrsrLines==VisiLines || CrsrLines==VisiLines-1*/
 extern INT		CurrX, CurrLine;
-extern LONG		CaretX;
+extern WV_LONG		CaretX;
 extern INT		CaretY, CaretWidth, CaretHeight;
 CARET_TYPE		CaretType;
 extern INT		TabStop, ShiftWidth, MaxScroll, Disabled;
-extern WCHAR	FileName[260];
+extern WCHAR	FileName[WV_PATH_CAP];
 extern PWSTR	TmpDirectory;
 extern PWSTR	Tags;
-extern LONG		PageThreshold;
-extern ULONG	UndoLimit;
+extern WV_LONG		PageThreshold;
+extern WV_ULONG	UndoLimit;
 extern PCSTR	ApplName;
 extern PCWSTR	ApplNameW;
 extern UINT		CharSet;	/*see CS_... constants above*/
 extern INT		UtfEncoding;/*0=no UTF, 8=UTF-8, 16=UTF-16*/
 extern BOOL		UtfLsbFirst;
 extern BOOL		LButtonPushed;
-extern LONG     RelativePosition;
+extern WV_LONG     RelativePosition;
 extern BOOL		Indenting;
 extern INT		LinesVar, ColumnsVar;	/*used in ResizeWithLinesAndColumns()*/
 extern BOOL		RefreshBitmap;
-extern WCHAR	BitmapFilename[260];
-extern WCHAR	AltFileName[260];
-extern WCHAR	CommandBuf[1024];
+extern WCHAR	BitmapFilename[WV_PATH_CAP];
+extern WCHAR	AltFileName[WV_PATH_CAP];
+extern WCHAR	CommandBuf[WV_TEXT_CAP];
 extern BOOL		SuppressStatusBeep, DlgResult;
 extern HELPCONTEXT HelpContext;
 
@@ -253,11 +256,11 @@ void ContextMenu(HWND, INT, INT);
 void GenerateTitle(BOOL);
 BOOL FreeSpareMemory(void);
 INT  MessageLoop(BOOL);
-BOOL DisplaySettingsCallback(HWND, UINT, WPARAM, LPARAM);
-BOOL EditSettingsCallback(HWND, UINT, WPARAM, LPARAM);
-BOOL FileSettingsCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR DisplaySettingsCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR EditSettingsCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR FileSettingsCallback(HWND, UINT, WPARAM, LPARAM);
 VOID ChangeLanguage(UINT);
-BOOL LanguageCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR LanguageCallback(HWND, UINT, WPARAM, LPARAM);
 
 /*profile.c*/
 BOOL SwitchProfile(PROFILEOP, PSTR);
@@ -349,14 +352,14 @@ void New(HWND, BOOL);
 void WatchMessage(PWSTR);
 void ShowFileName(void);
 void FileError(PCWSTR, INT, INT);
-VOID JumpAbsolute(ULONG);
+VOID JumpAbsolute(WV_ULONG);
 BOOL Open(PCWSTR, WORD);
 void FilenameCmd(PWSTR);
 void Save(PCWSTR);
 BOOL EditCmd(PCWSTR);
-BOOL ReadCmd(LONG, PCWSTR);
+BOOL ReadCmd(WV_LONG, PCWSTR);
 BOOL NextCmd(PCWSTR);
-BOOL WriteCmd(LONG, LONG, PCWSTR, WORD);
+BOOL WriteCmd(WV_LONG, WV_LONG, PCWSTR, WORD);
 
 /*insdel.c*/
 INT  CharSize(INT);
@@ -367,8 +370,8 @@ void DeleteEol(BOOL);
 void DeleteForward(UINT);
 void Join(void);
 void DeleteSelected(INT);
-BOOL Put(LONG, BOOL);
-BOOL Shift(LONG, WORD);
+BOOL Put(WV_LONG, BOOL);
+BOOL Shift(WV_LONG, WORD);
 
 /*undo.c*/
 void StartUndoSequence(void);
@@ -394,7 +397,7 @@ VOID ShowMatch(WORD);
 
 /*mouse.c*/
 void MouseInTextArea(UINT, WPARAM, INT, INT, INT, BOOL);
-void MouseSelectText(UINT, WPARAM, LONG, BOOL);
+void MouseSelectText(UINT, WPARAM, WV_LONG, BOOL);
 BOOL MouseHandle(UINT, WPARAM, LPARAM);
 
 /*command.c*/
@@ -428,7 +431,7 @@ BOOL  SaveMatchList(VOID);
 BOOL  RestoreMatchList(VOID);
 VOID  FreeRepList(VOID);
 BOOL  CheckParenPairs(VOID);
-BOOL  SubstituteCmd(LONG, LONG, PWSTR);
+BOOL  SubstituteCmd(WV_LONG, WV_LONG, PWSTR);
 void  SearchNewCset(void);
 
 /*srchdlg.c*/
@@ -442,7 +445,7 @@ BOOL ClipboardCut(void);
 BOOL ClipboardPaste(void);
 
 /*position.c*/
-BOOL Position(LONG, INT, INT);
+BOOL Position(WV_LONG, INT, INT);
 
 /*tags.c*/
 VOID PopTag(BOOL);
@@ -452,7 +455,7 @@ VOID TagCurrentPosition(VOID);
 
 /*bmp.c*/
 void ReleaseBmp(INT);
-BOOL PaintBmp(HDC, INT, PRECT, LONG, LONG);
+BOOL PaintBmp(HDC, INT, PRECT, WV_LONG, WV_LONG);
 
 /*pathexp.c*/
 void PathExpCommand(UINT);
@@ -474,3 +477,7 @@ int snprintf(char *buf, const size_t size, const char *format, ...);
 
 /*version.c*/
 PWSTR GetViVersion(void);
+
+void WmUnicodeScalar(WPARAM);
+
+void DeleteBackward(UINT);

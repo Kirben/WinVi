@@ -38,7 +38,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lPar)
 	PARAM_NOT_USED(lPar);
 	Buf[19] = '\0';
 	if (GetClassNameW(hWnd, Buf, WSIZE(Buf)-1) && wcscmp(Buf, ClassName) == 0) {
-		DWORD i = MAXDISPLAY;
+		DWORD_PTR i = MAXDISPLAY;
 
 		#if defined(WIN32)
 			#if !defined(SMTO_NORMAL)

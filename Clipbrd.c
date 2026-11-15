@@ -26,7 +26,7 @@
 
 extern INT OemCodePage, AnsiCodePage;
 
-CHAR BinaryFormat[] = "WinVi bin %lu:";
+CHAR BinaryFormat[] = "WinVi bin %I64u:";
 CHAR BinaryPart[24];
 
 static VOID EbcdicConvert(char huge *dst, LPSTR src, INT n)
@@ -42,10 +42,11 @@ static VOID EbcdicConvert(char huge *dst, LPSTR src, INT n)
 BOOL ClipboardCopy(void)
 {	HGLOBAL	  hMem;
 	char huge *pMem;
-	LONG	  lSize;
+	WV_LONG	  lSize;
 	BOOL	  WideCharConvert = FALSE;
 	UINT	  Codepage = 0;
 
+	if(SelectCount > 0x3fffffffULL) {NewStatus(0,L"Selection exceeds the clipboard conversion limit (1 GiB). Write a file range instead.",NS_ERROR);return FALSE;}
 	/*prepare resources...*/
 	if (!SelectCount) {
 		Error(209);
@@ -56,7 +57,7 @@ BOOL ClipboardCopy(void)
 		return (FALSE);
 	}
 	lSize = SelectCount + sizeof(BinaryPart);
-	if (!(GetVersion() & 0x80000000U))
+	if (!(0 /* Windows 10+ always uses the NT platform */))
 		if (UtfEncoding || CharSet == CS_OEM || AnsiCodePage != CP_ACP) {
 			/*copy as wide chars...*/
 			Codepage = CharSet == CS_OEM ? OemCodePage : AnsiCodePage;
@@ -80,7 +81,7 @@ BOOL ClipboardCopy(void)
 
 	/*copy into memory...*/
 	{	POSITION Pos;
-		ULONG    Bytes = SelectCount;
+		WV_ULONG    Bytes = SelectCount;
 		UINT     i;
 		BOOL	 NullbyteFound = FALSE;
 
@@ -206,12 +207,13 @@ BOOL ClipboardPaste(void)
 	HGLOBAL  hMem = 0;
 	LPSTR	 lpMem;
 	UINT	 uFormat = CharSet == CS_OEM ? CF_OEMTEXT : CF_TEXT;
-	LONG	 lSize;
+	WV_LONG	 lSize;
 	MODEENUM SaveMode;
 	BOOL	 FreeConversionMemory = FALSE;
 
 	if (IsViewOnly()) return(FALSE);
 
+	if(SelectCount > 0x3fffffffULL) {NewStatus(0,L"Selection exceeds the clipboard conversion limit (1 GiB). Write a file range instead.",NS_ERROR);return FALSE;}
 	/*prepare resources...*/
 	if (!OpenClipboard(hwndMain)) {
 		ErrorBox(MB_ICONEXCLAMATION, 302);
@@ -223,7 +225,7 @@ BOOL ClipboardPaste(void)
 		lSize = GlobalSize(hMem);
 		if ((lpMem = GlobalLock(hMem)) != NULL) {
 			LPSTR lp;
-			LONG  lRemain;
+			WV_LONG  lRemain;
 
 			lp = _fmemchr(lpMem, '\0', (size_t)lSize);
 			if (lp != NULL && (lp-lpMem+sizeof(BinaryPart)) <= (size_t)lSize
@@ -240,15 +242,15 @@ BOOL ClipboardPaste(void)
 				else EnterDeleteForUndo(&CurrPos, 0, 1); /*force new undo elem*/
 				Mode = SaveMode;
 				HideEditCaret();
-				if (*lpMem) InsertBuffer(lpMem, (UINT)(lp-lpMem), 0);
-				lRemain = strtoul(lp+11, &lp, 10);
+				if (*lpMem) InsertBuffer(lpMem, (WV_ULONG)(lp-lpMem), 0);
+				lRemain = _strtoui64(lp+11, &lp, 10);
 				if (*lp != ':') lSize = 0;
 				else {
 					if (lSize >= (lp - lpMem) + lRemain) lSize = lRemain;
 					else lSize = 0;
 					lpMem = lp + 1;
 				}
-				if (lSize) InsertBuffer(lpMem, (UINT)lSize, 1);
+				if (lSize) InsertBuffer(lpMem, (WV_ULONG)lSize, 1);
 				GetXPos(&CurrCol);
 				ShowEditCaret();
 
@@ -263,7 +265,7 @@ BOOL ClipboardPaste(void)
 	}
 
 	/*then, if running on Windows NT, try to get wide chars...*/
-	if (!(GetVersion() & 0x80000000U) && CharSet != CS_EBCDIC) {
+	if (!(0 /* Windows 10+ always uses the NT platform */) && CharSet != CS_EBCDIC) {
 		UINT Cp;
 
 		if (UtfEncoding == 8)
@@ -392,15 +394,15 @@ BOOL ClipboardPaste(void)
 #if 0
 //	if (lSize && UtfEncoding != 16) {
 //		LPSTR lp;
-//		LONG  lRemain;
+//		WV_LONG  lRemain;
 //
 //		lp = _fmemchr(lpMem, '\0', (size_t)lSize);
 //		if (lp != NULL && (lp-lpMem+sizeof(BinaryPart)) <= (size_t)lSize
 //					   && lp[1]==BinaryFormat[0]
 //					   && _fmemcmp(lp+1, BinaryFormat, 10) == 0) {
 //			/*insert first part of null containing binary data...*/
-//			if (*lpMem) InsertBuffer(lpMem, (UINT)(lp-lpMem), 0);
-//			lRemain = strtoul(lp+11, &lp, 10);
+//			if (*lpMem) InsertBuffer(lpMem, (WV_ULONG)(lp-lpMem), 0);
+//			lRemain = _strtoui64(lp+11, &lp, 10);
 //			if (*lp != ':') lSize = 0;
 //			else {
 //				if (lSize >= (lp - lpMem) + lRemain) lSize = lRemain;
@@ -412,7 +414,7 @@ BOOL ClipboardPaste(void)
 #endif
 
 	/*insert clipboard now...*/
-	if (lSize) InsertBuffer(lpMem, (UINT)lSize, 1);
+	if (lSize) InsertBuffer(lpMem, (WV_ULONG)lSize, 1);
 	GetXPos(&CurrCol);
 	ShowEditCaret();
 

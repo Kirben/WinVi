@@ -261,12 +261,12 @@ BOOL FileExists(PWSTR Filename)
 	return TRUE;
 }
 
-BOOL ColorsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR ColorsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	/*Color selection dialogbox callback function*/
 {	static COLORREF	SaveFg, SaveBk, SaveSelFg, SaveSelBk, SaveShmFg, SaveShmBk,
 					SaveEol,
 					SaveStatN, SaveStatD, SaveStatB, SaveStatE, SaveStatEB;
-	static WCHAR	SaveBm[260];
+	static WCHAR	SaveBm[WV_PATH_CAP];
 	static WORD		SaveSysColors;
 	static BOOL		Applied, BitmapChanged;
 
@@ -277,7 +277,7 @@ BOOL ColorsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 				/*invalidate foreground color in font selection dialog...*/
 				ForegroundColor = NULL;
 			} else SaveFg = TextColor;
-			wcscpy(SaveBm, BitmapFilename);
+			WvCopyString(SaveBm, BitmapFilename);
 			Colors[0x10]  = SaveBk	  = BackgroundColor;
 			Colors[0x11]  = SaveFg;
 			Colors[0x12]  = SaveSelBk = SelBkgndColor;
@@ -419,7 +419,7 @@ BOOL ColorsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 					if (hwndMain) InvalidateRect(hwndMain, NULL, TRUE);
 					DlgResult = TRUE;
 					BitmapChanged = FALSE;
-					wcscpy(SaveBm, BitmapFilename);
+					WvCopyString(SaveBm, BitmapFilename);
 					switch (COMMAND) {
 						case IDC_STORE:
 							SaveColorSettings();
@@ -436,7 +436,7 @@ BOOL ColorsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						ReleaseBmp(0);
 						BitmapChanged = FALSE;
 						Applied = TRUE;
-						wcscpy(BitmapFilename, SaveBm);
+						WvCopyString(BitmapFilename, SaveBm);
 					}
 					if (Applied) {
 						BackgroundColor	= SaveBk;

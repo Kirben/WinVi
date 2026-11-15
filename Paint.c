@@ -54,7 +54,7 @@ HPEN	   HilitePen, ShadowPen;	/*3d paint tools*/
 HBRUSH	   FaceBrush;				/*3d paint tools*/
 HPEN	   DlgLitePen;
 HBRUSH	   DlgBkBrush;
-LONG	   CaretX;
+WV_LONG	   CaretX;
 INT		   CaretY, CaretWidth, CaretHeight;
 CARET_TYPE CaretType;
 INT		   VisiLines;	/*number of visible screen lines*/
@@ -62,7 +62,7 @@ INT		   CrsrLines;	/*number of screen lines with positionable cursor*/
 HFONT	   SpecialFont = 0;
 HWND	   hwndScroll;
 INT		   TextAreaHeight;
-LONG	   xOffset;
+WV_LONG	   xOffset;
 
 void SystemColors(BOOL New)
 {
@@ -305,7 +305,7 @@ void Jump(PPOSITION NewPos)
 INT ScrollShift, ScrollRange, ScrollPos;
 
 void NewScrollPos(void)
-{	LONG		Range;
+{	WV_LONG		Range;
 	static BOOL	Disabled;
 
 	if (LineInfo == NULL /*not yet initialized*/) return;
@@ -316,7 +316,7 @@ void NewScrollPos(void)
 		for (p=FirstPage; p; p=p->Next) Range += p->Fill;
 		Range >>= 4;
 	} else Range = LinesInFile + IncompleteLastLine();
-	Range = Range < (LONG)CrsrLines ? 0 : Range - CrsrLines;
+	Range = Range < (WV_LONG)CrsrLines ? 0 : Range - CrsrLines;
 	FirstVisible = FirstPage ? CountLines(&ScreenStart) : 0;
 	if (FirstVisible && Range < FirstVisible) Range = FirstVisible;
 	ScrollShift	 = 0;
@@ -401,10 +401,10 @@ void NewScrollPos(void)
 }
 
 extern POSITION	SelectAnchor;
-extern ULONG	SelectAnchorCount;
+extern WV_ULONG	SelectAnchorCount;
 
 void ExtendSelection(void)
-{	ULONG BytePos = CountBytes(&CurrPos);
+{	WV_ULONG BytePos = CountBytes(&CurrPos);
 
 	if ((BytePos<SelectAnchorCount) != (SelectBytePos<SelectAnchorCount)) {
 		/*reverting select direction from anchor...*/
@@ -458,7 +458,7 @@ void ExtendSelection(void)
 extern BOOL Exiting;
 
 void ScrollJump(INT Where)
-{	ULONG	 Line;
+{	WV_ULONG	 Line;
 	POSITION Pos;
 	INT		 SaveLine, Tmp;
 	BOOL	 Selecting;
@@ -482,8 +482,8 @@ void ScrollJump(INT Where)
 		}
 	}
 	if (!ScrollRange) Line = 0;
-	else Line = ((ULONG)Where << ScrollShift) +
-				((1<<ScrollShift) * Where) / ScrollRange;
+	else Line = ((WV_ULONG)Where << ScrollShift) +
+				((1ULL<<ScrollShift) * Where) / ScrollRange;
 	BeginOfFile(&Pos);
 	if (HexEditMode) {
 		Pos.i = 0;
@@ -493,7 +493,7 @@ void ScrollJump(INT Where)
 		if (Tmp) GoBack(&Pos, Tmp);
 		Line >>= 4;
 	} else {
-		ULONG Max;
+		WV_ULONG Max;
 
 		if (Line > (Max = LinesInFile + IncompleteLastLine() - CrsrLines))
 			Line = Max;
@@ -525,7 +525,7 @@ void ScrollJump(INT Where)
 
 	/*scroll if ScreenStart and Pos are less than CrsrLines apart...*/
 	Line -= CountLines(&ScreenStart);
-	if ((LONG)Line < CrsrLines && -(LONG)Line < CrsrLines) {
+	if ((WV_LONG)Line < CrsrLines && -(WV_LONG)Line < CrsrLines) {
 		/*scroll (using single ScrollDC for more speed)...*/
 		RECT r1, r2;
 		HDC  hDC;
@@ -658,15 +658,15 @@ BOOL ScrollLine(INT Dir)
 }
 
 INT	  AveCharWidth;
-WCHAR StatusLineFormat[8]=L"%05lu", StatusColFormat[8]=L"%03lu";
+WCHAR StatusLineFormat[16]=L"%05I64u", StatusColFormat[16]=L"%03I64u";
 
-long NewPosition(PPOSITION NewPos)
-{	static WCHAR LineBuf[12], ColumnBuf[12];
+WV_LONG NewPosition(PPOSITION NewPos)
+{	static WCHAR LineBuf[32], ColumnBuf[32];
 	static WCHAR PercentBuf[10];
-	static ULONG OldLine, OldColumn, OldLines;
+	static WV_ULONG OldLine, OldColumn, OldLines;
 	static INT	 OldPercent, ScrollMax;
 	POSITION	 ScreenEnd;
-	ULONG		 Bytes, Lines, NoOfLines;
+	WV_ULONG		 Bytes, Lines, NoOfLines;
 
 	CurrPos = *NewPos;
 	Bytes	= CountBytes(NewPos);
@@ -682,7 +682,7 @@ long NewPosition(PPOSITION NewPos)
 						  || (	 NewPos->p->PageNo == ScreenStart.p->PageNo
 							  && NewPos->i		   <  ScreenStart.i))) {
 		/*go up in file...*/
-		if (FirstVisible - (LONG)Lines > (LONG)ScrollMax)
+		if (FirstVisible - (WV_LONG)Lines > (WV_LONG)ScrollMax)
 			Jump(NewPos); /*hard jump*/
 		else {
 			/*scroll back (rolling down)*/
@@ -698,7 +698,7 @@ long NewPosition(PPOSITION NewPos)
 			   && !(LineInfo[CrsrLines].Flags & LIF_EOF)
 			   && !(LineInfo[1].Flags & LIF_EOF)) {
 		/*go down...*/
-		if ((long)(Lines - CountLines(&ScreenEnd)) >= (long)ScrollMax)
+		if ((WV_LONG)(Lines - CountLines(&ScreenEnd)) >= (WV_LONG)ScrollMax)
 			Jump(NewPos); /*hard jump*/
 		else {
 			/*scroll forward (rolling up)*/
@@ -761,7 +761,7 @@ long NewPosition(PPOSITION NewPos)
 		CurrColumn = Bytes & 15;
 	} else NoOfLines = LinesInFile + IncompleteLastLine();
 	++Lines;
-	{	static ULONG StatusLineLimit=100000, StatusColLimit=1000;
+	{	static WV_ULONG StatusLineLimit=100000, StatusColLimit=1000;
 		static INT	 StatusLineDigits=5,	 StatusColDigits=3;
 		PWSTR		 p;
 
@@ -774,7 +774,7 @@ long NewPosition(PPOSITION NewPos)
 				++StatusColDigits;
 				OldColumn = 0;
 				if (StatusLineLimit < StatusColLimit*100
-					&& StatusLineLimit < 1000000000L) {
+					&& StatusLineLimit < 1000000000000ULL) {
 						/*The field for the current line number should be wider
 						 *than the field for the current column if possible.
 						 */
@@ -783,13 +783,13 @@ long NewPosition(PPOSITION NewPos)
 						OldLine = 0;
 				}
 			}
-			while (Lines >= StatusLineLimit && StatusLineLimit < 1000000000L) {
+			while (Lines >= StatusLineLimit && StatusLineLimit < 1000000000000ULL) {
 				StatusLineLimit *= 10;
 				++StatusLineDigits;
 				OldLine = 0;
 			}
 			_snwprintf(StatusLineFormat, WSIZE(StatusLineFormat),
-					   p = L"%%0%dlu", StatusLineDigits);
+					   p = L"%%0%dI64u", StatusLineDigits);
 			_snwprintf(StatusColFormat, WSIZE(StatusColFormat),
 					   p, StatusColDigits);
 			RecalcStatusRow();
@@ -826,7 +826,7 @@ long NewPosition(PPOSITION NewPos)
 }
 
 BOOL PaintAll;
-LONG ExpandRedraw, ShrinkRedraw;
+WV_LONG ExpandRedraw, ShrinkRedraw;
 
 void InvalidateText(void)
 {	RECT r;
@@ -952,7 +952,7 @@ INT GetTextWidth(HDC hDC, WCHAR *String, INT Len)
 }
 
 INT GetTextPos(PPOSITION StartParam, PPOSITION End, INT ColParam)
-{	LONG         Len = 0, Col = ColParam;
+{	WV_LONG         Len = 0, Col = ColParam;
 	static WCHAR Buf[160];
 	WCHAR        *p = Buf;
 	POSITION     Start;
@@ -1004,7 +1004,7 @@ INT GetTextPos(PPOSITION StartParam, PPOSITION End, INT ColParam)
 			? (INT)(Len-xOffset) : ClientRect.right);
 }
 
-void InvalidateArea(PPOSITION Start, LONG Length, UINT Flags)
+void InvalidateArea(PPOSITION Start, WV_LONG Length, UINT Flags)
 	/*Flags: 1 = erase flag for invalidation
 	 *		 2 = invalidate to end of screen if area contains newlines
 	 *		 4 = invalidate to end of screen even if doesn't seem necessary
@@ -1035,12 +1035,12 @@ void InvalidateArea(PPOSITION Start, LONG Length, UINT Flags)
 	else r.left = StartX(FALSE) - 1 + GetTextPos(&LineInfo[i].Pos, Start, 0);
 	/*find end position...*/
 	End = *Start;
-	while ((long)End.i + Length >= (long)End.p->Fill && End.p->Next) {
+	while ((WV_LONG)End.i + Length >= (WV_LONG)End.p->Fill && End.p->Next) {
 		Length -= End.p->Fill - End.i;
 		End.p = End.p->Next;
 		End.i = 0;
 	}
-	if ((long)End.i + Length > (long)End.p->Fill)
+	if ((WV_LONG)End.i + Length > (WV_LONG)End.p->Fill)
 		Length = End.p->Fill - End.i;
 	End.i += (INT)Length;
 	/*finally, invalidate all following lines...*/
@@ -1088,7 +1088,7 @@ static BOOL	 MeasureCaret, NewCaret;
 INT 		 DispLine = -1, TabStop = 8, RightOffset = 0;
 extern BOOL	 ShowParenMatch;
 
-static void Flush(HDC hDC, LONG x, INT y, WCHAR *Buf, INT Len, BOOL Selected)
+static void Flush(HDC hDC, WV_LONG x, INT y, WCHAR *Buf, INT Len, BOOL Selected)
 {
 	/*----------------------------------------------------------------------*/
 	/* called from:	TextLine												*/
@@ -1132,7 +1132,7 @@ static void Flush(HDC hDC, LONG x, INT y, WCHAR *Buf, INT Len, BOOL Selected)
 static BOOL EnforcePainting;
 BOOL SuppressPaint;
 
-static void PrepareNextLine(PPOSITION p, ULONG ByteCount, BOOL Continued)
+static void PrepareNextLine(PPOSITION p, WV_ULONG ByteCount, BOOL Continued)
 {
 	if (Continued)
 		 LineInfo[DispLine].Flags |=  LIF_CONTD_NEXTLINE;
@@ -1159,7 +1159,8 @@ static void PrepareNextLine(PPOSITION p, ULONG ByteCount, BOOL Continued)
 INT DefaultNewLine = C_CRLF;
 
 INT StartX(BOOL OkToRecalc)
-{	static INT NumberDigits, NumberPower10, PrevNumberDigits;
+{	static INT NumberDigits, PrevNumberDigits;
+    static WV_ULONG NumberPower10;
 
 	if (!NumberFlag || HexEditMode) return (XTEXT_OFFSET);
 	if (!NumberDigits || OkToRecalc) {
@@ -1186,8 +1187,8 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 	/*----------------------------------------------------------------------*/
 {	static POSITION p;
 	INT 			i, c, i2;
-	LONG			x, x2, Pos, LineStart;
-	ULONG			ByteCount;
+	WV_LONG			x, x2, Pos, LineStart;
+	WV_ULONG			ByteCount;
 	BOOL			WithinSelect = FALSE;
 
 	if (SuppressPaint) return;
@@ -1225,7 +1226,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 			CHAR  Num[12];
 			INT	  Width, Len, i;
 
-			Len = wsprintf (Num, "%lu", CountLines(&p) + 1);
+			Len = wsprintf (Num, "%I64u", CountLines(&p) + 1);
 			for (i = 0; i <= Len; ++i) NumberBuf[i] = Num[i];
 			Width = GetTextWidth(hDC, NumberBuf, Len);
 			Flush(hDC, x - AveCharWidth - Width, YPos, NumberBuf, Len, 0);
@@ -1353,22 +1354,20 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 				default:
 					if ((ByteCount & 15) == 1 /*already incremented*/) {
 						INT  Width;
-						BYTE Buf3[12];
+						BYTE Buf3[32];
 
 						if (HexNumberFlag)
-							 wsprintf(Buf3, ByteCount > 0x1000000L ?  "%07lx:"
-																   : " %06lx:",
+							 snprintf((char*)Buf3, sizeof(Buf3), "%011I64x:",
 										  ByteCount-1);
-						else wsprintf(Buf3, ByteCount > 1000000L   ?  "%07ld:"
-																   : " %06ld:",
+						else snprintf((char*)Buf3, sizeof(Buf3), "%11I64u:",
 										  ByteCount-1);
 						for (i = 0; Buf3[i] != '\0'; ++i) Buf[i] = Buf3[i];
 						Flush(hDC, x, YPos, Buf, i, FALSE);
 						i = 0;
-						x += Width = 10 * AveCharWidth;
+						x += Width = 12 * AveCharWidth;
 						Buf2[0]    = '|';
 						Buf2[i2=1] = '\0';
-						x2 = 62 * AveCharWidth;
+						x2 = 64 * AveCharWidth;
 						if ((WithinSelect || MeasureCaret) && i2) {
 							Flush(hDC, x2, YPos, Buf2, i2, FALSE);
 							x2 += GetTextWidth(hDC, Buf2, i2);
@@ -1491,7 +1490,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 					PrepareNextLine(&p, ByteCount, FALSE);
 					return;
 				}
-				x = (INT)(10 * AveCharWidth + LineStart +
+				x = (INT)(12 * AveCharWidth + LineStart +
 						((51 * AveCharWidth * (ByteCount & 15)) >> 4));
 			}
 		} else {
@@ -1638,7 +1637,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 							i = 0;
 						}
 						Pos += TabStop - Pos % TabStop;
-						{	LONG NewX;
+						{	WV_LONG NewX;
 
 							NewX = LineStart + Pos * AveCharWidth;
 							if (NewX > x) {
@@ -1840,7 +1839,7 @@ void GetXPos(PCOLUMN pPos)
 	pPos->PixelOffset = CaretX - StartX(FALSE);
 }
 
-WCHAR CommandBuf[1024];
+WCHAR CommandBuf[WV_TEXT_CAP];
 
 void CommandEdit(UINT StartChar)
 {

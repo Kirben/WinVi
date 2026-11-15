@@ -81,7 +81,7 @@ PCWSTR ClassName = L"Ramo's WinVi";
 RECT   ClientRect, WholeWindow;
 INT    x = 40, y = 60, Width = 687, Height = 500;
 BOOL   Maximized;
-LONG   PageThreshold = 500;
+WV_LONG   PageThreshold = 500;
 BOOL   UnsafeSettings = FALSE;
 BOOL   RefreshFlag = FALSE;
 BOOL   StartupPhase = TRUE;
@@ -103,7 +103,7 @@ BOOL AllocStringW(PWSTR *Destination, PCWSTR Source)
 	if ((p = _fcalloc(wcslen(Source) + sizeof(WCHAR), sizeof(WCHAR))) == NULL)
 		return (FALSE);
 	if (*Destination) _ffree(*Destination);
-	wcscpy(p, Source);
+	WvCopyString(p, Source);
 	*Destination = p;
 	return(TRUE);
 }
@@ -126,7 +126,7 @@ extern BOOL	IsFixedFont;
 
 BOOL SelectBkBitmap(HWND hParent)
 {	PWSTR				 p;
-	static WCHAR		 BitmapDir[260], Filter[50], Title[40];
+	static WCHAR		 BitmapDir[WV_PATH_CAP], Filter[50], Title[40];
 	static OPENFILENAMEW Ofn = {
 		sizeof(OPENFILENAMEW), 0, 0, NULL, NULL, 0, 1,
 		BitmapFilename, WSIZE(BitmapFilename),
@@ -135,7 +135,7 @@ BOOL SelectBkBitmap(HWND hParent)
 		0, 0, L".bmp", 0, NULL, NULL
 	};
 
-	if (*BitmapFilename) wcscpy(BitmapDir, BitmapFilename);
+	if (*BitmapFilename) WvCopyString(BitmapDir, BitmapFilename);
 	else GetModuleFileNameW(hInst, BitmapDir, WSIZE(BitmapDir));
 	for (p=BitmapDir+wcslen(BitmapDir); p>BitmapDir && *p!='/' && *p!='\\';
 										--p);
@@ -155,8 +155,8 @@ BOOL SelectBkBitmap(HWND hParent)
 	return (TRUE);
 }
 
-BOOL GetEditLong(HWND hDlg, INT EditId, INT Min, LONG Max, LONG *Value)
-{	LONG i;
+BOOL GetEditLong(HWND hDlg, INT EditId, INT Min, WV_LONG Max, WV_LONG *Value)
+{	WV_LONG i;
 	PSTR p;
 	static CHAR Buf[30];
 
@@ -189,9 +189,9 @@ BOOL GetEditLong(HWND hDlg, INT EditId, INT Min, LONG Max, LONG *Value)
 		if (cond) Update = TRUE;					\
 	}
 
-BOOL DisplaySettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR DisplaySettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	CHAR Buf[260];
-	LONG i;
+	WV_LONG i;
 
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
@@ -250,9 +250,9 @@ BOOL DisplaySettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	return (FALSE);
 }
 
-BOOL EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	CHAR Buf[260];
-	LONG i;
+	WV_LONG i;
 
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
@@ -266,9 +266,9 @@ BOOL EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			CheckDlgButton(hDlg, IDC_READONLY,		ReadOnlyFlag);
 			CheckDlgButton(hDlg, IDC_MAGIC,			MagicFlag);
 			CheckDlgButton(hDlg, IDC_FULLROWEXTEND, FullRowFlag);
-			if (UndoLimit == (ULONG)-1)
+			if (UndoLimit == (WV_ULONG)-1)
 				LOADSTRING(hInst, 336, Buf, sizeof(Buf));
-			else wsprintf(Buf, "%lu", UndoLimit/1024);
+			else wsprintf(Buf, "%I64u", UndoLimit/1024);
 			SetDlgItemText(hDlg, IDC_UNDOLIMIT, Buf);
 			wsprintf(Buf, "%u", ShiftWidth);
 			SetDlgItemText(hDlg, IDC_SHIFTWIDTH, Buf);
@@ -301,9 +301,9 @@ BOOL EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						for (p=Buf; *p==' '; ++p);
 						if (*p>='0' && *p<='9')
 							if ((UndoLimit = strtol(p, NULL, 10)) >= 4194304)
-								UndoLimit = (ULONG)-1;
+								UndoLimit = (WV_ULONG)-1;
 							else UndoLimit *= 1024;
-						else UndoLimit = (ULONG)-1;
+						else UndoLimit = (WV_ULONG)-1;
 					}
 					if (!GetEditLong(hDlg, IDC_SHIFTWIDTH, 1, 80, &i))
 						return (FALSE);
@@ -320,9 +320,9 @@ BOOL EditSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	return (FALSE);
 }
 
-BOOL FileSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR FileSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	WCHAR BufW[260];
-	LONG  i;
+	WV_LONG  i;
 
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
@@ -339,7 +339,7 @@ BOOL FileSettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			SetDlgItemTextW(hDlg, IDC_TMPFOLDER, TmpDirectory != NULL
 												 ? TmpDirectory : NULL);
 			SetDlgItemTextW(hDlg, IDC_TAGS, Tags != NULL ? Tags : NULL);
-			_snwprintf(BufW, WSIZE(BufW), L"%ld", PageThreshold);
+			_snwprintf(BufW, WSIZE(BufW), L"%I64d", PageThreshold);
 			SetDlgItemTextW(hDlg, IDC_PAGE_THRESHOLD, BufW);
 			#if 1
 				ShowWindow(GetDlgItem(hDlg, IDC_BKUPTITLE1),		SW_HIDE);
@@ -455,7 +455,7 @@ VOID ChangeLanguage(UINT NewLanguage)
 
 LPSTR NewLangStr = NULL;
 
-BOOL LanguageCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR LanguageCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	static UINT  NewLanguage;
 	extern CHAR  ViLang[];
 
@@ -526,7 +526,7 @@ INT WrapScrollStyle, WrapPos = IDC_WRAP_WORD1;
 #define WSS_NONE				  0
 #define WSS_WRAP_AT_RIGHT_BORDER  1
 
-BOOL CALLBACK WrapScrollCallback
+INT_PTR CALLBACK WrapScrollCallback
 		(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	CHAR Buf[16];
 	BOOL SetEnable = FALSE, Enabled;
@@ -634,7 +634,7 @@ LOGFONT AboutLogFont = {
 	0,0,0,0,0, 0,0,0,0,0,0,0,0, "Arial"
 };
 
-BOOL CALLBACK AboutCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK AboutCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	static HFONT hFont;
 	HDC			 hDC;
 	CHAR		 Buf[56], *p1, *p2;
@@ -643,7 +643,9 @@ BOOL CALLBACK AboutCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	PARAM_NOT_USED(lPar);
 	switch (uMsg) {
 		case WM_INITDIALOG:
-			#if defined(WIN32)
+			#if defined(_WIN64)
+                SetDlgItemText(hDlg, IDS_VERSIONBITS, "(64 bit)");
+            #elif defined(WIN32)
 				SetDlgItemText(hDlg, IDS_VERSIONBITS, "(32 bit)");
 			#else
 				SetDlgItemText(hDlg, IDS_VERSIONBITS, "(16 bit)");
@@ -679,11 +681,11 @@ BOOL CALLBACK AboutCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			{	HWND Frame;
 
 				if (Frame = GetDlgItem(hDlg, IDC_FRAME)) {
-					SetWindowLong(hDlg,  GWL_EXSTYLE,
-								  GetWindowLong(hDlg,  GWL_EXSTYLE)
+					SetWindowLongPtr(hDlg,  GWL_EXSTYLE,
+								  GetWindowLongPtr(hDlg,  GWL_EXSTYLE)
 								  | WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE);
-					SetWindowLong(Frame, GWL_EXSTYLE,
-								  GetWindowLong(Frame, GWL_EXSTYLE)
+					SetWindowLongPtr(Frame, GWL_EXSTYLE,
+								  GetWindowLongPtr(Frame, GWL_EXSTYLE)
 								  | WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE
 								  | WS_EX_WINDOWEDGE    | WS_EX_STATICEDGE);
 				}
@@ -853,7 +855,7 @@ LRESULT MyDefWindowProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 }
 
 LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
-{	extern LONG xOffset;
+{	extern WV_LONG xOffset;
 
 	switch (uMsg) {
 		case WM_QUERYENDSESSION:
@@ -945,9 +947,9 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 					}
 				}
 				if (WrapScrollStyle) {
-					extern LONG xOffset, ExpandRedraw, ShrinkRedraw;
+					extern WV_LONG xOffset, ExpandRedraw, ShrinkRedraw;
 					extern INT  RightOffset;
-					LONG EndX = ClientRect.right + xOffset - RightOffset;
+					WV_LONG EndX = ClientRect.right + xOffset - RightOffset;
 					extern BOOL Exiting;
 
 					if (Exiting) {
@@ -1000,37 +1002,16 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 				CHAR Buf[50];
 
 				snprintf(Buf, sizeof(Buf),
-						 "WinVi32: wide WM_CHAR 0x%x\n", wPar);
+						 "WinVi32: wide WM_CHAR 0x%Ix\n", wPar);
 				OutputDebugString(Buf);
 			}
 			WmChar(wPar);
 			break;
 
 		case WM_UNICHAR:
-			if (wPar == UNICODE_NOCHAR) return TRUE;
-			if (wPar < 0x10000) {
-				CHAR Buf[50];
-
-				snprintf(Buf, sizeof(Buf),
-						 "WinVi32: WM_UNICHAR 0x%x\n", wPar);
-				OutputDebugString(Buf);
-				WmChar(wPar);
-			} else if (wPar >= 0x10000 && wPar < 0x10FFFF) {
-				CHAR Buf[50];
-
-				snprintf(Buf, sizeof(Buf),
-						 "WinVi32: extended WM_UNICHAR 0x%x\n", wPar);
-				OutputDebugString(Buf);
-				WmChar((wPar >> 10) - 0x40 + 0xd800);
-				WmChar((wPar & 0x3ff) + 0xdc00);
-			} else {
-				CHAR Buf[50];
-
-				snprintf(Buf, sizeof(Buf),
-						 "WinVi32: unhandled WM_UNICHAR 0x%x\n", wPar);
-				OutputDebugString(Buf);
-			}
-			break;
+            if (wPar == 0xffff) return TRUE;
+            if (wPar <= 0x10ffff && !(wPar >= 0xd800 && wPar <= 0xdfff)) WmUnicodeScalar(wPar);
+            break;
 
 		case WM_SYSKEYDOWN:
 			TooltipHide(-1);
@@ -1108,7 +1089,7 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 		case WM_DROPFILES:
 			{	HANDLE		 hDrop = (HANDLE)wPar;
 				INT			 i, iDropped, nNumDropped;
-				extern WCHAR FileNameBuf2[260];
+				extern WCHAR FileNameBuf2[WV_PATH_CAP];
 				BOOL		 ShiftPressed;
 
 				ShiftPressed = GetKeyState(VK_SHIFT) < 0;
@@ -1513,13 +1494,8 @@ BOOL NotepadCompatible(VOID)
 
 BOOL InitInstance(INT nShow)
 {
-	if (!(GetVersion() & 0x80000000U)) IsWinNt2kXpEtc = TRUE;
-	if ((WinVersion = LOWORD(GetVersion())) == MAKEWORD(3,10)) {
-		WORD Ver32  = LOWORD(GetVersion32());
-
-		if (Ver32) WinVersion = Ver32;
-	}
-	WinVersion		= HIBYTE(WinVersion) + (LOBYTE(WinVersion) << 8);
+    IsWinNt2kXpEtc = TRUE;
+    WinVersion = MAKEWORD(0,10); /* Minimum supported OS: Windows 10. */
 	TextColor		= GetSysColor(COLOR_WINDOWTEXT);
 	BackgroundColor	= GetSysColor(COLOR_WINDOW);
 	MsWheelRollMsg	= RegisterWindowMessage("MSWHEEL_ROLLMSG");
@@ -1641,7 +1617,7 @@ BOOL InitInstance(INT nShow)
 
 		SwitchCursor(SWC_HOURGLASS_ON);
 		if (!lp || *lp != '+') break;
-		wcscpy(CommandBuf, lp);
+		WvCopyString(CommandBuf, lp);
 		RemoveFileListEntry(0);
 		CommandBuf[0] = ':';
 		CommandExec(CommandBuf);
@@ -1702,7 +1678,7 @@ BOOL InitApplication(VOID)
 	wc.lpszClassName  = "WinVi - SunkenBox";
 	RegisterClass(&wc);
 	wcw.lpfnWndProc	  = TooltipProc;
-	wcw.cbWndExtra	  = 4 * sizeof(LONG);
+	wcw.cbWndExtra	  = 4 * sizeof(LONG_PTR);
 	wcw.lpszClassName = L"WinVi - ToolTip";
 	RegisterClassW(&wcw);
 	return (TRUE);
@@ -1941,6 +1917,7 @@ INT WINAPI WinMain(HINST hCurr, HINST hPrev, LPSTR lpCmd, INT nShow)
 {	INT Ret;
 
 	hInst = hCurr;
+    InitializeWindowsPlatform();
 	//ArgList = lpCmd;
 	Language = GetDefaultLanguage(FALSE);
 	Ctl3dRegister(hInst);

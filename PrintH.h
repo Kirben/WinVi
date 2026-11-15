@@ -19,7 +19,7 @@ VOID PrintFromMenu(HWND);
 VOID PrintImmediate(HWND);
 VOID PrintFromToolbar(HWND);
 BOOL PrintSetPrinter(PCWSTR, int);
-BOOL PrintCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR PrintCallback(HWND, UINT, WPARAM, LPARAM);
 
 /*Settings.h:*/
 LPARAM ChooseFontCustData(INT);

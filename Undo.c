@@ -25,9 +25,9 @@
 
 typedef struct tagUNDO {
 	struct tagUNDO	FAR *Prev, FAR *Next, FAR *UndoRef;
-	ULONG			Pos;
-	ULONG			DelFill;
-	ULONG			Inserted;
+	WV_ULONG			Pos;
+	WV_ULONG			DelFill;
+	WV_ULONG			Inserted;
 	HGLOBAL			DelMem;
 	BYTE			Flags;
 } UNDO, FAR *LPUNDO;
@@ -40,7 +40,7 @@ typedef struct tagUNDO {
 
 LPUNDO FirstUndo, LastUndo, NextSequenceUndo;
 int    UndoSequences, GlobalUndoFlags = UD_SAFE;
-ULONG  UndoLimit = (ULONG)-1, UndoMemUsed = 0;
+WV_ULONG  UndoLimit = (WV_ULONG)-1, UndoMemUsed = 0;
 
 static BOOL NewUndo(void)
 {	LPUNDO lpUndo;
@@ -52,7 +52,7 @@ static BOOL NewUndo(void)
 		LastUndo->Next = lpUndo;
 		lpUndo->Prev = LastUndo;
 	} else FirstUndo = lpUndo;
-	lpUndo->Pos   = (ULONG)-1;
+	lpUndo->Pos   = (WV_ULONG)-1;
 	lpUndo->Flags = GlobalUndoFlags;
 	LastUndo = NextSequenceUndo = lpUndo;
 	return (TRUE);
@@ -95,7 +95,7 @@ void StartUndoSequence(void)
 			NextSequenceUndo = LastUndo->UndoRef;
 	}
 	if (StartWithRemove) CheckForUndoneToRelease(FALSE);
-	if (UndoLimit!=(ULONG)-1 && UndoMemUsed>UndoLimit && FirstUndo!=NULL) {
+	if (UndoLimit!=(WV_ULONG)-1 && UndoMemUsed>UndoLimit && FirstUndo!=NULL) {
 		do {
 			do {
 				LPUNDO ToDelete = FirstUndo;
@@ -118,7 +118,7 @@ void StartUndoSequence(void)
 		if (FirstUndo) FirstUndo->Prev = NULL;
 	}
 	if (!LastUndo || !(LastUndo->Flags & UD_NEWOP)
-				  ||   LastUndo->Pos != (ULONG)-1) {
+				  ||   LastUndo->Pos != (WV_ULONG)-1) {
 		if (!NewUndo()) {
 			NextSequenceUndo = NULL;
 			return;
@@ -153,16 +153,16 @@ static void EnableUndo(void)
 	EnableToolButton(IDB_UNDO, TRUE);
 }
 
-BOOL EnterDeleteForUndo(PPOSITION Pos, ULONG Length, WORD Flags)
+BOOL EnterDeleteForUndo(PPOSITION Pos, WV_ULONG Length, WORD Flags)
 	/*Flags: 1=enter as selected, reselect after undo
 	 *		 2=remove last undo information, cannot be undone later
 	 */
 {	LPBYTE   NewBuf = NULL;
 	HGLOBAL  NewMem = 0;
 	POSITION p;
-	ULONG	 Inx;
-	ULONG	 ByteCount = CountBytes(Pos);
-	ULONG	 OldSize;
+	WV_ULONG	 Inx;
+	WV_ULONG	 ByteCount = CountBytes(Pos);
+	WV_ULONG	 OldSize;
 	LPUNDO	 Reallocated = NULL;
 
 	if (Flags & 2) {
@@ -173,13 +173,13 @@ BOOL EnterDeleteForUndo(PPOSITION Pos, ULONG Length, WORD Flags)
 	CheckForUndoneToRelease(TRUE);
 	EnableUndo();
 	if (!LastUndo ||
-		(LastUndo->Pos != (ULONG)-1
+		(LastUndo->Pos != (WV_ULONG)-1
 		 && (LastUndo->Pos != ByteCount - LastUndo->Inserted
 			 || (int)(Flags & 1) != ((LastUndo->Flags & UD_SELECT) != 0)
 			 || !(LastUndo->Flags & UD_GLOBALMEM
 				  && LastUndo->DelFill+Length > 64000))))
 		if (!NewUndo()) return (FALSE);
-	if (LastUndo->Pos == (ULONG)-1) LastUndo->Pos = ByteCount;
+	if (LastUndo->Pos == (WV_ULONG)-1) LastUndo->Pos = ByteCount;
 	if (!LastUndo->DelFill) {
 		OldSize = 0;
 		if (Length > 64000) {
@@ -271,15 +271,15 @@ void SetSafeForUndo(BOOL FileChanged)
 		#endif
 }
 
-BOOL EnterInsertForUndo(PPOSITION Pos, ULONG Length)
-{	ULONG ByteCount = CountBytes(Pos);
+BOOL EnterInsertForUndo(PPOSITION Pos, WV_ULONG Length)
+{	WV_ULONG ByteCount = CountBytes(Pos);
 
 	CheckForUndoneToRelease(TRUE);
 	EnableUndo();
-	if (!LastUndo || (LastUndo->Pos != (ULONG)-1 &&
+	if (!LastUndo || (LastUndo->Pos != (WV_ULONG)-1 &&
 					  LastUndo->Pos != ByteCount - LastUndo->Inserted))
 		if (!NewUndo()) return (FALSE);
-	if (LastUndo->Pos == (ULONG)-1) LastUndo->Pos = ByteCount;
+	if (LastUndo->Pos == (WV_ULONG)-1) LastUndo->Pos = ByteCount;
 	LastUndo->Inserted += Length;
 	return (TRUE);
 }
@@ -304,7 +304,7 @@ void Undo(WORD Flags)
 	 */
 {	LPUNDO	   lpUndo;
 	BOOL	   fUndone = FALSE;
-	ULONG	   StartSkip = (ULONG)-1;
+	WV_ULONG	   StartSkip = (WV_ULONG)-1;
 	extern INT HexEditFirstNibble;
 
 	if (Flags & 3) lpUndo = NextSequenceUndo;
@@ -327,21 +327,21 @@ void Undo(WORD Flags)
 	if (UtfEncoding == 16) {
 		/*any undo ops must be double-byte, check before doing anything...*/
 		LPUNDO lp = lpUndo;
-		ULONG  Skip;
+		WV_ULONG  Skip;
 
 		while (lp != NULL) {
-			if ((Skip = lpUndo->Pos) != (ULONG)-1) {
+			if ((Skip = lpUndo->Pos) != (WV_ULONG)-1) {
 				if (lp->DelFill & 1 || lp->Inserted & 1) {
 					ErrorBox(MB_ICONSTOP, 260);
 					return;
 				}
-				if (StartSkip == (ULONG)-1) StartSkip = Skip;
+				if (StartSkip == (WV_ULONG)-1) StartSkip = Skip;
 				if (Flags & 1) break;
 			}
-			if (lp->Flags & UD_NEWOP && StartSkip != (ULONG)-1) break;
+			if (lp->Flags & UD_NEWOP && StartSkip != (WV_ULONG)-1) break;
 			lp = lp->Prev;
 		}
-		StartSkip = (ULONG)-1;
+		StartSkip = (WV_ULONG)-1;
 	}
 	HideEditCaret();
 	wsprintf(QueryString, "%s %s, used mem %lu",
@@ -358,10 +358,10 @@ void Undo(WORD Flags)
 	HexEditFirstNibble = -1;
 	while (lpUndo != NULL) {
 		POSITION Pos;
-		ULONG	 Skip;
+		WV_ULONG	 Skip;
 
-		if ((Skip = lpUndo->Pos) != (ULONG)-1) {
-			if (StartSkip == (ULONG)-1) StartSkip = Skip;
+		if ((Skip = lpUndo->Pos) != (WV_ULONG)-1) {
+			if (StartSkip == (WV_ULONG)-1) StartSkip = Skip;
 			Pos.p = FirstPage;
 			while (Skip >= Pos.p->Fill) {
 				if (!Pos.p->Next) {
@@ -392,7 +392,7 @@ void Undo(WORD Flags)
 			}
 			if (lpUndo->DelFill) {
 				LPSTR Buf;
-				LONG  ByteCount = CountBytes(&Pos);
+				WV_LONG  ByteCount = CountBytes(&Pos);
 
 				if (lpUndo->Flags & UD_GLOBALMEM)
 					 Buf = GlobalLock(lpUndo->DelMem);
@@ -418,7 +418,7 @@ void Undo(WORD Flags)
 			}
 			if (Flags & 1) break;
 		}
-		if (lpUndo->Flags & UD_NEWOP && StartSkip != (ULONG)-1) break;
+		if (lpUndo->Flags & UD_NEWOP && StartSkip != (WV_ULONG)-1) break;
 		lpUndo = lpUndo->Prev;
 	}
 	GlobalUndoFlags = 0;
@@ -442,7 +442,7 @@ void Undo(WORD Flags)
 	/*...undo information about redo and previous undo is not needed anymore
 	 *   because the original undo information will be used instead.
 	 */
-	if (StartSkip != (ULONG)-1) {
+	if (StartSkip != (WV_ULONG)-1) {
 		CurrPos.p = FirstPage;
 		CurrPos.i = 0;
 		Advance(&CurrPos, StartSkip);

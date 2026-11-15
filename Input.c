@@ -45,7 +45,7 @@
 extern WCHAR NumLock[], CapsLock[];
 extern INT	 IndentChars;
 extern BOOL	 SuppressMap, RestoreCaret, EscapeInput;
-extern LONG	 xOffset;
+extern WV_LONG	 xOffset;
 
 MODEENUM	 ModeAfterTfmq;
 BOOL		 InNumber;
@@ -65,8 +65,8 @@ BOOL IsViewOnly(void)
 
 #define CARET_DEBUG(msg) /*OutputDebugString(msg)*/
 
-void HorizontalScroll(LONG MinAmount)
-{	LONG i;
+void HorizontalScroll(WV_LONG MinAmount)
+{	WV_LONG i;
 	INT  Step = 5 * AveCharWidth;
 
 	if (MinAmount >= 0) {
@@ -104,11 +104,11 @@ void HorizontalScroll(LONG MinAmount)
 }
 
 void HorizontalScrollIntoView(void)
-{	LONG Amount = CaretX - XTEXT_OFFSET - xOffset - (ClientRect.right>>1);
+{	WV_LONG Amount = CaretX - XTEXT_OFFSET - xOffset - (ClientRect.right>>1);
 
 	if (Amount < 0) HorizontalScroll(Amount);
 	else {
-		LONG TooFar = CaretX + CaretWidth - xOffset - ClientRect.right +
+		WV_LONG TooFar = CaretX + CaretWidth - xOffset - ClientRect.right +
 					  GetSystemMetrics(SM_CXVSCROLL);
 		if (TooFar > 0) HorizontalScroll(TooFar);
 	}
@@ -294,22 +294,22 @@ void AdvanceToCurr(PPOSITION Pos, /*INT Line,*/ INT Flags)
 	 */
 	if (HexEditMode) {
 		/*currently assuming fix character font*/
-		HexEditTextSide = CurrCol.PixelOffset >= 62*AveCharWidth;
+		HexEditTextSide = CurrCol.PixelOffset >= 64*AveCharWidth;
 		if (HexEditTextSide) {
 			/*right hand side ascii column...*/
-			LONG i = CurrCol.PixelOffset - (4-1);
+			WV_LONG i = CurrCol.PixelOffset - (4-1);
 			INT	 Max = Flags & 2 ? 16 : 15;
 
 			if (UtfEncoding == 16) Max >>= 1;
-			i = i / AveCharWidth - 62;
+			i = i / AveCharWidth - 64;
 			if (i > Max) i = Max;
 			if (i > 0) Advance(Pos, UtfEncoding == 16 ? 2 * i : i);
 		} else {
 			/*hex display part...*/
 			static INT QuadPositions[16] = {
-				48,60,72,86, 99,111,123,137, 150,162,174,188, 201,213,225,237
+				56,68,80,94, 107,119,131,145, 158,170,182,196, 209,221,233,245
 			};
-			LONG QuadCurrCol = (CurrCol.PixelOffset-(4-2)) << 2;
+			WV_LONG QuadCurrCol = (CurrCol.PixelOffset-(4-2)) << 2;
 			INT  i, n = Flags & 2 ? 16 : 15 - (UtfEncoding == 16);
 
 			if (Flags & 2) QuadCurrCol += AveCharWidth << 2;
@@ -348,7 +348,7 @@ void AdvanceToCurr(PPOSITION Pos, /*INT Line,*/ INT Flags)
 
 				if (CharSet == CS_OEM) {
 					if (c == '\177') {
-						wcscpy(Buf, L"\\7F");
+						WvCopyString(Buf, L"\\7F");
 						n = 3;
 					} else {
 						Buf[1] = c;
@@ -421,10 +421,10 @@ INT DblQuoteChar;
 
 typedef struct tagREDO {
 	struct tagREDO FAR *Next;
-	WCHAR			   Buffer[128];
+	UINT			   Buffer[128];
 } REDO, FAR *LPREDO;
 REDO RedoChain;
-LONG RedoFill;
+WV_LONG RedoFill;
 UINT RedoCount;
 BYTE RedoCmd[5];
 BOOL Repeating;
@@ -437,7 +437,7 @@ BOOL DoCompoundCommand(UINT Multiplier, WPARAM Character, WPARAM EnteredChar,
 	BOOL	 DoAdvance=FALSE, DontExtend;
 	COLUMN	 YankCol;
 	POSITION StartPos;
-	LONG	 Amount, PositiveAmount;
+	WV_LONG	 Amount, PositiveAmount;
 
 	if ((Character != 'Z' || Unsafe) && IsViewOnly()) {
 		Mode = CommandMode;
@@ -881,7 +881,7 @@ BYTE CaseConvert[256] = {	/*initial values for Western ANSI characters*/
 	208,209,210,211,212,213,214,247, 216,217,218,219,220,221,222,159
 };
 
-void ChangeCase(LONG Repeat)
+void ChangeCase(WV_LONG Repeat)
 {	INT  c, Oldc;
 	BOOL Changed = FALSE, Advanced = FALSE;
 
@@ -1006,7 +1006,7 @@ void CommandLineDone(BOOL Escaped, PWSTR Cmd)
 	if (Escaped || Mode == CommandMode) ViCommandDone();
 }
 
-void ReplayRedo(LONG Fill)
+void ReplayRedo(WV_LONG Fill)
 {	INT    i = 0;
 	LPREDO r = &RedoChain;
 
@@ -1043,11 +1043,11 @@ void Unselect(void)
 
 void NewDigit(INT Digit, BOOL Display)
 {	PWSTR p = StatusCmd;
-	ULONG NewNumber;
+	WV_ULONG NewNumber;
 
 	if (Number > (UINT)-1 / 10U
 			|| (NewNumber = 10U*Number+Digit-'0',
-			    (UINT)NewNumber < Number || (LONG)NewNumber < 0)) {
+			    (UINT)NewNumber < Number || (WV_LONG)NewNumber < 0)) {
 		Number = (UINT)-1 & 0x7fffffff;
 		MessageBeep(MB_ICONEXCLAMATION);
 	} else Number = (UINT)NewNumber;
@@ -1103,12 +1103,12 @@ void GotChar(INT Character, WORD Flags)
 			SavText[39] = '\0';
 		}
 		if (Character == CTRL('o')) {
-			wcscpy(StatusCmd, L"^O");
+			WvCopyString(StatusCmd, L"^O");
 			SetStatusCommand(StatusCmd, TRUE);
 			Open(L"", 0);
 			if (Mode != CommandMode) {
 				if (Saved) {
-					wcscpy(StatusCmd, SavText);
+					WvCopyString(StatusCmd, SavText);
 					SetStatusCommand(StatusCmd, TRUE);
 				} else SetStatusCommand(NULL, FALSE);
 				return;
@@ -1116,7 +1116,7 @@ void GotChar(INT Character, WORD Flags)
 		} else {
 			if (Mode != CommandMode && !DefaultInsFlag && !ExecRunning())
 				GotChar('\033', 1);
-			wcscpy(StatusCmd, L"^S");
+			WvCopyString(StatusCmd, L"^S");
 			SetStatusCommand(StatusCmd, TRUE);
 			if (Unsafe) Save(L"");
 			if (Mode != CommandMode) {
@@ -1198,7 +1198,12 @@ void GotChar(INT Character, WORD Flags)
 					break;
 
 				case 'X':	/*delete previous character in current line*/
-				case 'x':	/*delete current character*/
+				case 'x':	/*delete current character*/                    if(UtfEncoding && !HexEditMode) {
+                        RedoCount=Number;RedoCmd[0]=(BYTE)Character;RedoCmd[1]=0;RedoFill=0;
+                        StartUndoSequence();
+                        if(Character=='x')DeleteForward(Multiplier);else DeleteBackward(Multiplier);
+                        break;
+                    }
 					CmdFirstChar = 'd';
 					ShowNewStatusCmd = 2;
 					DoCompoundCommand(Multiplier, Character=='x' ? ' ' : 'h',
@@ -1296,7 +1301,7 @@ void GotChar(INT Character, WORD Flags)
 						SetStatusCommand(L"u", FALSE);
 					} else if (*RedoCmd) {
 						PSTR p;
-						LONG Fill = RedoFill;
+						WV_LONG Fill = RedoFill;
 
 						if (Number) RedoCount = Number;
 						else if (RedoCount) {
@@ -1723,7 +1728,7 @@ void GotChar(INT Character, WORD Flags)
 
 		case GetDblQuoteChar:
 			ShowChar(Character, FALSE);
-			if (isalnum(Character) && Character > '0') {
+			if (Character < 256 && isalnum(Character) && Character > '0') {
 				DblQuoteChar = Character;
 				SetStatusCommand(StatusCmd, TRUE);
 				InNumber = FALSE;
@@ -1881,7 +1886,7 @@ void GotChar(INT Character, WORD Flags)
 						Number = 0;
 						Repeating = TRUE;
 						while (--Count) {
-							LONG Fill = RedoFill;
+							WV_LONG Fill = RedoFill;
 
 							GotChar(RepeatCommand, 0);
 							ReplayRedo(Fill);
@@ -2001,22 +2006,22 @@ void GotChar(INT Character, WORD Flags)
 			ShiftOutPrefix = c;
 			ShiftOutPos = CurrPos;
 			if (!Repeating) {
-				if (RedoFill >= (LONG)WSIZE(RedoChain.Buffer)) {
+				if (RedoFill >= (WV_LONG)WSIZE(RedoChain.Buffer)) {
 					do {	/*no loop, for break only*/
 						LPREDO r = &RedoChain;
-						LONG   n = RedoFill;
+						WV_LONG   n = RedoFill;
 
 						while (r->Next != NULL) {
 							r = r->Next;
-							if ((n -= (LONG)WSIZE(r->Buffer))
-									< (LONG)WSIZE(r->Buffer))
+							if ((n -= (WV_LONG)WSIZE(r->Buffer))
+									< (WV_LONG)WSIZE(r->Buffer))
 								break;
 						}
-						if (n >= (LONG)WSIZE(r->Buffer)) {
+						if (n >= (WV_LONG)WSIZE(r->Buffer)) {
 							HGLOBAL h = GlobalAlloc(GPTR, sizeof(REDO));
 
-							if ((n -= (LONG)WSIZE(r->Buffer))
-								   >= (LONG)WSIZE(r->Buffer))
+							if ((n -= (WV_LONG)WSIZE(r->Buffer))
+								   >= (WV_LONG)WSIZE(r->Buffer))
 								break;
 							if (!h || (r->Next=(LPREDO)GlobalLock(h)) == NULL)
 								break;
@@ -2084,9 +2089,9 @@ VOID ShowMatch(WORD Flags)
 	extern INT SequenceLen;		/*keyboard macro replacement in progess*/
 
 	if (ShowMatchFlag && !Repeating && SequenceLen <= 0) {
-		LONG	 Time;
+		WV_LONG	 Time;
 		POSITION SavePos;
-		LONG	 SaveRelativePosition;
+		WV_LONG	 SaveRelativePosition;
 
 		SavePos				 = CurrPos;
 		SaveRelativePosition = RelativePosition;

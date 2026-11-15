@@ -41,7 +41,7 @@
 
 POSITION		MarkPos[27];
 static HANDLE	TmpFile = INVALID_HANDLE_VALUE;
-static WCHAR	TmpFileName[260];
+static WCHAR	TmpFileName[WV_PATH_CAP];
 static CHAR		ErrorUseVirtual[170], ErrorNoGlobalMem[50];
 static CHAR		ErrorFatal[30], ErrorPleaseSave[60];
 
@@ -114,7 +114,7 @@ BOOL CreateTmpFile(void)
 	return  (TmpFile != INVALID_HANDLE_VALUE);
 }
 
-static LONG LastTmpOffset = 0L;
+static WV_LONG LastTmpOffset = 0L;
 
 void RemoveTmpFile(void)
 {
@@ -127,19 +127,30 @@ void RemoveTmpFile(void)
 }
 
 static int PagesOccupied;
-ULONG	   AccessTime;
+WV_ULONG	   AccessTime;
 
+static LPPAGE ResidentHead, ResidentTail;
+static void UnlinkResident(LPPAGE p)
+{
+ if(p->ResidentPrev)p->ResidentPrev->ResidentNext=p->ResidentNext;else ResidentHead=p->ResidentNext;
+ if(p->ResidentNext)p->ResidentNext->ResidentPrev=p->ResidentPrev;else ResidentTail=p->ResidentPrev;
+ p->ResidentPrev=p->ResidentNext=NULL;
+}
+static void TouchResident(LPPAGE p)
+{
+ if(ResidentTail==p)return;
+ if(p->ResidentPrev || p->ResidentNext || ResidentHead==p)UnlinkResident(p);
+ p->ResidentPrev=ResidentTail;p->ResidentNext=NULL;
+ if(ResidentTail)ResidentTail->ResidentNext=p;else ResidentHead=p;
+ ResidentTail=p;
+}
 BOOL AllocPageMem(LPPAGE Page)
 {	HGLOBAL h;
 
-	if ((((LONG)(PagesOccupied+1)*PAGESIZE) >> 10) > PageThreshold) {
+	if ((((WV_LONG)(PagesOccupied+1)*PAGESIZE) >> 10) > (PageThreshold<16 ? 16 : PageThreshold)) {
 		if (TmpFile != INVALID_HANDLE_VALUE || CreateTmpFile()) {
-			LPPAGE p, ToSave = NULL;
-
-			for (p=FirstPage; p; p=p->Next)
-				if (p->PageBuf && (ToSave == NULL
-						|| p->LastAccess < ToSave->LastAccess))
-					ToSave = p;
+			LPPAGE ToSave = ResidentHead;
+            if(!ToSave) return FALSE;
 			if (ToSave->PageFilePos == -1) {
 				ToSave->PageFilePos = LastTmpOffset;
 				LastTmpOffset += PAGESIZE;
@@ -154,6 +165,7 @@ BOOL AllocPageMem(LPPAGE Page)
 				GlobalFree(h);
 				--PagesOccupied;
 				ToSave->PageBuf = NULL;
+            UnlinkResident(ToSave);
 				ToSave->Flags |= ISSAFE;
 			} else {
 				static BOOL AlreadyAsked;
@@ -173,6 +185,7 @@ BOOL AllocPageMem(LPPAGE Page)
 		Page->PageBuf = (LPBYTE)GlobalLock(h);
 		if (Page->PageBuf != NULL) {
 			Page->LastAccess = ++AccessTime;
+            TouchResident(Page);
 			++PagesOccupied;
 			return (TRUE);
 		}
@@ -247,6 +260,7 @@ void FreeAllPages(void)
 		PAGEFREE(lp);
 		lp = lp2;
 	}
+	ResidentHead = ResidentTail = NULL;
 	RemoveTmpFile();
 	FirstPage = LastPage = ScreenStart.p = CurrPos.p = NewPage();
 	FirstPage->PageNo = 1;
@@ -349,6 +363,7 @@ INT ByteAt(PPOSITION Pos)
 	}
 	if (Pos->p->PageBuf == NULL && !ReloadPage(Pos->p)) return (C_ERROR);
 	if (Pos->p->LastAccess != AccessTime) Pos->p->LastAccess = ++AccessTime;
+    TouchResident(Pos->p);
 	return Pos->p->PageBuf[Pos->i];
 }
 
@@ -368,7 +383,7 @@ INT CharAt(PPOSITION Pos)
 			GoBack(Pos, 1);
 		} else if (c >= 0xc0) {
 			POSITION Pos2 = *Pos;
-			LONG	 c2;
+			WV_LONG	 c2;
 
 			if (c < 0xe0) {
 				if ((c2 = AdvanceAndByte(&Pos2)) < 0x80 || c2 >= 0xc0)
@@ -422,6 +437,7 @@ INT ByteAndAdvance(PPOSITION Pos)
 	}
 	if (!Pos->p->PageBuf && !ReloadPage(Pos->p)) return C_ERROR;
 	if (Pos->p->LastAccess != AccessTime) Pos->p->LastAccess = ++AccessTime;
+    TouchResident(Pos->p);
 	c = Pos->p->PageBuf[Pos->i];
 	++Pos->i;
 	while (Pos->i >= Pos->p->Fill && Pos->p->Next) {
@@ -446,7 +462,7 @@ INT CharAndAdvance(PPOSITION Pos)
 			}
 		} else if (c >= 0xc0) {
 			POSITION Pos2 = *Pos;
-			LONG	 c2;
+			WV_LONG	 c2;
 
 			if (c < 0xe0) {
 				if ((c2 = ByteAndAdvance(&Pos2)) < 0x80 || c2 >= 0xc0)
@@ -514,8 +530,8 @@ INT AdvanceAndChar(PPOSITION Pos)
 	return c;
 }
 
-ULONG GoBack(PPOSITION Pos, ULONG Amount)
-{	ULONG Ret = 0;
+WV_ULONG GoBack(PPOSITION Pos, WV_ULONG Amount)
+{	WV_ULONG Ret = 0;
 
 	while (Amount > Pos->i) {
 		Ret += Pos->i;
@@ -572,7 +588,7 @@ INT GoBackAndChar(PPOSITION Pos)
 				CHAR Buf[80];
 
 				snprintf(Buf, sizeof(Buf),
-						 "WinVi: invalid char 0x%02x < %x || > %x at pos %d\n",
+						 "WinVi: invalid char 0x%02x < %x || > %x at pos %I64u\n",
 						 c, bmin, bmax, CountBytes(Pos));
 				OutputDebugString(Buf);
 				if (c != C_EOF) Advance(Pos, 1);	/* enforce C_UNDEF */
@@ -594,14 +610,14 @@ INT GoBackAndChar(PPOSITION Pos)
 	return c;
 }
 
-ULONG Advance(PPOSITION Pos, ULONG Amount)
-{	ULONG Ret = 0;
+WV_ULONG Advance(PPOSITION Pos, WV_ULONG Amount)
+{	WV_ULONG Ret = 0;
 
 	Pos->f &= ~POSITION_UTF8_HIGH_SURROGATE_DONE;
 	for (;;) {
 		int n = Pos->p->Fill - Pos->i;
 
-		if ((ULONG)n > Amount) {
+		if ((WV_ULONG)n > Amount) {
 			Pos->i += (int)Amount;
 			return (Ret + Amount);
 		}
@@ -632,7 +648,7 @@ void EndOfFile(PPOSITION Pos)
 }
 
 void CorrectLineInfo(LPPAGE OldPage, UINT OldInx, LPPAGE NewPage, UINT NewInx,
-					 ULONG OldCount, INT CountDiff)
+					 WV_ULONG OldCount, INT CountDiff)
 {	int i;
 
 	LineInfo[0].Pos = ScreenStart;
@@ -647,7 +663,7 @@ void CorrectLineInfo(LPPAGE OldPage, UINT OldInx, LPPAGE NewPage, UINT NewInx,
 	}
 }
 
-INT CountNewlinesInBuf(LPBYTE Buf, INT Len, LONG NewLineCnt[9], DWORD *pFlags)
+INT CountNewlinesInBuf(LPBYTE Buf, INT Len, WV_LONG NewLineCnt[9], DWORD *pFlags)
 {	INT    Ret = 0;
 	LPBYTE Ptr = Buf;
 	BYTE   c;
@@ -814,7 +830,7 @@ BOOL Reserve(PPOSITION Pos, INT Amount, WORD Flags)
 		if (!Page) return (FALSE);
 		if (!Pos->p->PageBuf && !ReloadPage(Pos->p))
 			return (FALSE);
-		assert((ULONG)Pos->i <= PAGESIZE);
+		assert((WV_ULONG)Pos->i <= PAGESIZE);
 		assert(Page->PageBuf);
 		assert(Pos->p->PageBuf);
 		if (Pos->i < Pos->p->Fill) {
@@ -864,8 +880,8 @@ BOOL Reserve(PPOSITION Pos, INT Amount, WORD Flags)
 	return (TRUE);
 }
 
-ULONG CountBytes(PPOSITION Pos)
-{	ULONG  Ret  = Pos->i;
+WV_ULONG CountBytes(PPOSITION Pos)
+{	WV_ULONG  Ret  = Pos->i;
 	LPPAGE Page = Pos->p;
 
 	if (Page != NULL)
@@ -873,8 +889,8 @@ ULONG CountBytes(PPOSITION Pos)
 	return Ret;
 }
 
-ULONG CountLines(PPOSITION Pos)
-{	ULONG Ret;
+WV_ULONG CountLines(PPOSITION Pos)
+{	WV_ULONG Ret;
 	BYTE  Nl = CharSet==CS_EBCDIC ? MapAnsiToEbcdic['\n'] : '\n';
 
 	if (HexEditMode) return CountBytes(Pos) >> 4;
@@ -898,7 +914,7 @@ void VerifyPageStructure(void)
 {
 #if 0	/*TODO*/
 	LPPAGE Test, CrFound = NULL;
-	ULONG  NlCount = 0, NlDiff = 0;
+	WV_ULONG  NlCount = 0, NlDiff = 0;
 
 	for (Test=FirstPage; Test; Test=Test->Next) {
 		if (Test->Fill && (Test->Flags & CHECK_CRLF || CrFound != NULL)) {

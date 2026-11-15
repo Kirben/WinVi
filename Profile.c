@@ -173,7 +173,7 @@ BOOL SwitchProfile(PROFILEOP Operation, PSTR Profile)
 
 					if (RegOpenKeyEx(HKEY_CURRENT_USER, KeyPrefix, 0,
 							KEY_CREATE_SUB_KEY, &hKey2) == ERROR_SUCCESS) {
-						LONG ErrNo;
+						WV_LONG ErrNo;
 						INT  i;
 
 						i = 0;
@@ -227,7 +227,7 @@ BOOL SwitchProfile(PROFILEOP Operation, PSTR Profile)
 }
 
 static INT MatchDrivePathUNC(PWSTR MatchAgainst, PCWSTR Filename)
-{	WCHAR Name[300];
+{	WCHAR Name[WV_TEXT_CAP];
 	PWSTR p;
 	INT	  Result = -1;
 
@@ -309,8 +309,8 @@ static INT MatchDrivePathUNC(PWSTR MatchAgainst, PCWSTR Filename)
 					break;
 
 				default:
-					if ((INT)(DWORD)AnsiUpper((LPSTR)(INT)(BYTE)*p) !=
-						(INT)(DWORD)AnsiUpper((LPSTR)(INT)(BYTE)*p3))
+					if ((INT)(ULONG_PTR)AnsiUpper((LPSTR)(INT)(BYTE)*p) !=
+						(INT)(ULONG_PTR)AnsiUpper((LPSTR)(INT)(BYTE)*p3))
 							Failed = TRUE;
 			}
 			if (Failed) break;
@@ -484,7 +484,10 @@ static INT MyGetProfileString(LPCSTR Key, LPCSTR Default, LPSTR Buf, INT Size)
 				if (hKey != INVALID_HANDLE_VALUE &&
 						RegQueryValueEx(hKey, Key, NULL, &dwType, Buf, &dwSize)
 						== ERROR_SUCCESS) {
-					if (dwType == REG_DWORD && dwSize == sizeof(LONG)) {
+					if (dwType == REG_QWORD && dwSize == sizeof(WV_LONG)) {
+                        WV_LONG value64; memcpy(&value64,Buf,sizeof(value64));
+                        snprintf(Buf,Size,"%I64d",value64);
+                    } else if (dwType == REG_DWORD && dwSize == sizeof(LONG)) {
 						memcpy(&dwValue, Buf, sizeof(LONG));
 						snprintf(Buf, Size, "%ld", dwValue);
 					}
@@ -557,7 +560,10 @@ static INT MyGetProfileStringW(LPCSTR Key, PCWSTR Default, PWSTR Buf, INT Size)
 			if (hKey != INVALID_HANDLE_VALUE &&
 					RegQueryValueExW(hKey, wName, NULL, &dwType,
 									 (LPBYTE)Buf, &dwSize) == ERROR_SUCCESS) {
-				if (dwType == REG_DWORD && dwSize == sizeof(LONG)) {
+				if (dwType == REG_QWORD && dwSize == sizeof(WV_LONG)) {
+                        WV_LONG value64; memcpy(&value64,Buf,sizeof(value64));
+                        _snwprintf(Buf,Size/sizeof(WCHAR),L"%I64d",value64);
+                    } else if (dwType == REG_DWORD && dwSize == sizeof(LONG)) {
 					memcpy(&dwValue, Buf, sizeof(LONG));
 					_snwprintf(Buf, Size/sizeof(WCHAR), L"%ld", dwValue);
 				}
@@ -599,15 +605,15 @@ static INT MyGetProfileStringW(LPCSTR Key, PCWSTR Default, PWSTR Buf, INT Size)
 	#endif
 }
 
-static DWORD MyGetProfileLong(LPCSTR Key, DWORD Default, WORD SysDefaultMask)
-{	CHAR Buf[16];
+static WV_ULONG MyGetProfileLong(LPCSTR Key, WV_ULONG Default, WORD SysDefaultMask)
+{	CHAR Buf[32];
 
 	MyGetProfileString(Key, "", Buf, sizeof(Buf));
 	if (!*Buf) {
 		wUseSysColors |= SysDefaultMask;
 		return (Default);
 	}
-	return (strtol(Buf, NULL, 0));
+	return (_strtoi64(Buf, NULL, 0));
 }
 
 static INT MyGetProfileInt(LPCSTR Key, INT Default)
@@ -623,7 +629,7 @@ static VOID MyGetProfileNewString(LPCSTR Key, LPCSTR Default, LPSTR *pResult)
 }
 
 static VOID MyGetProfileNewStringW(LPCSTR Key, PCWSTR Default, PWSTR *pResult)
-{	WCHAR Buf[260];
+{	WCHAR Buf[WV_PATH_CAP];
 
 	MyGetProfileStringW(Key, Default, Buf, sizeof(Buf));
 	AllocStringW(pResult, Buf);
@@ -695,13 +701,15 @@ static VOID MyWriteProfileStringW(LPCSTR Key, PCWSTR Value)
 	//WriteProfileStringW(ProfileSection, Name, Value);
 }
 
-static VOID MyWriteProfileInt(LPCSTR Key, PCSTR Format, LONG Value)
-{	//WCHAR Buf[16];
+static VOID MyWriteProfileInt(LPCSTR Key, PCSTR Format, WV_LONG Value)
+{	//WCHAR Buf[32];
 
 	#if defined(WIN32)
 		if (RegKey()) {
-			if (RegSetValueEx(hKey, Key, 0, REG_DWORD,
-							  (PBYTE)&Value, sizeof(LONG)) == ERROR_SUCCESS)
+			DWORD compact=(DWORD)Value;
+            BOOL fits32=Value>=(-2147483647LL-1) && Value<=2147483647LL;
+            if (RegSetValueEx(hKey, Key, 0, fits32 ? REG_DWORD : REG_QWORD,
+                             fits32 ? (PBYTE)&compact : (PBYTE)&Value, fits32 ? sizeof(compact) : sizeof(Value)) == ERROR_SUCCESS)
 				return;
 		}
 	#endif
@@ -718,7 +726,7 @@ static VOID MyWriteProfileBool(LPCSTR Key, BOOL Value)
 /*----------------------------------------------------------------*/
 /*  vvv  functions using the elementary functions above      vvv  */
 
-PCSTR LdFormat  = "%ld";
+PCSTR LdFormat  = "%I64d";
 PCSTR L6xFormat = "0x%06lx";
 BOOL  SearchBoxPosition;
 INT   SearchBoxX, SearchBoxY;
@@ -1078,7 +1086,7 @@ static VOID LoadPrintSettings(VOID)
 	if (Header) _ffree(Header);
 	if (!*PrintBuf) Header = NULL;
 	else if ((Header = _fcalloc(wcslen(PrintBuf) + 1, sizeof(WCHAR))) != NULL)
-		wcscpy(Header, PrintBuf);
+		WvCopyString(Header, PrintBuf);
 	{	WCHAR Def[10];
 
 		LOADSTRINGW(hInst, 247, Def, WSIZE(Def));
@@ -1087,7 +1095,7 @@ static VOID LoadPrintSettings(VOID)
 	if (Footer) _ffree(Footer);
 	if (!*PrintBuf) Footer = NULL;
 	else if ((Footer = _fcalloc(wcslen(PrintBuf) + 1, sizeof(WCHAR))) != NULL)
-		wcscpy(Footer, PrintBuf);
+		WvCopyString(Footer, PrintBuf);
 }
 
 static VOID LoadFontInfo(LPCSTR FaceKey, LPCSTR HeightKey, LPCSTR AttrKey,
@@ -1269,6 +1277,7 @@ VOID LoadSettings(VOID)
 	ShmBkgndColor	= MyGetProfileLong(pfShmBkColor,	ShmBkgndColor,	 0);
 	EolColor		= MyGetProfileLong(pfEolColor,		EolColor,		 0);
 	UndoLimit		= MyGetProfileLong(pfUndoLimit,		UndoLimit,		 0);
+    if ((WV_LONG)UndoLimit<0 && UndoLimit!=(WV_ULONG)-1) UndoLimit=(DWORD)UndoLimit; /* Legacy unsigned DWORD settings. */
 	{	CHAR Buf[16*9];
 
 		memset(CustomColors, 0, sizeof(CustomColors));
@@ -1296,7 +1305,7 @@ VOID LoadSettings(VOID)
 		static HFILE hf		 = (HFILE)INVALID_HANDLE_VALUE;
 
 		if (hf == (HFILE)INVALID_HANDLE_VALUE) {
-			if (GetVersion() & 0x80000000U) {
+			if (0 /* Windows 10+ always uses the NT platform */) {
 				/*not NT...*/
 				OFSTRUCT TmpOf;
 
@@ -1478,7 +1487,7 @@ VOID InitFileList(VOID)
 VOID InsertFileList(HMENU hMenu)
 {	INT   i;
 	CHAR  Key[16];
-	WCHAR wBuff[264];
+	WCHAR wBuff[WV_PATH_CAP+16];
 
 	SwitchProfile(ProfileSaveAndClear, ProfileBuffer);
 	GetIndexList();
@@ -1527,7 +1536,7 @@ VOID AddToFileList(PCWSTR FileName)
 	GetIndexList();
 	for (i=0; i<NUMFILES; ++i) {
 		if (Index[i] != -1) {
-			WCHAR wBuff[264];
+			WCHAR wBuff[WV_PATH_CAP+16];
 
 			snprintf(Key, sizeof(Key), pfRecentFile, Index[i]);
 			MyGetProfileStringW(Key, L"", wBuff, sizeof(wBuff));
@@ -1536,19 +1545,21 @@ VOID AddToFileList(PCWSTR FileName)
 				BOOL Differs = wcscmp(wBuff, FileName) != 0;
 
 				snprintf(Key, sizeof(Key), pfRecentDir, Index[i]);
-				if (MyGetProfileString(Key, "", Buff, sizeof(Buff))) {
-					CHAR Dir[260];
+				{ WCHAR savedDir[WV_PATH_CAP];
+                if (MyGetProfileStringW(Key,L"",savedDir,sizeof(savedDir))) {
+					WCHAR Dir[WV_PATH_CAP];
 
-					_getcwd(Dir, sizeof(Dir));
-					if (lstrcmpi(Dir, Buff) != 0) {
+					if(!GetCurrentDirectoryW(WSIZE(Dir),Dir)) Dir[0]=0;
+					if (lstrcmpiW(Dir, savedDir) != 0) {
 						if ( (FileName[1]!=':' ||
 							 (FileName[2]!='\\' && FileName[2]!='/')) &&
 							((FileName[0]!='\\' && FileName[0]!='/') ||
 							  FileName[1]!=FileName[0]))
 							continue;
 					}
-					if (lstrcmp(Dir, Buff) != 0)
-						MyWriteProfileString(Key, Dir);
+					if (lstrcmpW(Dir, savedDir) != 0)
+						MyWriteProfileStringW(Key, Dir);
+				}
 				}
 				if (Differs) {
 					snprintf(Key, sizeof(Key), pfRecentFile, Index[i]);
@@ -1582,8 +1593,7 @@ VOID AddToFileList(PCWSTR FileName)
 	snprintf(Key, sizeof(Key), pfRecentFile, j);
 	MyWriteProfileStringW(Key, FileName);
 	snprintf(Key, sizeof(Key), pfRecentDir, j);
-	_getcwd(Buff, sizeof(Buff));
-	MyWriteProfileString(Key, Buff);
+	{ WCHAR directory[WV_PATH_CAP]; if(GetCurrentDirectoryW(WSIZE(directory),directory)) MyWriteProfileStringW(Key,directory); }
 	SwitchProfile(ProfileRestore, ProfileBuffer);
 }
 
@@ -1591,7 +1601,7 @@ VOID FileListCommand(INT Command)
 {
 	if (Command>=3000 && Command<3000+NUMFILES && Index[Command-=3000]!=-1) {
 		CHAR  Key[16];
-		WCHAR wBuff[264];
+		WCHAR wBuff[WV_PATH_CAP+16];
 
 		if (ExecRunning()) {
 			ErrorBox(MB_ICONSTOP, 236);
@@ -1600,7 +1610,7 @@ VOID FileListCommand(INT Command)
 		if (!AskForSave(hwndMain, 1)) return;
 		SwitchProfile(ProfileSaveAndClear, ProfileBuffer);
 		snprintf(Key, sizeof(Key), pfRecentDir, Index[Command]);
-		wcscpy(wBuff, L":cd ");
+		WvCopyString(wBuff, L":cd ");
 		if (MyGetProfileStringW(Key, L"", wBuff+4, sizeof(wBuff)-8)) {
 			NewStatus(0, wBuff, NS_BUSY);
 			SetCurrentDirectoryW(wBuff+4);

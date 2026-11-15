@@ -26,11 +26,11 @@
 #include "page.h"
 
 static PWSTR TagsFile;
-static WCHAR TagCommand[264];
+static WCHAR TagCommand[WV_PATH_CAP];
 
 typedef struct tagTAGSTACK {
 	struct tagTAGSTACK FAR *Next;
-	ULONG					Pos;
+	WV_ULONG					Pos;
 	WCHAR					FName[1];
 } TAGSTACK, FAR *LPTAGSTACK;
 static LPTAGSTACK TagStack = NULL;
@@ -43,7 +43,7 @@ static VOID PushTag(VOID)
 	if (SavePos == NULL) return;
 	SavePos->Next = TagStack;
 	SavePos->Pos  = CountBytes(&CurrPos);
-	wcscpy(SavePos->FName, CurrFile);
+	WvCopyString(SavePos->FName, CurrFile);
 	TagStack = SavePos;
 }
 
@@ -54,7 +54,7 @@ VOID PopTag(BOOL Jump)
 
 		if (Jump) {
 			if (wcsicmp(TagStack->FName, CurrFile) != 0) {
-				wcscpy(TagCommand, L":e ");
+				WvCopyString(TagCommand, L":e ");
 				wcscat(TagCommand, TagStack->FName);
 				if (!CommandExec(TagCommand)) return;
 				JumpAbsolute(TagStack->Pos);
@@ -148,7 +148,7 @@ static VOID CombinePath(PWSTR Buffer, INT Size)
 	}
 }
 
-extern WCHAR BufferW[300];
+extern WCHAR BufferW[WV_TEXT_CAP];
 
 BOOL Tag(PWSTR Identifier, WORD Flags)
 	/* Flags: 1=change file even if modified (command ":tag! ...")
@@ -181,7 +181,7 @@ BOOL Tag(PWSTR Identifier, WORD Flags)
 
 						/*matched, extract file name...*/
 						do; while ((c=NextChar(hf)) == ' ' || c=='\t');
-						wcscpy(TagCommand, L":e ");
+						WvCopyString(TagCommand, L":e ");
 						i = 3;
 						if (Flags & 1) TagCommand[2] = '!';
 						{	BOOL WithinQuotes = FALSE, Done = FALSE;

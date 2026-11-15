@@ -27,7 +27,7 @@
  *     30-Apr-2010	improved UTF-16 recognition
  */
 
-#define _WIN32_WINNT 0x0400	/*needed for OPENFILENAME definition in commdlg.h*/
+/* OS target is supplied by build-x64.cmd. */
 
 #include <windows.h>
 #include <shellapi.h>
@@ -50,21 +50,21 @@
 
 #define TEST_DRIVE_IO FALSE
 
-extern LONG   xOffset;
+extern WV_LONG   xOffset;
 extern CHAR   QueryString[150];
 extern DWORD  QueryTime;
 extern BOOL   ReadOnlyParam;
 
 OPENFILENAMEW Ofn = {0};
 CHAR		  Buffer[300];
-WCHAR		  BufferW[300];
-WCHAR		  AltFileName[260];
+WCHAR		  BufferW[WV_TEXT_CAP];
+WCHAR		  AltFileName[WV_PATH_CAP];
 static WCHAR  CustFilter[262] = L"\0*.*\0";
-static WCHAR  CurrFileName[262] = L".\\";
-static WCHAR  FileTitle[260];
-static WCHAR  SmallBuf[40];
+static WCHAR  CurrFileName[WV_PATH_CAP+2] = L".\\";
+static WCHAR  FileTitle[WV_PATH_CAP];
+static WCHAR  SmallBuf[128];
 CONST WCHAR	  *CrLfAttribute = L"";
-LONG		  AltFilePos;
+WV_LONG		  AltFilePos;
 UINT		  AltFileCset;
 BOOL		  NotEdited = FALSE;
 PWSTR		  Brackets = L"\253%s\273";
@@ -90,7 +90,9 @@ void SetSafe(BOOL FileChanged)
 
 #if defined(WIN32)
 	FILETIME LastTime, TmpTime;
-    #define _lclose(hf) CloseHandle((HANDLE)(hf))
+    #if !defined(_WIN64)
+#define _lclose(hf) CloseHandle((HANDLE)(hf))
+#endif
 #else
 	OFSTRUCT LastOf,   TmpOf;
 #endif
@@ -180,7 +182,7 @@ void LowerCaseFnameW(PWSTR Fname)
 	CharLowerBuffW(Fname, wcslen(Fname));
 }
 
-extern WCHAR FileNameBuf2[260];
+extern WCHAR FileNameBuf2[WV_PATH_CAP];
 
 void InitOfn(HWND hParent, WORD Flags)
 	/*Flags: 1=Save dialog instead of open,
@@ -226,7 +228,7 @@ void InitOfn(HWND hParent, WORD Flags)
 
 void SetAltFileName(PCWSTR FName, PPOSITION Pos)
 {
-	wcscpy(AltFileName, FName);
+	WvCopyString(AltFileName, FName);
 	AltFilePos  = Pos ? CountBytes(Pos) : 0;
 	AltFileCset = CharSet;
 }
@@ -234,7 +236,7 @@ void SetAltFileName(PCWSTR FName, PPOSITION Pos)
 void WatchMessage(PWSTR FileName)
 {
 	#if defined(WIN32)
-		WCHAR Message[340], Format[80];
+		WCHAR Message[WV_PATH_CAP+160], Format[80];
 
 		if (!LOADSTRINGW(hInst, 253, Format, WSIZE(Format)))
 			_snwprintf(Format, WSIZE(Format), L"%s", L"Modified on disk: %s");
@@ -245,7 +247,7 @@ void WatchMessage(PWSTR FileName)
 
 #if defined(WIN32)
 
-static WCHAR  WatchName[MAX_PATH+2];
+static WCHAR  WatchName[WV_PATH_CAP+2];
 static HANDLE WatchEvents[2] = {INVALID_HANDLE_VALUE, 0};
 							   /*0: ChangeNotification, 1:QuitEvent*/
 
@@ -441,7 +443,7 @@ void New(HWND hParent, BOOL SaveAltFile)
 void ShowFileName(void)
 {
 	*BufferW = Brackets[0];
-	if (*CurrFile) wcscpy(BufferW+1, CurrFile);
+	if (*CurrFile) WvCopyString(BufferW+1, CurrFile);
 	else LOADSTRINGW(hInst, 901, BufferW+1, WSIZE(BufferW) - 2);
 	wcscat(BufferW, Brackets+3);
 	CheckReadOnly();
@@ -474,7 +476,7 @@ void FileError(PCWSTR FName, INT DosErrorCode, INT Range)
 		_snwprintf(BufferW, WSIZE(BufferW), SmallBuf, FName, ErrStr);
 	else {
 		if (!LOADSTRINGW(hInst, 115, SmallBuf, WSIZE(SmallBuf)))
-			wcscpy(SmallBuf, L"%s: file error %d");
+			WvCopyString(SmallBuf, L"%s: file error %d");
 		_snwprintf(BufferW, WSIZE(BufferW), SmallBuf, FName, DosErrorCode);
 	}
 	NewStatus(0, BufferW, NS_ERROR);
@@ -509,7 +511,7 @@ static void File32Error(PCWSTR FName)
 		if (ErrorCode == ERROR_BAD_PATHNAME)
 			LOADSTRINGW(hInst, 116, SmallBuf, WSIZE(SmallBuf));
 		if (!*SmallBuf && !LOADSTRINGW(hInst, 115, SmallBuf, WSIZE(SmallBuf)))
-			wcscpy(SmallBuf, L"%s: file error %d");
+			WvCopyString(SmallBuf, L"%s: file error %d");
 		_snwprintf(BufferW, WSIZE(BufferW), SmallBuf, FName, ErrorCode);
 	}
 	NewStatus(0, BufferW, NS_ERROR);
@@ -517,7 +519,7 @@ static void File32Error(PCWSTR FName)
 
 #endif
 
-VOID JumpAbsolute(ULONG SkipBytes)
+VOID JumpAbsolute(WV_ULONG SkipBytes)
 {
 	CurrPos.p = FirstPage;
 	if (SkipBytes) {
@@ -546,7 +548,7 @@ INT MyRead(INT hFile, PBYTE Buf, INT Size)
 
 	if (Size != 4096)
 		return _lread(hFile, Buf, Size);
-	p = (PBYTE)(((LONG)pw + 4095) & ~4095);
+	p = (PBYTE)(((WV_LONG)pw + 4095) & ~4095);
 	if (!ReadFile((HANDLE)hFile, p, 4096, &n, NULL)) return -1;
 	if (n > 0) memcpy(Buf, p, n);
 	return n;
@@ -555,7 +557,7 @@ INT MyRead(INT hFile, PBYTE Buf, INT Size)
 #define MyRead(h,b,n) _lread(h,b,n)
 #endif
 
-static ULONG SkipBytes;
+static WV_ULONG SkipBytes;
 extern BOOL  SuppressPaint;
 extern INT	 nCurrFileListEntry;
 
@@ -573,7 +575,7 @@ BOOL OpenFileName(BOOL DontCreate)
 			default: /*error*/
 				if (FreeSpareMemory()) break;
 				if (!LOADSTRINGW(hInst, 290, SmallBuf, WSIZE(SmallBuf)))
-					wcscpy(SmallBuf, L"Unexpected error %04lx");
+					WvCopyString(SmallBuf, L"Unexpected error %04lx");
 				_snwprintf(Buf, WSIZE(Buf), SmallBuf, dwError);
 				MessageBoxW(hwndMain, Buf, NULL, MB_OK | MB_ICONSTOP);
 		}
@@ -583,19 +585,44 @@ BOOL OpenFileName(BOOL DontCreate)
 	return (TRUE);
 }
 
+/* File counters are 64-bit; keep a conservative explicit capacity guard. */
+static BOOL SupportedFileSize(PCWSTR name)
+{
+    WIN32_FILE_ATTRIBUTE_DATA info;
+    if (name && *name && GetFileAttributesExW(name, GetFileExInfoStandard, &info)
+        && !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        && ((((WV_ULONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) > WV_MAX_FILE_BYTES)) {
+        NewStatus(0, L"File too large: this build supports files up to 16 GiB.", NS_ERROR);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL SupportedReadSize(PCWSTR name,BOOL insert)
+{
+ WIN32_FILE_ATTRIBUTE_DATA info;
+ if(!SupportedFileSize(name))return FALSE;
+ if(insert && name && *name && LastPage && GetFileAttributesExW(name,GetFileExInfoStandard,&info)) {
+  POSITION end={LastPage,LastPage->Fill,0};WV_ULONG current=CountBytes(&end);
+  WV_ULONG incoming=((WV_ULONG)info.nFileSizeHigh<<32)|info.nFileSizeLow;
+  if(current>WV_MAX_FILE_BYTES || incoming>WV_MAX_FILE_BYTES-current){NewStatus(0,L"Reading this file would exceed the 16 GiB document limit.",NS_ERROR);return FALSE;}
+ }
+ return TRUE;
+}
 BOOL Open(PCWSTR FName, WORD Flags)
 	/* Flags: 1=read and insert into current file (command ":read")
 	 */
-{	INT  hf, i;
-	LONG NlCnt[9];
+{	HFILE hf; INT i;
+	WV_LONG NlCnt[9];
 	UINT AltCset = AltFileCset;
 	BOOL ReadPosAfterScreenStart, LowerCaseFlag;
 	BOOL IsReadOnly = ReadOnlyParam || ReadOnlyFlag || ViewOnlyFlag;
 
-	if (FName != NULL && wcslen(FName) >= MAX_PATH) {
+	if (FName != NULL && wcslen(FName) >= WV_PATH_CAP-16) {
 		Error(411);
 		return (FALSE);
 	}
+    if (!SupportedReadSize(FName,(Flags&1)!=0)) return FALSE;
 	memset(NlCnt, 0, sizeof(NlCnt));
 	if (Flags & 1) {
 		if (!FName || !*FName) {
@@ -604,7 +631,8 @@ BOOL Open(PCWSTR FName, WORD Flags)
 				return (FALSE);
 			}
 			if (!OpenFileName(TRUE)) return (FALSE);
-		} else wcscpy(FileName, FName);
+            if (!SupportedReadSize(FileName,TRUE)) return FALSE;
+		} else WvCopyString(FileName, FName);
 		FName = FileName;
 		if (!wcschr(FileName, '\\') && !wcschr(FileName, '/')) {
 			FName += 2;
@@ -640,6 +668,7 @@ BOOL Open(PCWSTR FName, WORD Flags)
 				#endif
 				return (FALSE);
 			}
+			if (!SupportedFileSize(FileName)) return FALSE;
 			IsReadOnly = (Ofn.Flags & OFN_READONLY) != 0;
 			nCurrFileListEntry = FindOrAppendToFileList(FileName);
 			FName = FileName;
@@ -649,7 +678,7 @@ BOOL Open(PCWSTR FName, WORD Flags)
 		DisableUndo();
 		if (FName != CurrFile && (CurrFileName[2] || IsAltFile))
 			SetAltFileName(CurrFileName+2, &CurrPos);
-		wcscpy(CurrFileName+2, FName);
+		WvCopyString(CurrFileName+2, FName);
 		if (!LowerCaseFlag) LowerCaseFnameW(CurrFileName+2);
 		CurrFile = CurrFileName+2;
 		GenerateTitle(TRUE);
@@ -699,9 +728,9 @@ BOOL Open(PCWSTR FName, WORD Flags)
 		BOOL   IsFirst = TRUE;
 		DWORD  CountFlags = 0;
 		INT	   PageNo;
-		LONG   Length  = _llseek(hf, 0L, 2);
-		LONG   ToRead  = Length;
-		LONG   FileNls = 0, PageNls, ReadNls;
+		WV_LONG   Length  = _llseek(hf, 0L, 2);
+		WV_LONG   ToRead  = Length;
+		WV_LONG   FileNls = 0, PageNls, ReadNls;
 
 #if TEST_DRIVE_IO
 		if (wcslen(CurrFile) == 6 && wcsncmp(CurrFile, L"\\\\.\\", 4) == 0
@@ -920,7 +949,7 @@ BOOL Open(PCWSTR FName, WORD Flags)
 					UtfLsbFirst = FALSE;
 				}
 		}
-		if (TerseFlag) wcscpy(SmallBuf, L" %ld/%ld");
+		if (TerseFlag) WvCopyString(SmallBuf, L" %I64d/%I64d");
 		else LOADSTRINGW(hInst, 289, SmallBuf, WSIZE(SmallBuf));
 		_snwprintf(BufferW + wcslen(BufferW), WSIZE(BufferW) - wcslen(BufferW),
 				   SmallBuf, FileNls, Length);
@@ -1022,7 +1051,7 @@ BOOL EditCmd(PCWSTR FName)
 	return (Ok);
 }
 
-BOOL ReadCmd(LONG Line, PCWSTR FName)
+BOOL ReadCmd(WV_LONG Line, PCWSTR FName)
 {
 	StartUndoSequence();
 	if (Line != -1) {
@@ -1086,12 +1115,12 @@ BOOL NextCmd(PCWSTR FNames)
 void FilenameCmd(PWSTR FName)
 {
 	if (*FName) {
-		if (wcslen(FName) >= MAX_PATH) {
+		if (wcslen(FName) >= WV_PATH_CAP-16) {
 			Error(411);
 			return;
 		}
 		if (CurrFile && *CurrFile) SetAltFileName(CurrFile, NULL);
-		wcscpy(CurrFileName+2, FName);
+		WvCopyString(CurrFileName+2, FName);
 		CurrFile = CurrFileName + 2;
 		GenerateTitle(TRUE);
 		EnableToolButton(IDB_SAVE, TRUE);
@@ -1126,7 +1155,7 @@ DWORD TimeDiff(FILETIME *q1, FILETIME *q2)
 
 BOOL SetSafeAfterWrite;
 
-BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
+BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 	/*Flags: 1=Write command with '!', don't ask for overwrite
 	 */
 {	POSITION StartPos, EndPos;
@@ -1136,14 +1165,14 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 	BOOL	 SetReadOnly = FALSE, ReadOnlyError;
 	BOOL	 SavInterruptable = Interruptable;
 	PCWSTR   Name = FName;
-	LONG     Newlines, Length;
+	WV_LONG     Newlines, Length;
 	#if WRITE_WITH_CREAT
 		INT	 OpenMode = OF_WRITE | OF_CREATE;
 	#else
 		INT	 OpenMode = OF_WRITE | OF_REOPEN | OF_VERIFY;
 	#endif
 
-	if (FName != NULL && wcslen(FName) >= MAX_PATH) {
+	if (FName != NULL && wcslen(FName) >= WV_PATH_CAP-16) {
 		Error(411);
 		return (FALSE);
 	}
@@ -1171,7 +1200,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 	if (!Name || !*Name) {
 		DWORD dwError = 0;
 
-		wcscpy(FileName, CurrFileName+2);
+		WvCopyString(FileName, CurrFileName+2);
 		InitOfn(hwndMain, 1);
 		StopMap(TRUE);
 		while (!GetSaveFileNameW(&Ofn)) {
@@ -1191,7 +1220,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 				default:
 					if (FreeSpareMemory()) continue;
 					if (!LOADSTRINGW(hInst, 290, SmallBuf, WSIZE(SmallBuf)))
-						wcscpy(SmallBuf, L"Unexpected error %04lx");
+						WvCopyString(SmallBuf, L"Unexpected error %04lx");
 					_snwprintf(Buf, WSIZE(Buf), SmallBuf, dwError);
 					MessageBoxW(hwndMain, Buf, NULL, MB_OK | MB_ICONSTOP);
 			}
@@ -1206,11 +1235,12 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 			SetAltFileName(CurrFile, &CurrPos);
 			SwitchToMatchingProfile(FileName);
 		}
-		wcscpy(CurrFileName+2, FileName);
+		WvCopyString(CurrFileName+2, FileName);
 		FName = CurrFile = CurrFileName+2;
 		GenerateTitle(TRUE);
 		AskIfExists = FALSE;
-	} else wcscpy(FileName, Name);
+	} else WvCopyString(FileName, Name);
+	if (!SupportedFileSize(FileName)) { ShowEditCaret(); return FALSE; }
 	if (!IsCurrFile) SetAltFileName(FileName, NULL);
 	if (Mode != CommandMode && !DefaultInsFlag) GotChar('\033', 1);
 	ReadOnlyError = (ReadOnlyParam || ReadOnlyFile
@@ -1229,7 +1259,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 	StartPos.f = 0;
 	Newlines = LinesInFile;
 	if (StartLine > 1) {
-		LONG i = StartLine-1;
+		WV_LONG i = StartLine-1;
 
 #if 0	/*faster method of skipping pages before specified line range...*/
 		while (StartPos.p->Newlines < i && StartPos.p->Next)
@@ -1248,7 +1278,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 		StartLine = 1;
 	}
 	if (EndLine != -2) {
-		LONG i = StartLine;
+		WV_LONG i = StartLine;
 
 		EndPos = StartPos;
 		Newlines = Length = 0;
@@ -1269,6 +1299,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 		EndPos.i = LastPage->Fill;
 		EndPos.f = 0;	/*TODO: set flags*/
 	}
+	if (Length > WV_MAX_FILE_BYTES) {NewStatus(0,L"Document exceeds this build's 16 GiB limit; save a smaller range.",NS_ERROR);ShowEditCaret();return FALSE;}
 	if (c != C_EOF) {
 		HFILE  hf;
 		BOOL   FileExists;
@@ -1449,7 +1480,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 			} while (FALSE);
 			if (!ErrorVal) {
 				#if defined(WIN32)
-					SetEndOfFile((HANDLE)hf);
+					if (!SetEndOfFile((HANDLE)hf)) ErrorVal = 107;
     				i = !CloseHandle((HANDLE)(hf));
 				#else
 					_chsize(hf, _llseek(hf, 0L, 1));
@@ -1502,7 +1533,7 @@ BOOL WriteCmd(LONG StartLine, LONG EndLine, PCWSTR FName, WORD Flags)
 			if (!FileExists)
 				LOADSTRINGW(hInst, 285, BufferW+i, WSIZE(BufferW)-i);
 			wcscat(BufferW, CrLfAttribute);
-			if (TerseFlag) wcscpy(SmallBuf, L" %ld/%ld");
+			if (TerseFlag) WvCopyString(SmallBuf, L" %I64d/%I64d");
 			else LOADSTRINGW(hInst, 289, SmallBuf, WSIZE(SmallBuf));
 			_snwprintf(BufferW + wcslen(BufferW),
 					   WSIZE(BufferW) - wcslen(BufferW),

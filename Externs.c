@@ -32,7 +32,7 @@ BOOL	 HexEditMode, TfForward, TfIsFind, ReplaceSingle;
 BOOL	 Interruptable, FullRowExtend;
 UINT	 Interrupted, CmdFirstChar, Number;
 int		 TextHeight;  /*screen line y difference in pixels*/
-LONG	 FirstVisible;/*line numbr (starting at 0) for bitmap alignment*/
+WV_LONG	 FirstVisible;/*line numbr (starting at 0) for bitmap alignment*/
 COLORREF TextColor;
 HCURSOR	 hcurCurrent, hcurArrow, hcurIBeam, hcurHourGlass, hcurSizeNwSe;
 HFONT	 TextFont, HexFont;
@@ -50,11 +50,11 @@ BOOL	 ListFlag, NumberFlag, HexNumberFlag, FullRowFlag;
 BOOL	 ViewOnlyFlag;	/*view-only=restrictive read-only w/o editing*/
 BOOL	 ReadOnlyFile;	/*read-only for this file only*/
 COLUMN	 CurrCol;		/*aspired pixel position in logical line*/
-ULONG	 CurrColumn;	/*displayed character offset within line (for status)*/
-ULONG	 LinesInFile, SelectCount;
+WV_ULONG	 CurrColumn;	/*displayed character offset within line (for status)*/
+WV_ULONG	 LinesInFile, SelectCount;
 INT		 CurrX, CurrLine;
 INT		 MaxScroll, Disabled;
-WCHAR	 FileName[260];
+WCHAR	 FileName[WV_PATH_CAP];
 PWSTR	 TmpDirectory;
 PWSTR	 Tags;
 UINT	 CharSet;		/*0=ANSI, 1=PC (OEM), 2=EBCDIC*/
@@ -62,7 +62,7 @@ INT		 UtfEncoding;	/*0=Non-UTF, 8=UTF-8, 16=UTF-16*/
 BOOL	 UtfLsbFirst;
 BOOL	 Indenting;
 BOOL	 RefreshBitmap;
-WCHAR	 BitmapFilename[260];
+WCHAR	 BitmapFilename[WV_PATH_CAP];
 BOOL	 DlgResult;
 
 /*Page.h:*/
@@ -70,7 +70,7 @@ LPPAGE	 FirstPage, LastPage;
 POSITION ScreenStart, CurrPos;
 PLINEINFO LineInfo;
 POSITION SelectStart;
-ULONG	 SelectBytePos;
+WV_ULONG	 SelectBytePos;
 
 /*Paint.h:*/
 COLORREF SelTextColor, SelBkgndColor;

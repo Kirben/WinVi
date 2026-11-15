@@ -14,7 +14,7 @@
  *      1-Jan-2009	initial version
  */
 
-#if _MSC_VER
+#if _MSC_VER && _MSC_VER < 1900
 
 #include <windows.h>
 #include <stdio.h>

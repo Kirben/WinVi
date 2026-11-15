@@ -33,14 +33,14 @@
 #include "page.h"
 
 INT  IndentChars;
-LONG InsertCount;
+WV_LONG InsertCount;
 BOOL SuppressMap = FALSE;
 
 INT CharSize(INT c)
 {
 	if (UtfEncoding) {
 		if (UtfEncoding == 16)
-			return (c >= 0xd800 && c < 0xdc00) || c == C_CRLF ? 4 : 2;
+			return c >= 0x10000 || c == C_CRLF ? 4 : 2;
 		if (c >= 0x10000) return 4;
 		if (c >= 0x800)	  return 3;
 		if (c >= 0x80)	  return 2;
@@ -48,8 +48,53 @@ INT CharSize(INT c)
 	return 1 + (c == C_CRLF);
 }
 
+/* Painting exposes supplementary characters as UTF-16 units. Editing must
+   reserve or remove the complete encoded scalar rather than half a pair. */
+static INT EncodedCharacterSize(PPOSITION position)
+{
+ POSITION p=*position;INT c=CharAt(&p);
+ if(UtfEncoding==16 && c>=0xd800 && c<=0xdbff) {
+  Advance(&p,2);c=CharAt(&p);return c>=0xdc00 && c<=0xdfff ? 4 : 2;
+ }
+ if(UtfEncoding==8) {
+  UINT scalar;INT i,b=ByteAt(&p);
+  if(b>=0xf0 && b<=0xf4) {
+   scalar=b&7;
+   for(i=0;i<3;i++){Advance(&p,1);b=ByteAt(&p);if(b<0x80 || b>0xbf)return 1;scalar=(scalar<<6)|(b&0x3f);}
+   if(scalar>=0x10000 && scalar<=0x10ffff)return 4;
+  }
+ }
+ return CharSize(c);
+}
+static BOOL PreviousSupplementary(PPOSITION position)
+{
+ POSITION p=*position,end;INT i,b;
+ if(UtfEncoding==16) {
+  if(GoBack(&p,2)!=2)return FALSE;b=CharAt(&p);
+  if(b<0xdc00 || b>0xdfff || GoBack(&p,2)!=2)return FALSE;
+ } else if(UtfEncoding==8) {
+  if(!GoBack(&p,1))return FALSE;
+  for(i=0;i<3 && (b=ByteAt(&p))>=0x80 && b<=0xbf;i++)if(!GoBack(&p,1))return FALSE;
+ } else return FALSE;
+ p.f=0;if(EncodedCharacterSize(&p)!=4)return FALSE;
+ end=p;Advance(&end,4);if(ComparePos(&end,position))return FALSE;
+ *position=p;return TRUE;
+}
+static void NormalizeEditingPosition(BOOL after)
+{
+ POSITION p=CurrPos;INT c;
+ if(UtfEncoding==8 && (p.f&POSITION_UTF8_HIGH_SURROGATE_DONE)) {
+  p.f=0;if(EncodedCharacterSize(&p)==4 && after)Advance(&p,4);CurrPos=p;
+ } else if(UtfEncoding==16) {
+  c=CharAt(&p);
+  if(c>=0xdc00 && c<=0xdfff && GoBack(&p,2)==2) {
+   c=CharAt(&p);if(c>=0xd800 && c<=0xdbff){if(after)Advance(&p,4);CurrPos=p;}
+  }
+ }
+}
 void InsertChar(INT Char) {
 	INT space = CharSize(Char);
+    if(UtfEncoding && !HexEditMode)NormalizeEditingPosition(Mode!=ReplaceMode);
 
 	if (IsViewOnly()) return;
 	SetUnsafe();
@@ -57,7 +102,7 @@ void InsertChar(INT Char) {
 											: CharFlags(CharAt(&CurrPos)) & 1))
 		Reserve(&CurrPos, space, 0);
 	else {
-		INT oldspace = CharSize(CharAt(&CurrPos));
+		INT oldspace = UtfEncoding && !HexEditMode ? EncodedCharacterSize(&CurrPos) : CharSize(CharAt(&CurrPos));
 
 		if (space != oldspace) {
 			Reserve(&CurrPos, -oldspace, 0);
@@ -106,7 +151,14 @@ void InsertChar(INT Char) {
 				Advance(&Pos, 1);
 				Pos.p->PageBuf[Pos.i] = '\n';
 			}
-		} else if (UtfEncoding == 16) {
+		} else if (UtfEncoding == 16 && Char >= 0x10000) {
+            UINT high=0xd800+((Char-0x10000)>>10), low=0xdc00+((Char-0x10000)&0x3ff);
+            Pos.p->PageBuf[Pos.i]=UtfLsbFirst ? high : high>>8;
+            Pos.p->PageBuf[Pos.i+1]=UtfLsbFirst ? high>>8 : high;
+            Advance(&Pos,2);UnsafePage(&Pos);
+            Pos.p->PageBuf[Pos.i]=UtfLsbFirst ? low : low>>8;
+            Pos.p->PageBuf[Pos.i+1]=UtfLsbFirst ? low>>8 : low;
+        } else if (UtfEncoding == 16) {
 			assert(Pos.i + 1 < Pos.p->Fill);
 			if (UtfLsbFirst) {
 				Pos.p->PageBuf[Pos.i]	= Char;
@@ -165,7 +217,8 @@ void InsertChar(INT Char) {
 	{	POSITION InvalidatePos;
 
 		InvalidatePos = CurrPos;
-		CharAndAdvance(&CurrPos);
+		if(Char>=0x10000 && UtfEncoding) {CurrPos=InvalidatePos;Advance(&CurrPos,space);CurrPos.f=0;}
+        else CharAndAdvance(&CurrPos);
 		if (UtfEncoding == 16 && CharAt(&CurrPos) == C_EOF)
 			AdditionalNullByte = FALSE;
 		if (ComparePos(&LineInfo[CurrLine].Pos, &CurrPos) == 0) {
@@ -190,13 +243,16 @@ void InsertChar(INT Char) {
 
 BOOL DeleteChar(void) {
 	INT		 c;
-	POSITION EndPos = CurrPos;
+	POSITION EndPos;
+    if(UtfEncoding && !HexEditMode)NormalizeEditingPosition(TRUE);
+    EndPos=CurrPos;
 
 	if (IsViewOnly()) return (FALSE);
 	if (HexEditMode) {
 		if (!GoBack(&CurrPos, 1 + (UtfEncoding == 16))) return (FALSE);
 		if ((c = CharAt(&CurrPos)) == C_CRLF) c = ' ';
-	} else if (CharFlags(c = GoBackAndChar(&CurrPos)) & 1) {
+	} else if (PreviousSupplementary(&CurrPos)) { c=0x10000;
+    } else if (CharFlags(c = GoBackAndChar(&CurrPos)) & 1) {
 		if (c != C_EOF) {
 			if (WrapPosFlag) {
 				GotKeydown(VK_DELETE);
@@ -213,7 +269,7 @@ BOOL DeleteChar(void) {
 	SetUnsafe();
 	HideEditCaret();
 	NewPosition(&CurrPos);
-	Reserve(&CurrPos, CountBytes(&CurrPos) - CountBytes(&EndPos),
+		Reserve(&CurrPos, CountBytes(&CurrPos) - CountBytes(&EndPos),
 			(WORD)(CharFlags(c) & 1));
 	if (CharAt(&CurrPos) == C_EOF) {
 		if (!HexEditMode && !(CharFlags(GoBackAndChar(&CurrPos)) & 1))
@@ -261,7 +317,7 @@ void ScrollDisplay(INT Lines, WORD Flags) {
 	if (Lines > 0) SetCurrPos();
 	HideEditCaret();
 	if (hwndMain && (hDC = GetDC(hwndMain)) != 0) {
-		extern LONG	xOffset;
+		extern WV_LONG	xOffset;
 		RECT		r1, r2;
 		INT			x1;
 
@@ -509,7 +565,20 @@ void DeleteEol(BOOL RedrawCurrline) {
 	NewScrollPos();
 }
 
-void DeleteForward(UINT Number) {
+void DeleteBackward(UINT Number)
+{
+ UINT left=Number ? Number : 1;
+ do {POSITION p=CurrPos;if(CharFlags(GoBackAndChar(&p))&1)break;if(!DeleteChar())break;}while(left==(UINT)-1 || --left);
+}
+
+void DeleteForward(UINT Number) {    if(UtfEncoding && !HexEditMode) {
+        POSITION end;NormalizeEditingPosition(FALSE);end=CurrPos;WV_ULONG bytes;UINT remaining=Number ? Number : 1;
+        do {INT c=CharAt(&end),span;if(CharFlags(c)&1)break;span=EncodedCharacterSize(&end);if(span<=0 || Advance(&end,span)!=(WV_ULONG)span)break;}while(remaining==(UINT)-1 || --remaining);
+        bytes=CountBytes(&end)-CountBytes(&CurrPos);
+        if(bytes){SelectStart=CurrPos;SelectCount=bytes;DeleteSelected(Mode==CommandMode ? 1 : 3);}
+        if(Mode==CommandMode && (CharFlags(CharAt(&CurrPos))&1))Position(1,'h',0);
+        return;
+    }
 	INT      i = 1;
 	POSITION Pos;
 
@@ -579,8 +648,8 @@ void DeleteSelected(INT Flags) {
 	 *		16=Area was really selected (reselect when undoing)
 	 *		32=cannot be undone (called for replacing ^ after typing ^V)
 	 */
-	ULONG	 Newlines = SelectStart.p->Prev ? SelectStart.p->Prev->Newlines : 0;
-	ULONG	 SelectBytePos;
+	WV_ULONG	 Newlines = SelectStart.p->Prev ? SelectStart.p->Prev->Newlines : 0;
+	WV_ULONG	 SelectBytePos;
 	INT		 n, InvalidateFlags = 3;
 	POSITION EndSel;
 
@@ -674,11 +743,11 @@ void DeleteSelected(INT Flags) {
 	CheckClipboard();
 }
 
-BOOL InsertBuffer(LPBYTE Buffer, ULONG Length, WORD Flags) {
+BOOL InsertBuffer(LPBYTE Buffer, WV_ULONG Length, WORD Flags) {
 	/*Flags: 1=call to FindValidPosition()
 	 *		 2=Buffer points to WCHAR array
 	 */
-	ULONG    i = Length;
+	WV_ULONG    i = Length;
 	POSITION InsertStart;
 	UINT     wFlags = 3;
 	BOOL     DoAdvance = FALSE, Disabled = FALSE;
@@ -727,7 +796,7 @@ BOOL InsertBuffer(LPBYTE Buffer, ULONG Length, WORD Flags) {
 						Reserve(&CurrPos, 2, 1);
 						/*TODO: assert(PrevChar!='\r' || CurrPos.i>0);*/
 					} else {
-						ULONG n = GoBack(&CurrPos, 2);
+						WV_ULONG n = GoBack(&CurrPos, 2);
 						if (n && CharAt(&CurrPos) == '\r') {
 							/*cr/lf combination...*/
 							#if 0	/*did not work this way (29-Jul-98)*/
@@ -763,7 +832,7 @@ BOOL InsertBuffer(LPBYTE Buffer, ULONG Length, WORD Flags) {
 						Reserve(&CurrPos, 1, 1);
 						/*TODO: assert(PrevChar!='\r' || CurrPos.i>0);*/
 					} else {
-						ULONG n = GoBack(&CurrPos, 1);
+						WV_ULONG n = GoBack(&CurrPos, 1);
 
 						if (n && CharAt(&CurrPos) == '\r') {
 							/*cr/lf combination...*/
@@ -867,7 +936,7 @@ BOOL InsertBuffer(LPBYTE Buffer, ULONG Length, WORD Flags) {
 
 extern INT DblQuoteChar;
 HGLOBAL    YankHandles[36];
-ULONG      YankLength[36];
+WV_ULONG      YankLength[36];
 INT		   YankSubIndex[10];
 INT        YankIndex = 0;
 /*Meaning of elements in the arrays above:
@@ -880,13 +949,13 @@ INT        YankIndex = 0;
  *		   If using "A to "Z, the text will be appended.
  */
 
-BOOL Yank(PPOSITION Pos, ULONG Length, WORD Flags) {
+BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 	/*Flags: 1: Enter in YankHandles[1...9] (delete row(s) operation)
 	 */
 	POSITION  YankPos;
 	HGLOBAL   YankHandle;
 	CHAR huge *YankMem;
-	ULONG	  Expand = 0;
+	WV_ULONG	  Expand = 0;
 	INT		  NumericIndex;
 
 	YankPos = *Pos;
@@ -902,7 +971,7 @@ BOOL Yank(PPOSITION Pos, ULONG Length, WORD Flags) {
 		else {
 			/*exchange YankHandles 1 and 9 and shift...*/
 			HGLOBAL TempHandle;
-			ULONG	TempLength;
+			WV_ULONG	TempLength;
 			INT		TempSubIndex;
 
 			TempHandle	 = YankHandles[9];
@@ -966,14 +1035,14 @@ BOOL Yank(PPOSITION Pos, ULONG Length, WORD Flags) {
 
 			CharAt(&YankPos);	/*...normalize pos and enforce page load*/
 			n = YankPos.p->Fill - YankPos.i;
-			if ((ULONG)n > Length) n = (UINT)Length;
+			if ((WV_ULONG)n > Length) n = (UINT)Length;
 			assert(n > 0);
 			assert(n <= PAGESIZE);
 			if (n == 0 || n > PAGESIZE) {
 				/*TODO:  Should not but seems to occur.  Investigate!*/
 				extern WCHAR ErrorTitle[16];
 
-				wcscpy(ErrorTitle, L"Yank Error");
+				WvCopyString(ErrorTitle, L"Yank Error");
 				ErrorBox(MB_ICONSTOP, 290, n);
 				ErrorTitle[0] = '\0';
 				YankLength[YankIndex] -= Length;
@@ -996,7 +1065,7 @@ BOOL Yank(PPOSITION Pos, ULONG Length, WORD Flags) {
 	return (TRUE);
 }
 
-BOOL Put(long Number, BOOL Behind) {
+BOOL Put(WV_LONG Number, BOOL Behind) {
 	INT		  c, Index;
 	BOOL	  LineFlag;
 	POSITION  SavePos;
@@ -1035,7 +1104,7 @@ BOOL Put(long Number, BOOL Behind) {
 	return (TRUE);
 }
 
-BOOL Shift(LONG Amount, WORD Flags) {
+BOOL Shift(WV_LONG Amount, WORD Flags) {
 	/*Flags: 1=cursor may be positioned behind last character of line
 	 *		 2=retain spacing if line is empty
 	 *		 4=position at previous location
@@ -1169,7 +1238,7 @@ BOOL Shift(LONG Amount, WORD Flags) {
 		Position(1, '^', (Flags & 1) | 0x400);
 	}
 	if (LineCount > 1) {
-		extern WCHAR BufferW[300];
+		extern WCHAR BufferW[WV_TEXT_CAP];
 
 		LOADSTRINGW(hInst, 334 + !(Flags&8), BufferW+100, WSIZE(BufferW)-100);
 		if (BufferW[100]) {

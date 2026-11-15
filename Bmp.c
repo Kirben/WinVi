@@ -23,7 +23,7 @@ static BITMAP	sBkgndBmp[2];
 static HPALETTE	hPalette[2];
 static BOOL		Init[2], Fail[2];
 
-static BOOL CheckSize(UINT Size1, LONG Size2) {
+static BOOL CheckSize(UINT Size1, WV_LONG Size2) {
 	return (Size1 > 10000000 || Size2 < 0 || Size2 > 10000000);
 }
 
@@ -36,7 +36,7 @@ BOOL InitBmp(HDC hDC, int BmpInx) {
 	HGLOBAL		 hPattern  = NULL, hBmpInfo  = NULL;
 	HFILE		 hf		   = HFILE_ERROR;
 	UINT		 RgbSize, Colors;
-	LONG		 BmpSize;
+	WV_LONG		 BmpSize;
 	HPALETTE	 hOldPalette;
 
 	do {	/*for break only*/
@@ -160,7 +160,7 @@ void ReleaseBmp(int BmpInx) {
 	Init[BmpInx] = Fail[BmpInx] = FALSE;
 }
 
-BOOL PaintBmp(HDC hDC, int BmpInx, PRECT Rect, LONG xOff, LONG yOff) {
+BOOL PaintBmp(HDC hDC, int BmpInx, PRECT Rect, WV_LONG xOff, WV_LONG yOff) {
 	HDC			hCompDC;
 	int			sy, dx, dy, xStart;
 	HBITMAP		hOldBmp;
@@ -182,7 +182,7 @@ BOOL PaintBmp(HDC hDC, int BmpInx, PRECT Rect, LONG xOff, LONG yOff) {
 		RealizePalette(hDC);
 	}
 	sy = (int)(yOff % sBkgndBmp[BmpInx].bmHeight);
-	{	extern LONG xOffset;
+	{	extern WV_LONG xOffset;
 		xStart = -(int)(xOffset % sBkgndBmp[BmpInx].bmWidth);
 		if (WinVersion >= MAKEWORD(95,3)) xStart += 2;
 	}

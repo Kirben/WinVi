@@ -32,7 +32,7 @@ extern PMAP FirstMapping;
 
 VOID FreeMappings(PMAP);
 BOOL TranslateMapping(PWORD*, PCSTR);
-BOOL MacrosCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR MacrosCallback(HWND, UINT, WPARAM, LPARAM);
 VOID StopMap(BOOL);
 BOOL IsKeyboardMapMsg(PMSG);
 BOOL KeyboardMapDequeue(PMSG);

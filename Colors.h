@@ -26,4 +26,4 @@ BOOL SelectBkBitmap(HWND);
 
 /*colors.c:*/
 LRESULT CALLBACK ColorProc(HWND, UINT, WPARAM, LPARAM);
-BOOL			 ColorsCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR			 ColorsCallback(HWND, UINT, WPARAM, LPARAM);

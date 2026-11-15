@@ -252,7 +252,7 @@ BOOL IsMappingEqual(LPWORD m1, LPWORD m2)
 	return (lstrcmp((LPSTR)m1, (LPSTR)m2) == 0);
 }
 
-BOOL MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	HWND  ListBox;
 	CHAR  Buf[256];
 	PMAP  ThisMapping, m, *MapPtr;
@@ -792,8 +792,19 @@ BOOL KeyboardMapDequeue(PMSG Msg)
 	return (TRUE);
 }
 
+/* UTF-16 input is combined before encoding, so UTF-8 never receives lone surrogates. */
+VOID WmUnicodeScalar(WPARAM scalar) { WmChar(scalar); }
+
 VOID WmChar(WPARAM Char)
 {	static WCHAR Hold[10];
+    static WCHAR highSurrogate;
+    if (Char >= 0xd800 && Char <= 0xdbff) { highSurrogate=(WCHAR)Char; return; }
+    if (highSurrogate) {
+        WCHAR high=highSurrogate; highSurrogate=0;
+        if(Char>=0xdc00 && Char<=0xdfff) Char=0x10000+(((UINT)high-0xd800)<<10)+(UINT)Char-0xdc00;
+        else if(Char>=0x20) GotChar(0xfffd,0);
+    }
+    if(Char>=0xdc00 && Char<=0xdfff) Char=0xfffd;
 
 	if (!Disabled) {
 		if (Interruptable) {

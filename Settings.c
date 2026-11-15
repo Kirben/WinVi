@@ -52,10 +52,10 @@
 #define ETDT_ENABLETAB (ETDT_ENABLE | ETDT_USETABTEXTURE)
 #endif
 
-BOOL ProfileCallback(HWND, UINT, WPARAM, LPARAM);
-BOOL FiletypeCallback(HWND, UINT, WPARAM, LPARAM);
-BOOL ShellCallback (HWND, UINT, WPARAM, LPARAM);
-BOOL FontCallback (HWND, UINT, WPARAM, LPARAM);
+INT_PTR ProfileCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR FiletypeCallback(HWND, UINT, WPARAM, LPARAM);
+INT_PTR ShellCallback (HWND, UINT, WPARAM, LPARAM);
+INT_PTR FontCallback (HWND, UINT, WPARAM, LPARAM);
 
 HWND		   hwndSettings, hwndSubSet;
 static DLGPROC SettingsDlgProc, SubSetDlgProc;
@@ -70,7 +70,7 @@ BOOL		   NoGlyphs = FALSE, NoHexGlyphs = FALSE;
 
 struct tagTABSHEET {
 	CHAR	*Label;
-	BOOL	(*Callback)(HWND,UINT,WPARAM,LPARAM);
+	INT_PTR	(*Callback)(HWND,UINT,WPARAM,LPARAM);
 	HWND	hDlg;
 	INT		Dialog, Flags, FirstControl, LastControl;
 } TabSheets[] = {
@@ -133,7 +133,7 @@ void EnableApply(void)
 		EnableWindow(hApply, TRUE);
 }
 
-UINT CALLBACK ChooseFontHook(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+UINT_PTR CALLBACK ChooseFontHook(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {
 	PARAM_NOT_USED(wPar);
 	if (uMsg==WM_INITDIALOG) {
@@ -361,7 +361,7 @@ VOID CheckDefButton(VOID)
 
 static CHAR GetStringField[64];
 
-BOOL CALLBACK GetStringCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK GetStringCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {
 	switch (uMsg) {
 		case WM_INITDIALOG:
@@ -446,7 +446,7 @@ CHAR DrivePathUNC[260], Extensions[80];
 CHAR RestoreProfile[64];
 BOOL AutoPermanent;
 
-BOOL ProfileCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR ProfileCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	static BOOL NewPermanent;
 
 	PARAM_NOT_USED(lPar);
@@ -550,7 +550,7 @@ BOOL ProfileCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	return (FALSE);
 }
 
-BOOL FiletypeCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR FiletypeCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	extern INT OemCodePage, AnsiCodePage;
 	extern INT SelectDefaultNewline, SelectDefaultHexMode, SelectDefaultCharSet;
 
@@ -666,7 +666,7 @@ BOOL FiletypeCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	return (FALSE);
 }
 
-BOOL ShellCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR ShellCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	CHAR		 Buf[256];
 	extern LPSTR Shell, ShellCommand, HelpURL;
 	extern BOOL  TabExpandWithSlash;
@@ -714,7 +714,7 @@ BOOL ShellCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 	}
 }
 
-BOOL FontCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR FontCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	BOOL		Result = TRUE;
 	static CHAR Sample[16], Buffer[128];
 	static CHAR	*TextSample = "%s  AaBbCcXxYyZz\r\n"
@@ -816,7 +816,7 @@ BOOL FontCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 
 //static HBRUSH TransparentBrush = NULL;
 
-BOOL CALLBACK SubSetCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK SubSetCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	BOOL Result = FALSE, GotResult = FALSE;
 
 	if (TabSheets[CurrTab].Callback != NULL) {
@@ -978,7 +978,7 @@ static BOOL SelectProfile(HWND hDlg, CHAR *Buf)
 
 RECT DlgRect = {-10000};
 
-BOOL CALLBACK SettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
+INT_PTR CALLBACK SettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	INT				   i, Ctl, Inc;
 	static BOOL		   Restart = FALSE, FocusOnProfileName = FALSE;
 	static HFONT	   hFont;
@@ -1044,7 +1044,7 @@ BOOL CALLBACK SettingsCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 					if (GetWindowLong(hCtl, GWL_STYLE) & WS_TABSTOP) break;
 					++Ctl;
 				} while (--MaxLoop);
-				PostMessage(hDlg, WM_COMMAND, 4567, (LPARAM)(UINT)hCtl);
+				PostMessage(hDlg, WM_COMMAND, 4567, (LPARAM)hCtl);
 				if (!FocusOnProfileName) {
 					hCtl = GetDlgItem(hDlg, ID_APPLY);
 					EnableWindow(hCtl, FALSE);
@@ -1238,7 +1238,7 @@ BOOL KeyboardSwitchTab(BOOL Backwards)
 	TabCtrl_SetCurSel(hctlTab, NewTab);
 	SwitchTab(hctlTab, NewTab);
 	PostMessage(hwndSettings, WM_COMMAND, FocusOnTab ? 4567 : 4568,
-				(LPARAM)(UINT)hctlTab);
+				(LPARAM)hctlTab);
 	FocusOnFirstControl = FALSE;
 	return (TRUE);
 }
@@ -1325,7 +1325,7 @@ BOOL IsSettingsDialogMessage(PMSG pMsg)
 					AccelLang = Language;
 				}
 				if (strchr(Accelerators,
-						  (INT)(DWORD)AnsiUpper((LPSTR)(INT)(BYTE)pMsg->wParam))
+						  (INT)(ULONG_PTR)AnsiUpper((LPSTR)(INT)(BYTE)pMsg->wParam))
 						  != NULL) {
 					if (hParent==hwndSubSet) {
 						hParent = hwndSettings;
