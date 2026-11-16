@@ -14,3 +14,6 @@ History starts with the unmodified official 3.02 source,
 then imports preserved snapshots of the x64, large-file, security, stability
 and reliability work. See HISTORY-IMPORT.md for provenance and limitations.
 Unapplied review patches outside this directory are not part of this history.
+
+See [EX-COMMANDS.md](EX-COMMANDS.md) for the ex command additions, their local
+regression suites and the separate command-syntax follow-up work.

@@ -708,7 +708,8 @@ BOOL CommandExec(PWSTR Cmd)
 		Ok=WvExGlobal(StartLine,EndLine,Args,TRUE);
 	} else if ((Args = Compare(Cmd, L"write",      1, 0x1f)) != NULL) {
 		Ok = WriteCmd(StartLine, EndLine, Args, (WORD)CommandWithExclamation);
-	} else if ((Args = Compare(Cmd, L"edit",	   1, 0x1c)) != NULL) {
+	} else if (((Args = Compare(Cmd, L"edit", 1, 0x1c)) != NULL) ||
+               ((Args = Compare(Cmd, L"ex", 2, 0x1c)) != NULL)) {
 		Ok = EditCmd(Args);
 	} else if ((Args = Compare(Cmd, L"vi",		   2, 0x1c)) != NULL) {
 		Ok = NewViEditCmd(Args);
@@ -733,7 +734,8 @@ BOOL CommandExec(PWSTR Cmd)
 			Unsafe = FALSE;
 			Ok = QuitCmd(FALSE);
 		}
-	} else if ((Args = Compare(Cmd, L"xit",		   1, 0x1f)) != NULL) {
+	} else if (((Args = Compare(Cmd, L"xit", 1, 0x1f)) != NULL) ||
+               ((Args = Compare(Cmd, L"exit", 3, 0x1f)) != NULL)) {
 		if (StartLine!=(WV_ULONG)-1L && (StartLine>1U || EndLine!=(WV_ULONG)-2L))
 			Error(225);
 		else if (!Unsafe || WriteCmd(StartLine, EndLine, Args,

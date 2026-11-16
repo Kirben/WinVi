@@ -1234,6 +1234,15 @@ and will not repeated here.</p>
 
 
 
+<h3>Alternative command names: ex and exit</h3>
+<p><code>:ex[!] [filename]</code> is an alias for edit. It opens or reloads
+in this window and uses the same unsaved-change checks. <code>ex!</code>
+discards unsaved changes when switching or reloading.</p>
+<p><code>:exi[t][!] [filename]</code> is an alias for xit: save if modified,
+then close the window. An unchanged file is not rewritten. A failed save keeps
+the editor open. The ! requests a forced write, not discarding unsaved text.
+Filename and range rules are inherited from edit and xit. The existing short
+forms e and x remain available. Exact ex means edit; exi means exit.</p>
 <h3>Keyboard mappings from ex commands</h3>
 <p><code>:map lhs rhs</code> defines a normal-mode keyboard macro.
 <code>:map! lhs rhs</code> defines one for insert/replace mode and command entry.

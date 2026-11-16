@@ -1270,6 +1270,16 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Alternative Kommandonamen: ex und exit</h3>
+<p><code>:ex[!] [Dateiname]</code> ist ein anderer Name fuer edit. Die Datei
+wird im aktuellen Fenster geoeffnet oder neu geladen; dieselben Pruefungen auf
+ungespeicherte Aenderungen gelten. <code>ex!</code> verwirft diese Aenderungen
+beim Wechseln oder Neuladen.</p>
+<p><code>:exi[t][!] [Dateiname]</code> entspricht xit: bei Aenderungen speichern,
+dann das Fenster schliessen. Unveraenderte Dateien werden nicht neu geschrieben.
+Ein Speicherfehler laesst den Editor offen. ! erzwingt das Schreiben und
+verwirft den Text nicht. Datei- und Bereichsregeln entsprechen edit und xit.
+Die Kurzformen e und x bleiben erhalten. Exakt ex bedeutet edit, exi bedeutet exit.</p>
 <h3>Tastaturmakros als ex-Kommandos</h3>
 <p><code>:map lhs rhs</code> definiert ein Makro im Kommandomodus.
 <code>:map! lhs rhs</code> gilt im Einfuege-/Ersetzungsmodus und in der

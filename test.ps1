@@ -37,7 +37,7 @@ try {
   if(!(Test-Path $env:WINVI_TEST_EXE)){throw "Missing executable $env:WINVI_TEST_EXE"}
   $env:WINVI_TEST_CASES=Join-Path $folder 'cases'
   Run-Step "$kind-save-faults" {if($kind-eq'Asan'){& "$tests/safe-save-test.cmd" asan}else{& "$tests/safe-save-test.cmd"}} $folder
-  foreach($suite in 'auto-split','integration','read-failure','search-cancel','reliability','ex-global','search','ex-line','ex-display','ex-repeat','ex-input','ex-script','ex-map','ex-abbreviation','ex-recovery'){
+  foreach($suite in 'auto-split','integration','read-failure','search-cancel','reliability','ex-global','search','ex-line','ex-display','ex-repeat','ex-input','ex-script','ex-map','ex-abbreviation','ex-recovery','ex-alias'){
    Run-Step "$kind-$suite" {& pwsh -STA -NoProfile -File "$tests/$suite.ps1"} $folder
    Copy-Item "$tests/$suite-results.json" "$folder/$suite-results.json"
   }

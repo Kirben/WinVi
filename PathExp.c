@@ -60,6 +60,8 @@ static struct {
 	{L"cd",			   2},	/*2=expand directories only*/
 	{L"chdir",		   2},
 	{L"edit",		   1},	/*1=expand normal files*/
+	{L"ex", 1},
+    {L"exit", 1},
 	{L"filename",	   1},
 	{L"map", 0},
 	{L"unmap", 0},
