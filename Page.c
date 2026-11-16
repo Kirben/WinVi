@@ -254,6 +254,7 @@ BOOL ReloadPage(LPPAGE p)
    staged replacement. Keep the paging file: both chains may have pages in it. */
 void WvFreePageChain(LPPAGE page)
 {
+ WvDbcsInvalidate();
  while(page){
   LPPAGE next=page->Next;
   if(page->PageBuf){
@@ -273,7 +274,8 @@ void WvReplacePageChain(LPPAGE first,LPPAGE last)
  memset(MarkPos,0,sizeof(MarkPos));
 }
 void FreeAllPages(void)
-{	LPPAGE lp = FirstPage, lp2;
+{ WvDbcsInvalidate();
+ LPPAGE lp = FirstPage, lp2;
 
 	if (!*ErrorUseVirtual) {
 		LOADSTRING(hInst, 120, ErrorUseVirtual,  sizeof(ErrorUseVirtual));
@@ -400,8 +402,128 @@ INT ByteAt(PPOSITION Pos)
 	return Pos->p->PageBuf[Pos->i];
 }
 
+/* DBCS text readers expose decoded UTF-16 values, while Byte* and hex mode
+   remain byte-oriented. Boundary summaries avoid rescanning long lines on h. */
+extern INT AnsiCodePage,OemCodePage;
+static DWORD DbcsEpoch=1,DbcsMapEpoch;
+static WV_ULONG DbcsDirtyFrom=1;
+static LPPAGE DbcsMapPage;
+static BYTE DbcsMap[(PAGESIZE+7)/8];
+static BYTE DbcsLead[256],DbcsSingleValid[256],DbcsPairValid[8192];
+static WCHAR DbcsSingle[256],DbcsValues[65536];
+static void DbcsPrepare(UINT cp)
+{
+ memset(DbcsPairValid,0,sizeof(DbcsPairValid));
+ for(UINT a=0;a<256;a++){
+  CHAR byte=(CHAR)a;DbcsLead[a]=(BYTE)IsDBCSLeadByteEx(cp,(BYTE)a);
+  DbcsSingleValid[a]=(BYTE)(MultiByteToWideChar(cp,MB_ERR_INVALID_CHARS,&byte,1,DbcsSingle+a,1)==1);
+  if(DbcsLead[a])for(UINT b=0;b<256;b++){
+   CHAR pair[2]={(CHAR)a,(CHAR)b};UINT key=(a<<8)|b;
+   if(MultiByteToWideChar(cp,MB_ERR_INVALID_CHARS,pair,2,DbcsValues+key,1)==1)DbcsPairValid[key>>3]|=(BYTE)(1<<(key&7));
+  }
+ }
+}
+UINT WvLegacyCodePage(void)
+{UINT cp=CharSet==CS_OEM?OemCodePage:AnsiCodePage;return cp?cp:CharSet==CS_OEM?GetOEMCP():GetACP();}
+void WvDbcsInvalidate(void)
+{
+ if(!++DbcsEpoch){for(LPPAGE p=FirstPage;p;p=p->Next)p->DbcsEpoch=0;DbcsEpoch=1;}
+ DbcsMapPage=NULL;DbcsMapEpoch=0;DbcsDirtyFrom=1;
+}
+void WvDbcsDirty(LPPAGE page)
+{
+ WV_ULONG first=page && page->PageNo>1?page->PageNo-1:1;
+ if(first<DbcsDirtyFrom)DbcsDirtyFrom=first;DbcsMapPage=NULL;DbcsMapEpoch=0;
+}
+BOOL WvDbcsText(void)
+{
+ static UINT previous=(UINT)-1;static BOOL dbcs;
+ UINT cp;if(UtfEncoding || HexEditMode || (CharSet!=CS_ANSI && CharSet!=CS_OEM))return FALSE;
+ cp=WvLegacyCodePage();if(cp!=previous){CPINFO info;previous=cp;dbcs=GetCPInfo(cp,&info) && info.MaxCharSize==2;if(dbcs)DbcsPrepare(cp);WvDbcsInvalidate();}
+ return dbcs;
+}
+INT WvLegacyEncode(INT value,BYTE bytes[4])
+{
+ WCHAR c=(WCHAR)value;BOOL used=FALSE;INT n;
+ if(value<0 || value>0xffff || (value>=0xd800 && value<=0xdfff))return 0;
+ n=WideCharToMultiByte(WvLegacyCodePage(),WC_NO_BEST_FIT_CHARS,&c,1,(LPSTR)bytes,4,NULL,&used);
+ return used?0:n;
+}
+static BOOL DbcsPair(INT first,INT second,WCHAR *wide)
+{
+ if(first<0 || first>255 || second<0 || second>255)return FALSE;
+ UINT key=((UINT)first<<8)|(UINT)second;
+ if(!(DbcsPairValid[key>>3]&(1<<(key&7))))return FALSE;
+ if(wide)*wide=DbcsValues[key];return TRUE;
+}
+INT WvDbcsRead(PPOSITION pos,UINT *span)
+{
+ INT first=ByteAt(pos);WCHAR value;*span=1;
+ if(first<0)return first;if(first<128)return first;
+ if(DbcsLead[(BYTE)first]){
+  POSITION next=*pos;Advance(&next,1);INT second=ByteAt(&next);
+  if(second==C_ERROR)return C_ERROR;
+  if(DbcsPair(first,second,&value)){*span=2;return value;}return C_UNDEF;
+ }
+ return DbcsSingleValid[(BYTE)first]?DbcsSingle[(BYTE)first]:C_UNDEF;
+}
+static BOOL DbcsBuildMap(LPPAGE target)
+{
+ LPPAGE start=target;UINT incoming;
+ if(target->PageNo>=DbcsDirtyFrom)while(start->Prev && start->PageNo>DbcsDirtyFrom)start=start->Prev;
+ while(start->Prev && start->Prev->DbcsEpoch!=DbcsEpoch)start=start->Prev;
+ incoming=start->Prev?start->Prev->DbcsTail:0;
+ for(LPPAGE page=start;page;page=page->Next){
+  UINT i=0,tail=0;BOOL mapping=page==target;
+  if(!page->PageBuf && !ReloadPage(page))return FALSE;
+  if(mapping)memset(DbcsMap,0,sizeof(DbcsMap));
+  if(!page->Fill)tail=incoming;
+  else if(incoming && DbcsPair(incoming,page->PageBuf[0],NULL))i=1;
+  while(i<page->Fill){
+   INT c=page->PageBuf[i];if(mapping)DbcsMap[i>>3]|=(BYTE)(1<<(i&7));
+   if(DbcsLead[(BYTE)c]){
+    if(i+1==page->Fill){tail=c;i++;}
+    else if(DbcsPair(c,page->PageBuf[i+1],NULL))i+=2;
+    else i++;
+   }else i++;
+  }
+  page->DbcsEpoch=DbcsEpoch;page->DbcsTail=tail;incoming=tail;
+  if(mapping){if(target->PageNo>=DbcsDirtyFrom)DbcsDirtyFrom=target->PageNo+1;DbcsMapPage=target;DbcsMapEpoch=DbcsEpoch;return TRUE;}
+ }
+ return FALSE;
+}
+static BOOL DbcsMapFor(LPPAGE page)
+{return DbcsMapPage==page && DbcsMapEpoch==DbcsEpoch?TRUE:DbcsBuildMap(page);}
+BOOL WvDbcsPrevious(PPOSITION pos)
+{
+ POSITION p=*pos;
+ for(;;){
+  if(p.i>p.p->Fill)p.i=p.p->Fill;
+  if(!DbcsMapFor(p.p))return FALSE;
+  while(p.i){--p.i;if(DbcsMap[p.i>>3]&(1<<(p.i&7))){p.f=0;*pos=p;return TRUE;}}
+  if(!p.p->Prev)return FALSE;p.p=p.p->Prev;p.i=p.p->Fill;
+ }
+}
+BOOL WvDbcsBoundary(PPOSITION pos)
+{
+ POSITION p=*pos;INT c=ByteAt(&p);
+ if(c==C_ERROR)return FALSE;if(c==C_EOF)return TRUE;
+ return DbcsMapFor(p.p) && (DbcsMap[p.i>>3]&(1<<(p.i&7)))!=0;
+}
+void WvDbcsNormalize(PPOSITION pos,BOOL after)
+{
+ if(WvDbcsText() && !WvDbcsBoundary(pos)){
+  POSITION p=*pos;if(WvDbcsPrevious(&p)){if(after)CharAndAdvance(&p);*pos=p;}
+ }
+}
+
 INT CharAt(PPOSITION Pos)
-{	INT c;
+{ INT c;
+ if(WvDbcsText()){
+  UINT span;c=WvDbcsRead(Pos,&span);
+  if(c=='\r' && !(Pos->f&POSITION_PREVENT_CRLF_COMBINATION)){POSITION p=*Pos;Advance(&p,1);if(ByteAt(&p)=='\n')c=C_CRLF;}
+  return c;
+ }
 
 	c = ByteAt(Pos);
 	if (c < 0) return c;
@@ -481,7 +603,12 @@ INT ByteAndAdvance(PPOSITION Pos)
 }
 
 INT CharAndAdvance(PPOSITION Pos)
-{	INT c;
+{ INT c;
+ if(WvDbcsText()){
+  UINT span;c=WvDbcsRead(Pos,&span);if(c==C_EOF || c==C_ERROR)return c;Advance(Pos,span);
+  if(c=='\r' && !(Pos->f&POSITION_PREVENT_CRLF_COMBINATION) && ByteAt(Pos)=='\n'){Advance(Pos,1);c=C_CRLF;}
+  return c;
+ }
 
 	c = ByteAndAdvance(Pos);
 	if (c < 0) return c;
@@ -587,7 +714,12 @@ INT GoBackAndByte(PPOSITION Pos)
 }
 
 INT GoBackAndChar(PPOSITION Pos)
-{	INT		 c;
+{ INT c;
+ if(WvDbcsText()){
+  POSITION p=*Pos;if(!WvDbcsPrevious(&p))return CountBytes(Pos)?C_ERROR:C_EOF;c=CharAt(&p);
+  if(c=='\n' && !(Pos->f&POSITION_PREVENT_CRLF_COMBINATION)){POSITION q=p;if(GoBack(&q,1) && ByteAt(&q)=='\r'){p=q;c=C_CRLF;}}
+  *Pos=p;return c;
+ }
 	INT		 cmin = C_MIN;
 	POSITION Pos2;
 
@@ -811,7 +943,8 @@ INT CountNewlinesInBuf(LPBYTE Buf, INT Len, WV_LONG NewLineCnt[9], DWORD *pFlags
 }
 
 void UnsafePage(PPOSITION Pos)
-{	BYTE  Nl = CharSet==CS_EBCDIC ? MapAnsiToEbcdic['\n'] : '\n';
+{ WvDbcsDirty(Pos->p);
+ BYTE  Nl = CharSet==CS_EBCDIC ? MapAnsiToEbcdic['\n'] : '\n';
 
 	Pos->p->Flags &= ~ISSAFE;
 	if (HexEditMode && Pos->p->Fill) {
@@ -835,12 +968,14 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	 * Flags: 1=contains newline
 	 * return value: state of success
 	 */
-{	LPPAGE Page;
+{
+	LPPAGE Page;
 	WV_ULONG globalOffset=WvExGlobalEditHook?CountBytes(Pos):0;
 
 	if (Amount > PAGESIZE || Amount == (-9223372036854775807LL-1)) {
         NewStatus(0,L"Invalid page-reservation size.",NS_ERROR);return FALSE;
     }
+    WvDbcsDirty(Pos->p);
     /* A full document near INT64_MAX must also reject single-character growth.
        Normal edits avoid a whole-document count: that size requires this many pages. */
     if (Amount>0 && LastPage && LastPage->PageNo>=WV_MAX_POSITION/PAGESIZE) {

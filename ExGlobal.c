@@ -89,7 +89,7 @@ static INT DisplayChar(PPOSITION pos)
 {
  extern INT AnsiCodePage,OemCodePage;
  INT c=CharAndAdvance(pos),codepage;CHAR bytes[2];WCHAR wide;
- if(UtfEncoding || c<128)return c;
+ if(UtfEncoding || WvDbcsText() || c<128)return c;
  codepage=CharSet==CS_OEM?OemCodePage:AnsiCodePage;bytes[0]=(CHAR)c;
  if(CharSet!=CS_EBCDIC && IsDBCSLeadByteEx(codepage,(BYTE)c)){
   INT next=ByteAt(pos);if(next==C_ERROR)return C_ERROR;bytes[1]=(CHAR)next;

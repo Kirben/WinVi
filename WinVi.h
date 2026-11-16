@@ -345,6 +345,10 @@ BOOL NewFont(HFONT*, PLOGFONT, PINT, BYTE[32]);
 
 /*file.c*/
 void SetUnsafe(void);
+BOOL WvDbcsText(void);
+UINT WvLegacyCodePage(void);
+INT WvLegacyEncode(INT,BYTE[4]);
+void WvDbcsInvalidate(void);
 void SetSafe(BOOL);
 BOOL AskForSave(HWND, WORD);
 void LowerCaseFnameA(PSTR);

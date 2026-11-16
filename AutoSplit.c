@@ -45,7 +45,8 @@ void WvAutoSplitLine(INT typed)
  start=CurrPos;
  for(;;){
   before=start;
-  if(!GoBack(&before,UtfEncoding==16?2:1))break;
+  if(WvDbcsText()){if(!WvDbcsPrevious(&before))break;}
+  else if(!GoBack(&before,UtfEncoding==16?2:1))break;
   if(UtfEncoding==8){
    INT bytes=0,b=ByteAt(&before);
    while(b>=0x80 && b<0xc0 && bytes++<3){if(!GoBack(&before,1))return;b=ByteAt(&before);}

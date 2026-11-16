@@ -2028,7 +2028,14 @@ Hier werden nicht die aktuellen Einstellungen ver&auml;ndert.
     amerikanischen OEM-Zeichensatz.<br>
     Diese Codepage-Einstellungen finden einerseits bei der Umschaltung zwischen
     ANSI- und DOS-Zeichensatz Anwendung, andererseits wird die Konvertierung
-    beim Einf&uuml;gen von Unicode-Texten aus der Zwischenablage beeinflusst.
+    beim Einf&uuml;gen von Unicode-Texten aus der Zwischenablage beeinflusst.<br>
+    Doppelbyte-Texte wie Shift-JIS (932) und Big5 (950) werden im Textmodus
+    als vollst&auml;ndige Zeichen bearbeitet und durchsucht, auch &uuml;ber interne
+    Seitengrenzen hinweg. Vor dem Bearbeiten die passende ANSI- oder PC-Codepage
+    w&auml;hlen. Nicht verlustfrei darstellbare Eingaben und Zwischenablage-Texte
+    werden abgewiesen. Ung&uuml;ltige Dateibytes bleiben bis zur Bearbeitung erhalten;
+    der Hexadezimalmodus arbeitet weiterhin byteweise. Die Schriftart muss die
+    ben&ouml;tigten Zeichen enthalten.
     <br>
     Beachten Sie bitte auch, dass die tats&auml;chliche Darstellung in der
     <a href="#SettingsFonts">Auswahl der Schriftart</a> angepasst wird.

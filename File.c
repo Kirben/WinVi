@@ -830,6 +830,7 @@ BOOL Open(PCWSTR FName, WORD Flags)
 				break;
 			}
 		}
+		WvDbcsInvalidate(); /* Open/:read splice pages without Reserve. */
 		SuppressPaint = FALSE;
 		Length -= ToRead;
 		_lclose(hf);

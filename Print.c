@@ -656,7 +656,7 @@ VOID PrintIt(HDC hDC, INT nCopies, BOOL fStartDoc, BOOL fEndDoc)
 					*pw++ = c;
 					NewX = x + PrintWidthW(hDC, Buf, pw-Buf);
 					if (NewX > LineWidth) {
-						GoBack(&Pos, UtfEncoding == 16 ? 2 : 1);
+						GoBackAndChar(&Pos);
 						--pw;
 						NewX = Start;
 						Col = 0;

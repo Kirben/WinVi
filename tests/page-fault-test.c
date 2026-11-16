@@ -13,7 +13,8 @@ INT VisiLines=0,CurrLine=0,UtfEncoding=0;
 WV_LONG FirstVisible=0;
 WV_ULONG LinesInFile=0,SelectCount=0;
 LPPAGE FirstPage=NULL,LastPage=NULL;
-POSITION ScreenStart={0},CurrPos={0};
+POSITION ScreenStart={0},CurrPos={0},SelectStart={0};
+INT AnsiCodePage=0,OemCodePage=0;
 PLINEINFO LineInfo=NULL;
 BYTE CharFlags(INT c){(void)c;return 0;}
 BOOL EnterDeleteForUndo(PPOSITION p,WV_ULONG n,WORD f){(void)p;(void)n;(void)f;return TRUE;}

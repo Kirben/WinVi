@@ -258,7 +258,8 @@ BOOL MatchSpecial(PSEARCHPART *pSrch, PPOSITION Pos, BOOL Backward) {
 extern WCHAR const MapLowOemToUtf16[33];
 
 WCHAR CharSetToUnicode(WCHAR c)
-{	BYTE ch;
+{ BYTE ch;
+ if(WvDbcsText())return c;
 
 	switch (CharSet) {
 		case CS_EBCDIC:	c = c >= 0x100 ? c : MapEbcdicToAnsi[c];
@@ -306,8 +307,9 @@ BYTE TestBit(PSEARCHPART pS, INT Char, BOOL Back)
 	if (Char < 0)
 		return FALSE;
 	c  = Char;
+ wc=(WCHAR)Char;
 	Cp = AnsiCodePage;
-	switch (CharSet) {
+ if(!WvDbcsText())switch (CharSet) {
 		case CS_OEM:		wc = CharSetToUnicode(Char);
 							break;
 		case CS_EBCDIC:
@@ -420,7 +422,8 @@ static BOOL CheckFwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 
 						if (Srch->u.StringMatch.ConvertCSet[i>>4] &
 									(1 << (i & 15))) {
-							c = SingleCharAndAdvance(Pos);
+							if(WvDbcsText() && !WvDbcsBoundary(Pos))return FALSE;
+                            c = SingleCharAndAdvance(Pos);
 							if (CharSet == CS_ANSI || CharSet == CS_OEM)
 								c = CharSetToUnicode(c);
 						} else {
@@ -542,7 +545,8 @@ static BOOL CheckBkwdImpl(PPOSITION Pos, PSEARCHPART Srch)
 					while (Len--) {
 						if (Srch->u.StringMatch.ConvertCSet[Len>>4] &
 									(1 << (Len & 15))) {
-							c = GoBackAndSingleChar(Pos);
+							if(WvDbcsText() && !WvDbcsBoundary(Pos))return FALSE;
+                            c = GoBackAndSingleChar(Pos);
 							if (CharSet == CS_ANSI || CharSet == CS_OEM)
 								c = CharSetToUnicode(c);
 						} else {
@@ -1095,7 +1099,9 @@ void EnterMatch(WCHAR Char, PWSTR Asterisk, UINT Flags)
 		if (Flags & 1) {
 			BYTE c[2];
 
-			switch (CharSet) {
+			if(WvDbcsText()){
+     for(INT j=0;j<2;j++){BYTE encoded[4];INT n=WvLegacyEncode(ch[j],encoded);ch[j]=n?encoded[0]:255;}
+    }else switch (CharSet) {
 				case CS_OEM:
 					ch[0] = MapUnicodeToOem(ch[0]);
 					ch[1] = MapUnicodeToOem(ch[1]);
@@ -2330,7 +2336,9 @@ void SearchNewCset(void)
 				if (p->u.StringMatch.ConvertCSet[0] & 1) {
 					CHAR  c[4];
 
-					switch (CharSet) {
+					if(WvDbcsText()){
+      for(INT j=0;j<2;j++){BYTE encoded[4];INT n=WvLegacyEncode(ch[j],encoded);ch[j]=n?encoded[0]:255;}
+     }else switch (CharSet) {
 						case CS_OEM:
 							ch[0] = MapUnicodeToOem(ch[0]);
 							ch[1] = MapUnicodeToOem(ch[1]);

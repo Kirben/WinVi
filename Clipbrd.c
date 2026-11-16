@@ -65,7 +65,7 @@ BOOL ClipboardCopy(void)
       lSize=size/2;
     }
 	if (!(0 /* Windows 10+ always uses the NT platform */))
-		if (UtfEncoding || CharSet == CS_OEM || AnsiCodePage != CP_ACP) {
+		if (UtfEncoding || WvDbcsText() || CharSet == CS_OEM || AnsiCodePage != CP_ACP) {
 			/*copy as wide chars...*/
 			Codepage = CharSet == CS_OEM ? OemCodePage : AnsiCodePage;
 			if (UtfEncoding != 16)
@@ -93,7 +93,7 @@ BOOL ClipboardCopy(void)
 		BOOL	 NullbyteFound = FALSE;
 
 		Pos = SelectStart;
-		if (UtfEncoding && WideCharConvert) {
+		if ((UtfEncoding || WvDbcsText()) && WideCharConvert) {
 			POSITION EndPos = Pos;
 			WCHAR	 *pw = (WCHAR *)pMem;
 
@@ -112,7 +112,7 @@ BOOL ClipboardCopy(void)
 				}
 				if ((char *)pw + 4 > pMem + lSize)
 					break;
-				*pw++ = i;
+				*pw++ = i==C_UNDEF?0xfffd:i;
 				i = CharAndAdvance(&Pos);
 			}
 			*pw = '\0';
@@ -219,6 +219,7 @@ BOOL ClipboardPaste(void)
 	BOOL	 FreeConversionMemory = FALSE;
 
 	if (IsViewOnly()) return(FALSE);
+ if(!SelectCount)WvDbcsNormalize(&CurrPos,FALSE);
 
 	
 	/*prepare resources...*/
@@ -281,6 +282,7 @@ BOOL ClipboardPaste(void)
 		else if (CharSet == CS_ANSI)
 			 Cp = AnsiCodePage;
 		else Cp = OemCodePage;
+		if(WvDbcsText())Cp=WvLegacyCodePage();
 		if (Cp) {
 			HGLOBAL	hWideCharMem = GetClipboardData(CF_UNICODETEXT);
 			WCHAR	*lpWideCharMem;
@@ -320,16 +322,22 @@ BOOL ClipboardPaste(void)
 							}
 						}
 					} else {
-						nSizeRequired = WideCharToMultiByte
-										(Cp, 0, lpWideCharMem, lSize,
-										 NULL, 0, NULL, NULL);
+						BOOL strict=WvDbcsText(),usedDefault=FALSE;
+                        DWORD flags=strict?WC_NO_BEST_FIT_CHARS:0;
+                        nSizeRequired=WideCharToMultiByte(Cp,flags,lpWideCharMem,(INT)lSize,NULL,0,NULL,strict?&usedDefault:NULL);
+                        if(strict && (nSizeRequired<=0 || usedDefault)){
+                         GlobalUnlock(hWideCharMem);CloseClipboard();
+                         NewStatus(0,L"Clipboard text cannot be represented in the selected code page.",NS_ERROR);return FALSE;
+                        }
 						hMem = GlobalAlloc(GMEM_MOVEABLE, nSizeRequired);
 						if (hMem) {
 							lpMem = GlobalLock(hMem);
 							if (lpMem != NULL) {
-								lSize = WideCharToMultiByte
-										(Cp, 0, lpWideCharMem, lSize,
-										 lpMem, nSizeRequired, NULL, NULL);
+								lSize=WideCharToMultiByte(Cp,flags,lpWideCharMem,(INT)lSize,lpMem,nSizeRequired,NULL,strict?&usedDefault:NULL);
+ if(strict && (lSize!=nSizeRequired || usedDefault)){
+  GlobalUnlock(hMem);GlobalFree(hMem);GlobalUnlock(hWideCharMem);CloseClipboard();
+  NewStatus(0,L"Cannot convert clipboard text without loss.",NS_ERROR);return FALSE;
+ }
 								FreeConversionMemory = TRUE;
 							} else {
 								GlobalFree(hMem);
@@ -338,7 +346,7 @@ BOOL ClipboardPaste(void)
 						}
 					}
 				}
-				if (!hMem) GlobalUnlock(hWideCharMem);
+				if (hMem!=hWideCharMem) GlobalUnlock(hWideCharMem);
 			}
 		}
 	}

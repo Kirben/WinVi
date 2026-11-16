@@ -904,10 +904,17 @@ VOID UnicodeConvert(WCHAR *Dst, WCHAR *Src, INT Len)
 {	INT	 i;
 	CHAR b[160];
 
-	if (UtfEncoding) {
+	if (UtfEncoding || WvDbcsText()) {
 		memmove(Dst, Src, Len * sizeof(WCHAR));
+        if(WvDbcsText() && CharSet==CS_OEM)for(i=0;i<Len;i++)if(Dst[i]>0 && Dst[i]<32 && Dst[i]!=9 && Dst[i]!=10 && Dst[i]!=13)Dst[i]=MapLowOemToUtf16[Dst[i]];
 		return;
 	}
+ if(HexEditMode){
+  for(i=0;i<Len;i++){CHAR byte=(CHAR)Src[i];WCHAR value;
+   Dst[i]=MultiByteToWideChar(WvLegacyCodePage(),MB_ERR_INVALID_CHARS,&byte,1,&value,1)==1?value:0xfffd;
+   if(CharSet==CS_OEM && Dst[i]<32)Dst[i]=MapLowOemToUtf16[Dst[i]];
+  }return;
+ }
 	for (i = 0; i < Len; ++i) b[i] = (CHAR)Src[i];
 	MultiByteToWideChar(CharSet==CS_OEM ? OemCodePage : AnsiCodePage,
 						0, b, Len, Dst, Len);
@@ -933,7 +940,7 @@ INT GetTextWidth(HDC hDC, WCHAR *String, INT Len)
 {	SIZE  Size;
 	WCHAR Buf2[160];
 
-	if (IsFixedFont) return (Len * AveCharWidth);
+	if (IsFixedFont && !WvDbcsText()) return (Len * AveCharWidth);
 	if (!UtfEncoding) {
 		UnicodeConvert(Buf2, String, Len);
 		String = Buf2;
@@ -996,10 +1003,7 @@ INT GetTextPos(PPOSITION StartParam, PPOSITION End, INT ColParam)
 							}
 						} else *p++ = c;
 		}
-		if (p >= Buf + WSIZE(Buf) - 3
-			|| p >= Buf + WSIZE(Buf) - 6
-			   && IsDBCSLeadByteEx(CharSet == CS_OEM ? CP_OEMCP : CP_ACP,
-			   					   (BYTE)CharAt(&Start))) {
+		if (p >= Buf + WSIZE(Buf) - 3) {
 			Len += GetTextWidth(NULL, Buf, p-Buf);
 			Col += p - Buf;
 			p = Buf;
@@ -1500,7 +1504,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 						((51 * AveCharWidth * (ByteCount & 15)) >> 4));
 			}
 		} else {
-			POSITION OldPos = p;
+			POSITION OldPos = p;UINT characterBytes=1;
 			INT		 c2;
 
 			if (CharSet == CS_EBCDIC) {
@@ -1511,8 +1515,10 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 					Advance(&p, 1);
 				}
 			} else {
-				c = CharAndAdvance(&p);
-				if (UtfEncoding == 16) ++ByteCount;
+				if(WvDbcsText()){POSITION before=p;WvDbcsRead(&before,&characterBytes);}
+                c = CharAndAdvance(&p);
+                if(WvDbcsText())ByteCount+=characterBytes-1;
+				if (UtfEncoding == 16) {++ByteCount;characterBytes=2;}
 				else if (UtfEncoding == 8 && c >= 0x80) {
 					++ByteCount;
 					if (c >= 0x800) {
@@ -1617,12 +1623,7 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 							MeasureCaret = FALSE;
 							if (!hDC) return;
 						}
-						if (i >= WSIZE(Buf) - 3
-							|| ((CharSet == CS_ANSI || CharSet == CS_OEM)
-								&& i >= WSIZE(Buf) - 6
-								&& IsDBCSLeadByteEx(CharSet == CS_OEM ? CP_OEMCP
-																	  : CP_ACP,
-													(BYTE)CharAt(&p)))) {
+						if (i >= WSIZE(Buf) - 3) {
 							Pos += i;
 							if (x-xOffset < ClientRect.right)
 								Flush(hDC, x, YPos, Buf, i, WithinSelect);
@@ -1714,15 +1715,10 @@ void TextLine(HDC hDC, INT Line, INT YPos)
 							if (x+Width > ShrinkRedraw) ShrinkRedraw = x+Width;
 							//GoBack(&p, 1);	/*TODO: ?-?-?*/
 							p = OldPos;
-							PrepareNextLine(&p, ByteCount-1, TRUE);
+							PrepareNextLine(&p, ByteCount-(WvDbcsText()?characterBytes:1), TRUE);
 							return;
 						}
-						if (i >= WSIZE(Buf) - 3
-							|| ((CharSet == CS_ANSI || CharSet == CS_OEM)
-								&& i >= WSIZE(Buf) - 6
-								&& IsDBCSLeadByteEx(CharSet == CS_OEM ? CP_OEMCP
-																	  : CP_ACP,
-													(BYTE)CharAt(&p)))) {
+						if (i >= WSIZE(Buf) - 3) {
 							Pos += i;
 							if (x-xOffset < ClientRect.right)
 								Flush(hDC, x, YPos, Buf, i, WithinSelect);

@@ -17,3 +17,10 @@ Unapplied review patches outside this directory are not part of this history.
 
 See [EX-COMMANDS.md](EX-COMMANDS.md) for the ex command additions, their local
 regression suites and the separate command-syntax follow-up work.
+
+The MBCS regression suites cover Shift-JIS (932) and Big5 (950) in ANSI and
+PC/OEM text modes. Run `tests/mbcs-test.cmd`, `tests/mbcs-clipboard-test.cmd`
+and `tests/mbcs-command-test.cmd` (optionally with `asan`), plus
+`pwsh -STA -NoProfile -File tests/mbcs.ps1` with `WINVI_TEST_EXE` set to the
+build under test. They are also included in `test.ps1`. Clipboard tests use
+an isolated fake clipboard and do not replace the system clipboard contents.

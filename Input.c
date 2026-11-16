@@ -256,7 +256,7 @@ void FindValidPosition(PPOSITION Pos, WORD Flags)
 	 *			2 = position may be behind last line of file
 	 *			4 = suppress cursor positioning afterwards
 	 */
-	INT c = CharAt(Pos);
+	INT c;WvDbcsNormalize(Pos,FALSE);c=CharAt(Pos);
 	INT f = CharFlags(c);
 
 	if (c == C_BOM && CountBytes(Pos) == 0)
@@ -882,7 +882,21 @@ BYTE CaseConvert[256] = {	/*initial values for Western ANSI characters*/
 };
 
 void ChangeCase(WV_LONG Repeat)
-{	INT  c, Oldc;
+{
+ if(WvDbcsText()){
+  BOOL changed=FALSE,advanced=FALSE;
+  for(;;){
+   INT c=CharAt(&CurrPos);if(CharFlags(c)&1){if(advanced)GoBackAndChar(&CurrPos);break;}
+   if(!Repeat--)break;WCHAR mapped=(WCHAR)c;BYTE encoded[4];
+   if(IsCharUpperW(mapped))CharLowerBuffW(&mapped,1);else CharUpperBuffW(&mapped,1);
+   if(c>=0 && mapped!=(WCHAR)c && WvLegacyEncode(mapped,encoded)){
+    if(!changed){StartUndoSequence();changed=TRUE;}MODEENUM saved=Mode;Mode=ReplaceMode;InsertChar(mapped);Mode=saved;
+   }else CharAndAdvance(&CurrPos);
+   advanced=TRUE;
+  }
+  NewPosition(&CurrPos);ShowEditCaret();GetXPos(&CurrCol);return;
+ }
+	INT  c, Oldc;
 	BOOL Changed = FALSE, Advanced = FALSE;
 
 	for (;;) {

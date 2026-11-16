@@ -1956,7 +1956,14 @@ These options do not change the current operating mode.
     437 for the original American OEM character set.<br>
     These codepage settings are used when switching between ANSI and DOS
     character sets.  On the other hand, they are used for converting
-    Unicode texts inserted from the clipboard.
+    Unicode texts inserted from the clipboard.<br>
+    Double-byte text such as Shift-JIS (932) and Big5 (950) is edited and
+    searched as complete characters in text mode, including across internal
+    page boundaries. Choose the matching ANSI or PC code page before editing.
+    Typing or pasting characters that cannot be represented exactly is rejected
+    instead of replacing them with question marks. Malformed file bytes are
+    preserved until edited; hexadecimal mode continues to edit individual bytes.
+    A font with the required glyphs is needed.
     <br>
     Please note that the actual representation depends on the
     <a href="#SettingsFonts">font settings</a>.

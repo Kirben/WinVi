@@ -26,6 +26,7 @@ typedef struct tagPAGE {
 	UINT		   Fill;				 /*used amount of bytes in PageBuf	*/
 	WV_ULONG PageNo;				 /*length of chain in Prev			*/
 	WV_ULONG		   Newlines;			 /*no of newline character sequences*/
+	DWORD DbcsEpoch,DbcsTail;
 	DWORD		   Flags;				 /*page status flags				*/
 } PAGE, *PPAGE, FAR *LPPAGE;
 extern LPPAGE FirstPage, LastPage;
@@ -151,3 +152,10 @@ BYTE CharFlags(INT);
 
 void WvFreePageChain(LPPAGE);
 void WvReplacePageChain(LPPAGE,LPPAGE);
+
+INT WvDbcsRead(PPOSITION,UINT*);
+BOOL WvDbcsPrevious(PPOSITION);
+BOOL WvDbcsBoundary(PPOSITION);
+void WvDbcsNormalize(PPOSITION,BOOL);
+
+void WvDbcsDirty(LPPAGE);

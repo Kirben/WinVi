@@ -37,7 +37,8 @@ WV_LONG InsertCount;
 BOOL SuppressMap = FALSE;
 
 INT CharSize(INT c)
-{
+{ if(WvDbcsText() && c>=0 && c!=C_CRLF){BYTE bytes[4];return WvLegacyEncode(c,bytes);}
+
 	if (UtfEncoding) {
 		if (UtfEncoding == 16)
 			return c >= 0x10000 || c == C_CRLF ? 4 : 2;
@@ -53,6 +54,7 @@ INT CharSize(INT c)
 static INT EncodedCharacterSize(PPOSITION position)
 {
  POSITION p=*position;INT c=CharAt(&p);
+ if(WvDbcsText()){UINT span;WvDbcsRead(&p,&span);return span;}
  if(UtfEncoding==16 && c>=0xd800 && c<=0xdbff) {
   Advance(&p,2);c=CharAt(&p);return c>=0xdc00 && c<=0xdfff ? 4 : 2;
  }
@@ -83,6 +85,7 @@ static BOOL PreviousSupplementary(PPOSITION position)
 static void NormalizeEditingPosition(BOOL after)
 {
  POSITION p=CurrPos;INT c;
+ if(WvDbcsText()){WvDbcsNormalize(&CurrPos,after);return;}
  if(UtfEncoding==8 && (p.f&POSITION_UTF8_HIGH_SURROGATE_DONE)) {
   p.f=0;if(EncodedCharacterSize(&p)==4 && after)Advance(&p,4);CurrPos=p;
  } else if(UtfEncoding==16) {
@@ -93,8 +96,14 @@ static void NormalizeEditingPosition(BOOL after)
  }
 }
 void InsertChar(INT Char) {
-	INT space = CharSize(Char);
-    if(UtfEncoding && !HexEditMode)NormalizeEditingPosition(Mode!=ReplaceMode);
+	BYTE legacyBytes[4];INT legacy=0;
+ INT space = CharSize(Char);
+ if(WvDbcsText() && Char!=C_CRLF){
+  legacy=WvLegacyEncode(Char,legacyBytes);
+  if(!legacy){NewStatus(0,L"Character cannot be represented in the selected code page.",NS_ERROR);return;}
+  space=legacy;
+ }
+    if((UtfEncoding || WvDbcsText()) && !HexEditMode)NormalizeEditingPosition(Mode!=ReplaceMode);
 
 	if (IsViewOnly()) return;
 	SetUnsafe();
@@ -102,7 +111,7 @@ void InsertChar(INT Char) {
 											: CharFlags(CharAt(&CurrPos)) & 1)) {
 		if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
 	} else {
-		INT oldspace = UtfEncoding && !HexEditMode ? EncodedCharacterSize(&CurrPos) : CharSize(CharAt(&CurrPos));
+		INT oldspace = (UtfEncoding || WvDbcsText()) && !HexEditMode ? EncodedCharacterSize(&CurrPos) : CharSize(CharAt(&CurrPos));
 
 		if (space != oldspace) {
 			if (!Reserve(&CurrPos, -oldspace, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
@@ -114,7 +123,7 @@ void InsertChar(INT Char) {
 		ByteAt(&CurrPos);
 	}
 	++InsertCount;
-	if (!SuppressMap) switch (CharSet) {
+	if (!SuppressMap && !WvDbcsText()) switch (CharSet) {
 		case CS_EBCDIC:
 			if ((unsigned)Char >= 0x100) Char = 0x1a;
 			else Char = MapAnsiToEbcdic[Char];
@@ -125,7 +134,13 @@ void InsertChar(INT Char) {
 			break;
 	}
 	assert(CurrPos.p->PageBuf);
-	if (space > 1) {
+	if(legacy){
+  POSITION p=CurrPos;
+  for(INT i=0;i<legacy;i++){
+   if(ByteAt(&p)==C_ERROR)return;
+   p.p->PageBuf[p.i]=legacyBytes[i];UnsafePage(&p);Advance(&p,1);
+  }
+ }else if (space > 1) {
 		POSITION Pos = CurrPos;
 
 		UnsafePage(&CurrPos);
@@ -244,7 +259,7 @@ void InsertChar(INT Char) {
 BOOL DeleteChar(void) {
 	INT		 c;
 	POSITION EndPos;
-    if(UtfEncoding && !HexEditMode)NormalizeEditingPosition(TRUE);
+    if((UtfEncoding || WvDbcsText()) && !HexEditMode)NormalizeEditingPosition(TRUE);
     EndPos=CurrPos;
 
 	if (IsViewOnly()) return (FALSE);
@@ -571,7 +586,7 @@ void DeleteBackward(UINT Number)
  do {POSITION p=CurrPos;if(CharFlags(GoBackAndChar(&p))&1)break;if(!DeleteChar())break;}while(left==(UINT)-1 || --left);
 }
 
-void DeleteForward(UINT Number) {    if(UtfEncoding && !HexEditMode) {
+void DeleteForward(UINT Number) {    if((UtfEncoding || WvDbcsText()) && !HexEditMode) {
         POSITION end;NormalizeEditingPosition(FALSE);end=CurrPos;WV_ULONG bytes;UINT remaining=Number ? Number : 1;
         do {INT c=CharAt(&end),span;if(CharFlags(c)&1)break;span=EncodedCharacterSize(&end);if(span<=0 || Advance(&end,span)!=(WV_ULONG)span)break;}while(remaining==(UINT)-1 || --remaining);
         bytes=CountBytes(&end)-CountBytes(&CurrPos);

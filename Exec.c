@@ -39,6 +39,7 @@
 
 
 extern LPSTR Shell,ShellCommand;
+extern INT OemCodePage;
 extern WCHAR BufferW[WV_TEXT_CAP];
 /* Owned command sessions; workers never access editor document/UI state. */
 extern PWSTR LastCmd;
@@ -52,6 +53,7 @@ typedef struct {
  PROCESS_INFORMATION Process;
  BYTE *Input;WV_ULONG InputSize;
  HWND Window;ULONG_PTR Generation;WORD Flags;
+ UINT OutputCodePage;BYTE OutputLead;BOOL HasOutputLead;
 } WV_COMMAND;
 static WV_COMMAND *ActiveCommand;
 static ULONG_PTR CommandGeneration;
@@ -149,9 +151,27 @@ VOID ExecShutdown(VOID)
  if(s)StopCommand(s);
  if(hwndMain)while(PeekMessage(&message,hwndMain,WM_USER+1235,WM_USER+1235,PM_REMOVE))free((void*)message.lParam);
 }
-static BOOL InsertCommandOutput(WV_OUTPUT *packet)
+/* Packet boundaries are pipe boundaries, not character boundaries. Retain a
+   final DBCS lead byte in its owning session until the next packet or EOF. */
+static DWORD CommandTextBytes(WV_COMMAND *s,WV_OUTPUT *packet,BYTE bytes[2049],BOOL final)
 {
- BYTE *buffer=packet->Bytes,*converted=NULL;DWORD size=packet->Size;
+ DWORD size=packet->Size,offset=0;UINT cp=s->OutputCodePage;
+ if(s->HasOutputLead){bytes[offset++]=s->OutputLead;s->HasOutputLead=FALSE;}
+ memcpy(bytes+offset,packet->Bytes,size);size+=offset;
+ if(UtfEncoding && !final){
+  for(offset=0;offset<size;){
+   if(IsDBCSLeadByteEx(cp,bytes[offset])){
+    WCHAR value;if(offset+1==size){s->OutputLead=bytes[offset];s->HasOutputLead=TRUE;return size-1;}
+    if(MultiByteToWideChar(cp,MB_ERR_INVALID_CHARS,(LPCSTR)bytes+offset,2,&value,1)==1){offset+=2;continue;}
+   }offset++;
+  }
+ }
+ return size;
+}
+static BOOL InsertCommandOutput(WV_COMMAND *s,WV_OUTPUT *packet,BOOL final)
+{
+ BYTE joined[2049],*buffer=joined,*converted=NULL;DWORD size=CommandTextBytes(s,packet,joined,final);
+ if(!size)return TRUE;
  POSITION old;INT relation=ComparePos(&CurrPos,&ExecInsertPos);WV_ULONG advance=CurrPos.i;
  BOOL lastCr=size&&buffer[size-1]=='\r',ok=FALSE;extern BOOL SetSafeAfterWrite;extern INT OemCodePage;
  if(relation){old=CurrPos;if(relation>0){while(old.p->PageNo>ExecInsertPos.p->PageNo){old.p=old.p->Prev;advance+=old.p->Fill;}advance-=ExecInsertPos.i;}CurrPos=ExecInsertPos;}
@@ -159,8 +179,15 @@ static BOOL InsertCommandOutput(WV_OUTPUT *packet)
  if(UtfEncoding){
   WCHAR *wide;INT count,bytes,i;wide=malloc(size*sizeof(WCHAR));
   if(!wide){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto finish;}
-  count=MultiByteToWideChar(OemCodePage,0,(LPCSTR)buffer,size,wide,size);
-  if(!count){free(wide);goto finish;}
+  count=MultiByteToWideChar(s->OutputCodePage,MB_ERR_INVALID_CHARS,(LPCSTR)buffer,size,wide,size);
+  if(!count){
+   /* Preserve valid neighbors and render malformed bytes consistently. */
+   DWORD at=0;while(at<size){
+    INT span=IsDBCSLeadByteEx(s->OutputCodePage,buffer[at]) && at+1<size?2:1;
+    if(MultiByteToWideChar(s->OutputCodePage,MB_ERR_INVALID_CHARS,(LPCSTR)buffer+at,span,wide+count,1)==1)at+=span;
+    else{wide[count]=0xfffd;at++;}count++;
+   }
+  }
   if(UtfEncoding==8){
    bytes=WideCharToMultiByte(CP_UTF8,0,wide,count,NULL,0,NULL,NULL);
    converted=bytes?malloc(bytes):NULL;
@@ -184,12 +211,16 @@ VOID ExecInput(WPARAM generation,LPARAM data)
  if(!s || generation!=s->Generation){free(packet);return;}
  if(packet){
   InterlockedIncrement(&s->References); /* UI callbacks can reenter shutdown. */
-  if(WaitForSingleObject(s->Stop,0)!=WAIT_OBJECT_0 && !InsertCommandOutput(packet)){
+  if(WaitForSingleObject(s->Stop,0)!=WAIT_OBJECT_0 && !InsertCommandOutput(s,packet,FALSE)){
    CommandError(s,GetLastError());if(ActiveCommand==s)ExecInterrupt(0);
   }
   free(packet);if(ActiveCommand==s)ReleaseXOff();SetEvent(s->Continue);ReleaseCommand(s);return;
  }
  {
+  WV_OUTPUT end={0};
+  InterlockedIncrement(&s->References);
+  if(s->HasOutputLead && WaitForSingleObject(s->Stop,0)!=WAIT_OBJECT_0 && !InsertCommandOutput(s,&end,TRUE))CommandError(s,GetLastError());
+  if(ActiveCommand!=s){ReleaseCommand(s);return;}ReleaseCommand(s);
   DWORD error=(DWORD)s->Error;ActiveCommand=NULL;StopCommand(s);
   ViewOnlyFlag=FALSE;Interruptable=FALSE;XOffState=FALSE;GotChar('\033',0);
   FindValidPosition(&CurrPos,0);ShowEditCaret();EnableToolButton(IDB_NEW,TRUE);EnableToolButton(IDB_OPEN,TRUE);
@@ -251,6 +282,7 @@ BOOL ExecPiped(PWSTR command,WORD flags)
  if(!history){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
  if(!BuildShellCommandW(Shell,ShellCommand,history+1,&line,application,WSIZE(application)))goto fail;
  s=calloc(1,sizeof(*s));if(!s){SetLastError(ERROR_NOT_ENOUGH_MEMORY);goto fail;}
+ s->OutputCodePage=OemCodePage?OemCodePage:GetOEMCP();
  s->References=1;s->Window=hwndMain;s->Generation=++CommandGeneration;s->Flags=flags;
  s->Stop=CreateEvent(NULL,TRUE,FALSE,NULL);s->Start=CreateEvent(NULL,TRUE,FALSE,NULL);
  s->Continue=CreateEvent(NULL,FALSE,TRUE,NULL);s->Run=CreateEvent(NULL,TRUE,TRUE,NULL);

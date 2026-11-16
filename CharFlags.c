@@ -39,6 +39,12 @@ extern int OemCodePage, AnsiCodePage;
 
 BYTE CharFlags(INT c)
 {
+ if(c>=128 && WvDbcsText()){
+  WCHAR value=(WCHAR)c;WORD type=0,three=0;
+  if(!GetStringTypeW(CT_CTYPE1,&value,1,&type))return 0;
+  GetStringTypeW(CT_CTYPE3,&value,1,&three);
+  return (type&C1_CNTRL)?2:(type&C1_SPACE)?16:((type&(C1_ALPHA|C1_DIGIT)) || (three&(C3_NONSPACING|C3_DIACRITIC)))?8:0;
+ }
 	if (c < 0x80 && c >= (CharSet == CS_OEM ? ' ' : 0)) return CFlags[c];
 	switch (c) {
 		case C_UNDEF:	return 2;
