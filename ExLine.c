@@ -310,6 +310,84 @@ static BOOL TransferRead(PPOSITION start,BYTE *bytes,WV_ULONG length)
  return TRUE;
 }
 
+/* Collect all input and encode it before touching the document. Change inserts
+   its replacement successfully before deleting the original addressed bytes. */
+BOOL WvExTextCommand(WV_ULONG first,WV_ULONG last,PWSTR args,INT kind)
+{
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),count,sourceSize,offset,removeLength=0;
+ WV_ULONG length=0,lastStart=0,payloadSize,expected;INT reg,c,previous=C_EOF,next,current,i;
+ UINT prefixSize=0,suffixSize=0;BYTE prefix[8],suffix[8],*bytes=NULL,*payload=NULL;
+ PWSTR text=NULL;POSITION begin,end,dest,p,cursor;LPPAGE originalFirst=FirstPage,originalLast=LastPage;
+ BOOL haveCount,empty,ok=FALSE,started=FALSE,enabled[2]={FALSE,FALSE};HWND windows[2]={NULL,NULL};
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return LineError(L"Line input requires text mode and no running external command.");
+ if(IsViewOnly())return FALSE;
+ if(kind<0 || kind>2)return LineError(L"Invalid line input command.");
+ if(kind==2){if(!LineArgs(0,args,&reg,&count,&haveCount))return FALSE;}
+ else{if(*SkipBlank(args))return LineError(L"Append and insert accept one line address and no arguments.");haveCount=FALSE;}
+ p.p=FirstPage;p.i=p.f=0;if(CharAt(&p)==C_BOM)CharAndAdvance(&p);empty=CharAt(&p)==C_EOF;
+ if(empty)total=0;
+ if(first==(WV_ULONG)-1)first=empty?(kind==0?0:1):CountLines(&CurrPos)+1;
+ if(kind==2 && !first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=empty?1:total;
+ if(kind==0){if(first>total || first!=last)return LineError(L"Invalid append address.");}
+ else if(!first || first>last || last>(empty?1:total) || (kind==1 && first!=last))return LineError(L"Invalid line input range.");
+ if(haveCount){first=last;last=count-1>(empty?1:total)-first?(empty?1:total):first+count-1;}
+ FreezeLineDialogs(windows,enabled);StartInterruptCheck();WvExGlobalActive=TRUE;
+ sourceSize=TransferSize();
+ if(!WvExAskText(kind,&text))goto done;
+ if(Interrupted)goto done;
+ /* A modal owner prevents normal editing. Also reject a reload/size change
+    rather than applying input to stale page pointers. Resolve addresses anew. */
+ if(FirstPage!=originalFirst || LastPage!=originalLast || TransferSize()!=sourceSize || HexEditMode || ExecRunning() || IsViewOnly()){
+  LineError(L"The document changed while entering lines; no edits applied.");goto done;
+ }
+ StartInterruptCheck();
+ if(!WvExEncodeLines(text,&bytes,&length,&lastStart))goto done;
+ if(kind!=2 && !length){ok=TRUE;goto done;}
+ dest.p=FirstPage;dest.i=dest.f=0;if(CharAt(&dest)==C_BOM)CharAndAdvance(&dest);
+ if(!empty && (kind!=0 || first)){
+  if(!LineSpan(first,kind==2?last:first,&begin,&end))goto done;
+  dest=kind==0?end:begin;
+  if(kind==2)removeLength=CountBytes(&end)-CountBytes(&begin);
+ }else end=dest;
+ offset=CountBytes(&dest);p=dest;previous=GoBackAndChar(&p);
+ current=CharAt(&dest);next=CharAt(kind==2?&end:&dest);
+ if(previous==C_ERROR || current==C_ERROR || next==C_ERROR){LineError(L"Cannot read the line input boundary.");goto done;}
+ if(length){
+  INT firstChar=UtfEncoding==16?(UtfLsbFirst?bytes[0]|bytes[1]<<8:bytes[0]<<8|bytes[1]):CharSet==CS_EBCDIC?MapEbcdicToAnsi[bytes[0]]:bytes[0];
+  if(previous!=C_EOF && !(CharFlags(previous)&1))prefixSize=WvEncodedEol(prefix);
+  if(firstChar=='\n' && ((prefixSize && RegisterLast(prefix,prefixSize)=='\r') || (!prefixSize && previous=='\r')))prefixSize+=TransferLf(prefix+prefixSize);
+  /* Keep LF lines separate on either side of the temporary replacement. */
+  if(RegisterLast(bytes,length)=='\r' && (next=='\n' || current=='\n'))suffixSize=TransferLf(suffix);
+ }else if(kind==2 && removeLength && previous=='\r' && next=='\n')removeLength-=UtfEncoding==16?2:1;
+ if(!WvSizeAdd(length,prefixSize+suffixSize,&payloadSize) || !WvSizeAdd(sourceSize,payloadSize,&expected)){LineError(L"Entered lines would exceed the document size limit.");goto done;}
+ if(payloadSize){
+  payload=malloc((size_t)payloadSize);if(!payload){LineError(L"Not enough memory to prepare the line input.");goto done;}
+  memcpy(payload,prefix,prefixSize);memcpy(payload+prefixSize,bytes,(size_t)length);memcpy(payload+prefixSize+length,suffix,suffixSize);
+ }
+ if(CheckInterrupt())goto done;
+ if(!payloadSize && !removeLength){ok=TRUE;goto done;}
+ StartUndoSequence();started=TRUE;SelectCount=0;CurrPos=dest;
+ if(payloadSize && (!InsertBuffer(payload,payloadSize,0) || Interrupted))goto done;
+ if(TransferSize()!=expected){LineError(L"Line input stopped after insertion; completed edits can be undone.");goto done;}
+ if(removeLength){
+  p.p=FirstPage;p.i=p.f=0;
+  if(Advance(&p,offset+payloadSize)!=offset+payloadSize){LineError(L"Original change range is no longer available.");goto done;}
+  SelectStart=p;SelectCount=removeLength;
+  if(!EnterDeleteForUndo(&SelectStart,SelectCount,0)){SelectCount=0;LineError(L"Cannot record change undo; the original text was retained.");goto done;}
+  DeleteSelected(2|8|64);
+  if(TransferSize()!=expected-removeLength){LineError(L"Change did not remove its complete original range.");goto done;}
+ }
+ cursor.p=FirstPage;cursor.i=cursor.f=0;
+ if(Advance(&cursor,offset+(length?prefixSize+lastStart:0))!=offset+(length?prefixSize+lastStart:0)){LineError(L"Cannot locate the entered lines.");goto done;}
+ CurrPos=cursor;ok=TRUE;
+done:
+ free(text);free(bytes);free(payload);if(started)FinishLineEdit();if(Disabled)Enable();WvExGlobalActive=FALSE;
+ for(i=0;i<2;i++)if(enabled[i] && IsWindow(windows[i]))EnableWindow(windows[i],TRUE);
+ if(Interrupted)return LineError(L"Line input cancelled; completed edits can be undone.");
+ return ok;
+}
+
 /* Snapshot first: overlap is safe for copy, and move never removes its source
    unless the complete insertion and deletion-undo allocation have succeeded. */
 BOOL WvExTransfer(WV_ULONG first,WV_ULONG last,WV_ULONG destination,BOOL move)

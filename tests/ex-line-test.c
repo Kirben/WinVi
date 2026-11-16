@@ -25,6 +25,7 @@ static void *ProbeAllocate(size_t n){return failSnapshot?NULL:malloc(n);}
 #define GoBackAndChar ProbeBack
 #define EnterDeleteForUndo ProbeDeleteUndo
 #define DeleteSelected ProbeDelete
+#define WvExAskText ProbeAskText
 #include "../ExLine.c"
 #undef malloc
 #undef CharAt
@@ -33,6 +34,8 @@ static void *ProbeAllocate(size_t n){return failSnapshot?NULL:malloc(n);}
 INT CharAt(PPOSITION);INT CharAndAdvance(PPOSITION);INT GoBackAndChar(PPOSITION);
 static int checks,readOnly,outputLength,undoCalls,reserves,cancel,dialogsFrozen,readFault;
 static int transferModel,failInsert,failDeleteUndo,deleteCalls;
+static LPCWSTR inputText=L"new";static int acceptInput=1,inputCalls;
+BOOL ProbeAskText(INT kind,PWSTR *text){size_t size=(wcslen(inputText)+1)*sizeof(WCHAR);(void)kind;inputCalls++;*text=NULL;if(!acceptInput)return FALSE;*text=malloc(size);if(!*text)return FALSE;memcpy(*text,inputText,size);return TRUE;}
 static BYTE output[16384];
 void ProbeNotice(INT field,PWSTR text,INT flags){(void)field;(void)text;(void)flags;}
 WV_LONG ProbePosition(PPOSITION p){CurrPos=*p;return 0;}
@@ -64,6 +67,7 @@ static void Document(const BYTE *bytes,int length,int utf,BOOL little){
  HexEditMode=FALSE;DefaultNewLine='\n';LinesInFile=page.Newlines=CountNewlinesInBuf(data,length,NULL,NULL);
  AnsiCodePage=1252;OemCodePage=437;readOnly=outputLength=undoCalls=reserves=cancel=Interrupted=Disabled=readFault=0;
  transferModel=failInsert=failDeleteUndo=deleteCalls=failSnapshot=0;SelectCount=0;
+ inputText=L"new";acceptInput=1;inputCalls=0;
 }
 /* Exhaustive source/destination permutations against a separate line-array
    oracle. The model edits one page; real paging/undo is exercised by the UI. */
@@ -192,6 +196,32 @@ int main(void){
    flags=CNLB_LASTWASCR;CHECK(CountNewlinesInBuf(bytes+4,4,NULL,&flags)==1 && !(flags&CNLB_LASTWASCR));
    transferModel=1;CHECK(WvExTransfer(2,2,4,TRUE) && FirstPage->Fill==16);
   }
+ }
+ {int kind,first,last,line,n;BYTE want[100];char input[]="a\nb\nc\n";
+  for(kind=0;kind<3;kind++)for(first=kind==0?0:1;first<=3;first++)for(last=first;last<=(kind==2?3:first);last++){
+   Document((BYTE*)input,6,0,TRUE);transferModel=1;inputText=L"X\nY";n=0;
+   for(line=0;line<=3;line++){
+    if((kind==0 && line==first) || (kind!=0 && line==first-1)){memcpy(want+n,"X\nY\n",4);n+=4;}
+    if(line<3 && !(kind==2 && line+1>=first && line+1<=last)){want[n++]=(BYTE)('a'+line);want[n++]='\n';}
+   }
+   CHECK(WvExTextCommand(first,last,L"",kind));CHECK(FirstPage->Fill==n && !memcmp(FirstPage->PageBuf,want,n));CHECK(undoCalls==1 && inputCalls==1 && !WvExGlobalActive);
+  }
+  Document((BYTE*)"a\nb\nc\n",6,0,TRUE);transferModel=1;inputText=L"";CHECK(WvExTextCommand(2,2,L"",0) && FirstPage->Fill==6 && !undoCalls);
+  CHECK(WvExTextCommand(2,2,L"",2) && FirstPage->Fill==4 && !memcmp(FirstPage->PageBuf,"a\nc\n",4));
+  Document((BYTE*)"a\nb\n",4,0,TRUE);acceptInput=0;CHECK(!WvExTextCommand(1,1,L"",2) && !undoCalls && FirstPage->Fill==4);
+  Document((BYTE*)"a\nb\n",4,0,TRUE);transferModel=1;failSnapshot=1;CHECK(!WvExTextCommand(1,1,L"",2) && !undoCalls && !deleteCalls);
+  Document((BYTE*)"a\nb\n",4,0,TRUE);transferModel=1;failInsert=1;CHECK(!WvExTextCommand(1,1,L"",2) && !deleteCalls && FirstPage->Fill==4);
+  Document((BYTE*)"a\nb\n",4,0,TRUE);transferModel=failDeleteUndo=1;CHECK(!WvExTextCommand(1,1,L"",2) && !deleteCalls && FirstPage->Fill==8 && !memcmp(FirstPage->PageBuf,"new\na\nb\n",8));
+  Document((BYTE*)"a\nb\n",4,0,TRUE);cancel=1;CHECK(!WvExTextCommand(1,1,L"",2) && !undoCalls && !deleteCalls);
+  Document((BYTE*)"a\nb\n",4,0,TRUE);readOnly=1;CHECK(!WvExTextCommand(1,1,L"",0) && !inputCalls);readOnly=0;HexEditMode=TRUE;CHECK(!WvExTextCommand(1,1,L"",1) && !inputCalls);
+  {LPCWSTR bad[]={L":1,2append",L":1,2insert",L":append!",L":insert extra",L":change 0",L":change -1",L":change 9223372036854775808",L":0change",L":4insert",L":4append",L":3,1change"};int i;for(i=0;i<sizeof(bad)/sizeof(bad[0]);i++){WCHAR cmd[100];Document((BYTE*)"a\nb\nc\n",6,0,TRUE);wcscpy(cmd,bad[i]);CHECK(!CommandExec(cmd));CHECK(!undoCalls && !inputCalls && FirstPage->Fill==6);}}
+ }
+ {BYTE *bytes;WV_ULONG size,last;Document((BYTE*)"",0,8,TRUE);CHECK(WvExEncodeLines(L"\xe9\xd83d\xde00\r\nB",&bytes,&size,&last));CHECK(size==9 && last==7 && !memcmp(bytes,"\xc3\xa9\xf0\x9f\x98\x80\nB\n",9));free(bytes);
+  CHECK(!WvExEncodeLines(L"\xd800",&bytes,&size,&last) && !bytes);CHECK(!WvExEncodeLines(L"\xdc00",&bytes,&size,&last));
+  UtfEncoding=0;CharSet=CS_ANSI;AnsiCodePage=1252;CHECK(!WvExEncodeLines(L"\x4e2d",&bytes,&size,&last) && !bytes);CHECK(WvExEncodeLines(L"\x20ac",&bytes,&size,&last) && size==2 && bytes[0]==0x80);free(bytes);
+  CharSet=CS_OEM;OemCodePage=437;CHECK(WvExEncodeLines(L"\xe9",&bytes,&size,&last) && size==2 && bytes[0]==0x82);free(bytes);
+  CharSet=CS_EBCDIC;CHECK(WvExEncodeLines(L"A",&bytes,&size,&last) && size==2 && bytes[0]==MapAnsiToEbcdic['A'] && bytes[1]==MapAnsiToEbcdic['\n']);free(bytes);
+  UtfEncoding=16;UtfLsbFirst=FALSE;CharSet=CS_UTF16BE;DefaultNewLine=C_CRLF;CHECK(WvExEncodeLines(L"A\nB\r\n",&bytes,&size,&last));CHECK(size==12 && last==6 && !memcmp(bytes,"\0A\0\r\0\n\0B\0\r\0\n",12));free(bytes);
  }
  printf("PASS %d ex line parser/register/error checks\n",checks);return 0;
 }

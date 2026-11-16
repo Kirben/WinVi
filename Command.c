@@ -728,6 +728,12 @@ BOOL CommandExec(PWSTR Cmd)
 		}
 	} else if ((Args = Compare(Cmd, L"set",		   2,	 4)) != NULL) {
 		Ok = SetCmd(Args);
+	} else if ((Args = Compare(Cmd, L"append", 1, 1)) != NULL) {
+        Ok = WvExTextCommand(StartLine, EndLine, Args, 0);
+	} else if ((Args = Compare(Cmd, L"insert", 1, 1)) != NULL) {
+        Ok = WvExTextCommand(StartLine, EndLine, Args, 1);
+	} else if ((Args = Compare(Cmd, L"change", 1, 7)) != NULL) {
+        Ok = WvExTextCommand(StartLine, EndLine, Args, 2);
 	} else if ((Args = Compare(Cmd, L"&", 1, 7)) != NULL) {
         Ok = WvExRepeatSubstitute(StartLine, EndLine, Args, FALSE);
 	} else if ((Args = Compare(Cmd, L"~", 1, 7)) != NULL) {

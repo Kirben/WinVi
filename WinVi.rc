@@ -11,6 +11,7 @@
 #include "windows.h"
 #undef APSTUDIO_HIDDEN_SYMBOLS
 
+#include "ExInput.rc"
 #include "TabCtrl.h"
 #if defined(_WIN32)
 # include "WinVi32.rc"

@@ -1270,6 +1270,36 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Ganze Zeilen eingeben und &auml;ndern</h3>
+<p><code>:[Zeile]a[ppend]</code> f&uuml;gt Zeilen hinter der angegebenen/aktuellen
+Zeile ein. <code>:0append</code> f&uuml;gt vor der ersten Zeile, nach einer BOM,
+ein. <code>:[Zeile]i[nsert]</code> f&uuml;gt davor ein.
+<code>:[Bereich]c[hange] [Anzahl]</code> ersetzt die angegebenen Zeilen;
+Standard ist die aktuelle Zeile. Eine positive Anzahl beginnt an der letzten
+Adresse und endet am Dateiende. Nur change erlaubt Bereiche und Anzahl;
+<code>:%change</code> ersetzt das ganze Dokument. Leere Dokumente erlauben alle
+drei Befehle ohne Adresse; insert/change verwenden eine virtuelle erste Zeile.</p>
+<p>Die Befehle &ouml;ffnen einen vergr&ouml;&szlig;erbaren mehrzeiligen Dialog.
+Text eingeben/einf&uuml;gen und <b>Apply</b> w&auml;hlen; <b>Cancel</b> l&auml;sst
+das Dokument unver&auml;ndert. Apply ersetzt die abschlie&szlig;ende Punktzeile
+des Terminal-ex: Eine Zeile mit nur <code>.</code> ist hier normaler Text.
+Leere Eingabe bei append/insert &auml;ndert nichts; bei change werden die
+angegebenen Zeilen gel&ouml;scht. Einr&uuml;ckung und Zeilenbreite gelten wie
+eingegeben. Direkte Textargumente und <code>!</code> sind unzul&auml;ssig.</p>
+<p>CR/LF/CRLF aus der Eingabe werden im Zeilenende-Format des Dokuments gespeichert;
+eine unvollst&auml;ndige letzte Eingabezeile erh&auml;lt ein Zeilenende. Leere
+Eingabezeilen bleiben erhalten. Hinter einer unvollst&auml;ndigen Dokumentzeile
+wird ein Trenner erg&auml;nzt. An CR/LF-Grenzen kann CRLF verwendet werden, damit
+Zeilen getrennt bleiben. Zeichensatz und BOM bleiben erhalten. Nicht exakt
+darstellbare Zeichen werden im Dialog abgewiesen; der Eingabetext bleibt stehen.</p>
+<p>Jede &Auml;nderung ist eine Undo-Gruppe und erh&auml;lt Yank-/L&ouml;schregister.
+Der Cursor endet am Anfang der letzten neuen Zeile; bei leerem change an der
+verbleibenden L&ouml;schgrenze. Erforderlich sind Textmodus, ein bearbeitbares
+Dokument und kein laufender externer Befehl. Die Eingabe wird vorbereitet;
+change f&uuml;gt erfolgreich ein, bevor der Originalbereich entfernt wird.
+Nach Fehler oder Abbruch bleiben abgeschlossene &Auml;nderungen r&uuml;cknehmbar.
+Die Befehle sind nicht innerhalb von <code>:g</code>/<code>:v</code> erlaubt.</p>
+
 <h3>Ersetzungen wiederholen</h3>
 <p><code>:[Bereich]&amp; [g][c] [Anzahl]</code> wiederholt Suchmuster und
 Ersetzung des letzten ex-Ersetzungsbefehls. <code>:[Bereich]~ [g][c] [Anzahl]</code>

@@ -1234,6 +1234,36 @@ and will not repeated here.</p>
 
 
 
+<h3>Entering and changing complete lines</h3>
+<p><code>:[line]a[ppend]</code> adds lines after the addressed/current line.
+<code>:0append</code> adds them before the first line, after any BOM.
+<code>:[line]i[nsert]</code> adds lines before the addressed/current line.
+<code>:[range]c[hange] [count]</code> replaces addressed lines; the default is
+the current line. A positive count starts at the last address and stops at EOF.
+Only change accepts a range or count; <code>:%change</code> replaces the whole
+document. Empty documents accept default append/insert/change; insert and change
+use a virtual first line.</p>
+<p>These commands open a resizable multiline input dialog. Enter or paste text,
+then choose <b>Apply</b>. <b>Cancel</b> leaves the document unchanged. Apply takes
+the place of terminal ex's terminating dot line: a literal <code>.</code> line
+is ordinary text here. Applying empty append/insert input does nothing;
+applying empty change input deletes the addressed lines. Entered indentation
+and line widths are used as supplied. Inline text arguments and <code>!</code>
+are not accepted.</p>
+<p>Entered CR/LF/CRLF breaks are converted to the document's newline convention,
+and an incomplete last input line receives a terminator. Blank input lines
+are preserved. Appending after an unfinished document line supplies a separator.
+At CR/LF boundaries, CRLF may be used to keep neighbouring lines separate.
+The document encoding and BOM are preserved. Characters that cannot be encoded
+exactly are rejected in the dialog while retaining the entered text.</p>
+<p>Each applied edit is one undo group and preserves yank/delete registers.
+The cursor finishes at the beginning of the last entered line; an empty change
+uses the surviving deletion boundary. Text mode, an editable document and no
+running external command are required. Input is prepared before editing, and
+change inserts successfully before removing the original range. Later failures
+or cancellation may leave completed edits, which can be undone. These commands
+are standalone and are not supported inside <code>:g</code>/<code>:v</code>.</p>
+
 <h3>Repeating substitutions</h3>
 <p><code>:[range]&amp; [g][c] [count]</code> repeats the previous ex
 substitution's pattern and replacement. <code>:[range]~ [g][c] [count]</code>
