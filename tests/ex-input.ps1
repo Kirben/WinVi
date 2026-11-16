@@ -23,7 +23,7 @@ function InputCase($name,$source,$command,$entered,$expected,[Text.Encoding]$enc
   $phase='command-bar input';$input=Wait-InputBar $v
   # Normalize supplied fixtures into accepted Enter-terminated lines.
   $normalized=$entered.Replace("`r`n","`n").Replace("`r","`n")
-  $lines=if($normalized.Length){$normalized.Split("`n")}else{@()}
+  $lines=@(if($normalized.Length){$normalized.Split("`n")}else{@()})
   if($lines.Count -and $lines[-1] -eq '' -and $normalized.EndsWith("`n")){$lines=if($lines.Count -eq 2){@($lines[0])}else{$lines[0..($lines.Count-2)]}}
   foreach($line in $lines){[WV]::SetText($input,$line);[void][WV]::Send($input,0x102,13,0);if([WV]::GetDlgItem($v.H,161) -eq [IntPtr]::Zero){break}}
   if([WV]::GetDlgItem($v.H,161) -ne [IntPtr]::Zero){
@@ -133,6 +133,15 @@ foreach($mode in 'validation','close','backspace','tab'){
  }catch{$results.Add([pscustomobject]@{Test=$name;Result='FAIL';Detail=$_.Exception.Message});"FAIL ${name}: $($_.Exception.Message)"}
  finally{Stop-WV $v}
 }
+
+# Visible windows deliver edit notifications that hidden-window tests miss.
+$savedVisible=$env:WINVI_TEST_VISIBLE
+try{
+ $env:WINVI_TEST_VISIBLE='1'
+ InputCase 'append-visible-startup' "a`nb`n" ':append' 'X' "a`nX`nb`n"
+ InputCase 'insert-visible-startup' "a`nb`n" ':insert' 'X' "X`na`nb`n"
+ InputCase 'change-visible-startup' "a`nb`n" ':change' 'X' "X`nb`n"
+}finally{$env:WINVI_TEST_VISIBLE=$savedVisible}
 
 $results|ConvertTo-Json|Set-Content "$PSScriptRoot/ex-input-results.json"
 if(@($results|Where-Object Result -eq 'FAIL').Count){throw 'Ex text-input application regressions failed'}

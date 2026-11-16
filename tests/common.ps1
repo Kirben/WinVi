@@ -44,7 +44,12 @@ function Start-WV($path) {
  if($h -eq 0){$p.Kill();throw 'Missing main window'}
  $v=@{P=$p;H=$h;Log=$err};$seconds=if($env:WINVI_TEST_IDLE_SECONDS){[int]$env:WINVI_TEST_IDLE_SECONDS}else{120};$readyDeadline=(Get-Date).AddSeconds($seconds)
  $base=[IO.Path]::GetFileName($path)
- while([WV]::Text($h).IndexOf($base,[StringComparison]::OrdinalIgnoreCase) -lt 0){if((Get-Date) -gt $readyDeadline){throw 'File title was not initialized'};Start-Sleep -Milliseconds 100}
+ # GenerateTitle follows Explorer's HideFileExt preference. A hidden .txt
+ # extension must not turn a successfully opened file into a startup timeout.
+ $explorer=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideFileExt -ErrorAction SilentlyContinue
+ if($explorer.HideFileExt){$stem=[IO.Path]::GetFileNameWithoutExtension($path);if($stem){$base=$stem}}
+ while([WV]::Text($h).IndexOf($base,[StringComparison]::OrdinalIgnoreCase) -lt 0){if((Get-Date) -gt $readyDeadline){$actualTitle=[WV]::Text($h);Stop-WV $v;throw ("File title was not initialized; expected '$base', actual '"+$actualTitle+"'")};Start-Sleep -Milliseconds 100}
+ if($env:WINVI_TEST_TRACE_STARTUP){Write-Host ("READY expected="+$base+"; title="+[WV]::Text($h))}
  do {
   Wait-WVQuiet $v $seconds
   if((Dialog $v) -ne [IntPtr]::Zero){return $v}
@@ -61,7 +66,7 @@ function Menu($v,$id) {[void][WV]::Send($v.H,0x111,$id,0)}
 function Chars($v,$s) {foreach($c in $s.ToCharArray()){[void][WV]::Send($v.H,0x102,[uint32][char]$c,1)}}
 function Ex($v,$s) {Menu $v 119; Chars $v ':'; $ed=[WV]::GetDlgItem($v.H,161);$deadline=(Get-Date).AddSeconds(120);while($ed -eq 0 -and (Get-Date) -lt $deadline){Start-Sleep -Milliseconds 200;Menu $v 119;Chars $v ':';$ed=[WV]::GetDlgItem($v.H,161)};if($ed -eq 0){throw 'Command edit unavailable'}; [WV]::SetText($ed,$s); [void][WV]::Send($v.H,2258,0,0)}
 function Save-WV($v) {Menu $v 103; Start-Sleep -Milliseconds 100}
-function Stop-WV($v) {if($null -eq $v){return}; if(!$v.P.HasExited){[void][WV]::PostMessageW($v.H,0x10,[UIntPtr]0,[IntPtr]0);if(!$v.P.WaitForExit(1000)){$v.P.Kill();$v.P.WaitForExit()}}}
+function Stop-WV($v) {if($null -eq $v){return}; if(!$v.P.HasExited){[void][WV]::PostMessageW($v.H,0x10,[UIntPtr]::Zero,[IntPtr]::Zero);if(!$v.P.WaitForExit(1000)){$v.P.Kill();$v.P.WaitForExit()}}}
 function Dialog($v) {foreach($wh in [WV]::Windows($v.P.Id)){if([WV]::Class($wh) -eq '#32770'){return $wh}};return [IntPtr]0}
 function Equal-Bytes($path,[byte[]]$expected) { $actual=[IO.File]::ReadAllBytes($path); if([Convert]::ToBase64String($actual) -ne [Convert]::ToBase64String($expected)){throw "Bytes differ: actual=$($actual.Length), expected=$($expected.Length)"} }
 

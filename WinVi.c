@@ -1192,6 +1192,8 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			break;
 
 		case WM_COMMAND:
+            /* Ex input submits on Enter, never on edit-control notifications. */
+            if (COMMAND==ID_COMMAND && WvExGlobalActive) break;
 			if (Disabled && COMMAND!=ID_EXIT && COMMAND!=910 && COMMAND!=911)
 				MessageBeep(MB_OK);
 			else switch (COMMAND) {
