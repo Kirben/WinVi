@@ -549,8 +549,14 @@ INT    QueuedChars   = 0;		/*already matched input chars*/
 LPDWORD DoSequence	 = NULL;
 static LPDWORD ReplayOwned=NULL;
 INT    SequenceLen   = 0;		/*number of valid entries in DoSequence*/
+INT    AbbrevInputLen = 0;
 INT    AbbrevDeletes = 0;
 MSG    PendingMsg    = {0};
+typedef struct {MSG message;DWORD token;} DEFERREDKEY;
+static DEFERREDKEY *DeferredKeys;
+static BOOL MatchKeyboardToken(PMSG,DWORD);
+static size_t DeferredCount,DeferredCapacity;
+static BOOL PlaybackActive(void);
 DWORD  PendingDown   = 0;
 DWORD  PendingUp	 = 0;
 DWORD  FinalKeyState = 0;
@@ -573,6 +579,7 @@ static BOOL MapMatch(BOOL DequeueSingle)
 		if (!(m->Flags & Match) || (m->Flags&M_ABBREVIATION && PrevDenyAbbrev))
 			continue;
 		if ((Len = (INT)WvMapLength(m->InputMatch)) == 0) continue;
+		if ((m->Flags&M_ABBREVIATION) && Len<QueuedChars)continue;
 		if (Len > QueuedChars) Len = QueuedChars;
 		if (MapIsMatching(InputQueue, m->InputMatch, Len)) {
 			if (Len <= QueuedChars && m->InputMatch[Len] == 0) {
@@ -580,7 +587,7 @@ static BOOL MapMatch(BOOL DequeueSingle)
 				DoSequence	= m->ReplaceMap;
 				SequenceLen	= (INT)WvMapLength(DoSequence);
 				if (m->Flags & M_ABBREVIATION) {
-					AbbrevDeletes=0;
+					AbbrevDeletes=0;AbbrevInputLen=Len;
                     for(INT k=0;k<Len;k++){
                      DWORD c=m->InputMatch[k];AbbrevDeletes++;
                      if((c&WV_MAP_UNICODE) && (c&0xffff)>=0xd800 && (c&0xffff)<=0xdbff && k+1<Len && (m->InputMatch[k+1]&WV_MAP_UNICODE) && (m->InputMatch[k+1]&0xffff)>=0xdc00 && (m->InputMatch[k+1]&0xffff)<=0xdfff)k++;
@@ -590,7 +597,7 @@ static BOOL MapMatch(BOOL DequeueSingle)
 				if (GetKeyState(VK_SHIFT)	< 0) FinalKeyState |= MAP_SHIFT;
 				if (GetKeyState(VK_MENU)	< 0) FinalKeyState |= MAP_ALT;
 				PendingUp = FinalKeyState;
-				if ((QueuedChars -= Len) > 0)
+				if (!(m->Flags&M_ABBREVIATION) && (QueuedChars -= Len) > 0)
 				  memmove(InputQueue, InputQueue+Len, QueuedChars*sizeof(DWORD));
 			} else /*partial match*/ SequenceLen = 0;
 			return (!(MatchingAbbreviation = (m->Flags & M_ABBREVIATION) != 0));
@@ -635,8 +642,8 @@ BOOL WvMapPrepareChange(void)
 
 VOID StopMap(BOOL ResetShiftKeys)
 {
-	AbbrevDeletes = QueuedChars = SequenceLen = PendingDown = PendingUp = 0;
- free(ReplayOwned);ReplayOwned=NULL;DoSequence=NULL;PendingMsg.message=0;MatchingAbbreviation=DenyAbbrev=PrevDenyAbbrev=FALSE;
+	AbbrevInputLen = AbbrevDeletes = QueuedChars = SequenceLen = PendingDown = PendingUp = 0;
+ free(ReplayOwned);ReplayOwned=NULL;DoSequence=NULL;PendingMsg.message=0;free(DeferredKeys);DeferredKeys=NULL;DeferredCount=DeferredCapacity=0;MatchingAbbreviation=DenyAbbrev=PrevDenyAbbrev=FALSE;
 	if (ResetShiftKeys) {
 		if (GetKeyState(VK_CONTROL)	< 0) KeyState(VK_CONTROL, FALSE);
 		if (GetKeyState(VK_SHIFT)	< 0) KeyState(VK_SHIFT,	  FALSE);
@@ -661,8 +668,7 @@ BOOL IsKeyboardMapMsg(PMSG Msg)
 	 *		   FALSE if Msg is not a keyboard message or if it does not match
 	 *				 a mapping macro.
 	 */
-{	DWORD c = 0;
-
+{ DWORD c = 0;
 	if (Msg->message == WM_KEYDOWN || Msg->message == WM_SYSKEYDOWN) {
 		if ((Msg->wParam>=VK_F1 && Msg->wParam<=VK_F24) || (Msg->wParam<=255 && memchr(Keys,(int)Msg->wParam,sizeof(Keys))!=NULL)) {
 			c = (BYTE)Msg->wParam;
@@ -684,21 +690,61 @@ BOOL IsKeyboardMapMsg(PMSG Msg)
 		 if (GetKeyState(VK_MENU)  < 0) c |= MAP_ALT;
         }
 	}
+ return MatchKeyboardToken(Msg,c);
+}
+
+static BOOL MatchKeyboardToken(PMSG Msg,DWORD c)
+{
 	if (c == 0) return (FALSE);
 
 	if (c == (MAP_CHAR|MAP_CTRL|'C') || c == (MAP_KEYDOWN|MAP_CTRL|VK_CANCEL)) {
 		StopMap(FALSE);
 		MapInterrupted = TRUE;
 	}
+ /* Do not match physical type-ahead until the preceding replacement and its
+    delimiter have reached the editor. Word boundaries depend on that order. */
+ if(PlaybackActive()){
+  if(DeferredCount==DeferredCapacity){
+   size_t capacity=DeferredCapacity?DeferredCapacity*2:64;
+   DEFERREDKEY *keys=NULL;
+   if(capacity>DeferredCapacity && capacity<=SIZE_MAX/sizeof(DEFERREDKEY))keys=malloc(capacity*sizeof(DEFERREDKEY));
+   if(!keys){StopMap(TRUE);NewStatus(0,L"Not enough memory for keyboard type-ahead; macro stopped.",NS_ERROR);return FALSE;}
+   if(DeferredCount)memcpy(keys,DeferredKeys,DeferredCount*sizeof(DEFERREDKEY));
+   free(DeferredKeys);DeferredKeys=keys;DeferredCapacity=capacity;
+  }
+  DeferredKeys[DeferredCount].message=*Msg;DeferredKeys[DeferredCount++].token=c;
+  return TRUE;
+ }
+ static HWND previousFocus;
+ static INT previousMode=-1;
+ HWND focus=GetFocus();
+ /* A normal-mode command such as i is not part of the inserted word. */
+ if(focus!=previousFocus || Mode!=previousMode){
+  /* Echoed abbreviation text belongs to its original mode/control. */
+  if(MatchingAbbreviation){
+   QueuedChars=AbbrevInputLen=AbbrevDeletes=SequenceLen=0;
+   DoSequence=NULL;MatchingAbbreviation=FALSE;
+  }
+  DenyAbbrev=PrevDenyAbbrev=FALSE;
+  previousFocus=focus;previousMode=Mode;
+ }
+
 	if (AbbrevDeletes && !PendingMsg.message) {
 		if (!MappingWord(c)) {
 			/*final match of non-letter for abbreviation...*/
 			memcpy(&PendingMsg, Msg, sizeof(PendingMsg));
+            if(AbbrevInputLen>0 && AbbrevInputLen<=QueuedChars){QueuedChars-=AbbrevInputLen;memmove(InputQueue,InputQueue+AbbrevInputLen,(size_t)QueuedChars*sizeof(DWORD));}AbbrevInputLen=0;
 			return (TRUE);
 		}
-		AbbrevDeletes=QueuedChars=SequenceLen=0;DoSequence=NULL;MatchingAbbreviation=FALSE;
+		AbbrevDeletes=AbbrevInputLen=SequenceLen=0;DoSequence=NULL;
 	}
 	if (QueuedChars >= sizeof(InputQueue)/sizeof(InputQueue[0])-1) {
+        /* Abbreviation prefixes have already been echoed. A longer word must
+           pass through unchanged, even when the matching buffer is full. */
+        if(MatchingAbbreviation){
+         QueuedChars=AbbrevInputLen=AbbrevDeletes=SequenceLen=0;DoSequence=NULL;
+         MatchingAbbreviation=FALSE;DenyAbbrev=MappingWord(c);return FALSE;
+        }
 		/*buffer size exceeded, ignore keyboard message...*/
 		return (TRUE);
 	}
@@ -708,6 +754,8 @@ BOOL IsKeyboardMapMsg(PMSG Msg)
 	return (MapMatch(TRUE));
 }
 
+static BOOL PlaybackActive(void)
+{return PendingDown || PendingUp || PendingMsg.message || (SequenceLen>0 && !AbbrevDeletes);}
 static HWND KeyDownFocus;
 
 BOOL KeyboardMapDequeue(PMSG Msg)
@@ -716,8 +764,15 @@ BOOL KeyboardMapDequeue(PMSG Msg)
 	 *				 (in Msg, the next msg resulting from macro is returned),
 	 *		   FALSE if there is no more pending message to handle.
 	 */
-{	HWND Focus = GetFocus();
+{ HWND Focus = GetFocus();
+ while(!PlaybackActive() && DeferredCount){
+  DWORD token=DeferredKeys[0].token;*Msg=DeferredKeys[0].message;--DeferredCount;
+  memmove(DeferredKeys,DeferredKeys+1,(size_t)DeferredCount*sizeof(DEFERREDKEY));
+  Msg->hwnd=Focus;
+  if(!MatchKeyboardToken(Msg,token))return TRUE;
+ }
 
+    if(AbbrevDeletes && !PendingMsg.message)return FALSE;
 	if (AbbrevDeletes) {
 		--AbbrevDeletes;
 		Msg->message = WM_CHAR;

@@ -416,6 +416,7 @@ void ResizeWithLinesAndColumns(void);
 UINT WvEncodedEol(BYTE[4]);
 BOOL WvExInputDone(BOOL);
 BOOL WvExMap(PWSTR,BOOL,BOOL);
+BOOL WvExAbbreviate(PWSTR,BOOL);
 BOOL WvExOutput(PWSTR);
 BOOL WvExSource(PWSTR);
 BOOL WvExShell(void);

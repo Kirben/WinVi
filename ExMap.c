@@ -46,11 +46,11 @@ found:
  return t|modifiers;
 }
 /* Literal ex characters, Ctrl+V quoting, and explicit <key> names. */
-static BOOL ParseKeys(PWSTR *cursor,BOOL left,DWORD **out)
+static BOOL ParseKeys(PWSTR *cursor,BOOL left,BOOL functionAlias,DWORD **out)
 {
  PWSTR p=*cursor;size_t used=0,capacity=wcslen(p)+1;DWORD *tokens=calloc(capacity,sizeof(DWORD));
  if(!tokens)return MapError(L"Not enough memory for mapping keys.");
- if(left && p[0]==L'#' && p[1]>=L'1' && p[1]<=L'9'){
+ if(left && functionAlias && p[0]==L'#' && p[1]>=L'1' && p[1]<=L'9'){
   PWSTR end=p+1;UINT f=0;while(*end>=L'0' && *end<=L'9'){if(f>24)break;f=f*10+*end++-L'0';}
   if(f>=1 && f<=24 && (!*end || *end==L' ' || *end==L'\t')){tokens[used++]=EX_KEY|(VK_F1+f-1);p=end;goto parsed;}
  }
@@ -116,15 +116,15 @@ BOOL WvExMapping(PWSTR args,BOOL remove,BOOL inputMode,BOOL abbreviation)
  DWORD *left=NULL,*right=NULL,modes=inputMode?M_INSERTMODE|M_COMMANDLINE:M_COMMANDMODE;PMAP entry=NULL,m,*link;BOOL found=FALSE;
  if(WvExGlobalActive || ExecRunning())return MapError(L"Mappings cannot change during a global/input or filtered command.");
  while(*args==L' ' || *args==L'\t')args++;
- if(!*args){if(remove)return MapError(L"Unmap requires an input key sequence.");return ListMappings(NULL,abbreviation,modes);}
- if(!ParseKeys(&args,TRUE,&left))return FALSE;
+ if(!*args){if(remove)return MapError(abbreviation?L"Unabbreviate requires an input sequence.":L"Unmap requires an input key sequence.");return ListMappings(NULL,abbreviation,modes);}
+ if(!ParseKeys(&args,TRUE,!abbreviation,&left))return FALSE;
  while(*args==L' ' || *args==L'\t')args++;
  if(!*args && !remove){BOOL ok=ListMappings(left,abbreviation,modes);free(left);return ok;}
- if(remove && *args){free(left);return MapError(L"Unmap accepts only its input key sequence.");}
+ if(remove && *args){free(left);return MapError(abbreviation?L"Unabbreviate accepts only its input sequence.":L"Unmap accepts only its input key sequence.");}
  if(hwndSettings && IsWindow(hwndSettings)){free(left);return MapError(L"Close Settings before changing mappings.");}
  if(!remove){
   char name[80];UINT serial=0;BOOL used;
-  if(!ParseKeys(&args,FALSE,&right)){free(left);return FALSE;}
+  if(!ParseKeys(&args,FALSE,FALSE,&right)){free(left);return FALSE;}
   entry=calloc(1,sizeof(*entry));if(!entry)goto memory;
   entry->InputMatch=left;left=NULL;entry->ReplaceMap=right;right=NULL;
   entry->InputDisplay=NativeKeys(entry->InputMatch);entry->Replace=NativeKeys(entry->ReplaceMap);
@@ -148,3 +148,4 @@ BOOL WvExMapping(PWSTR args,BOOL remove,BOOL inputMode,BOOL abbreviation)
 memory:free(left);free(right);FreeMappings(entry);return MapError(L"Not enough memory or mapping text exceeds the Settings limit.");
 }
 BOOL WvExMap(PWSTR args,BOOL remove,BOOL inputMode){return WvExMapping(args,remove,inputMode,FALSE);}
+BOOL WvExAbbreviate(PWSTR args,BOOL remove){return WvExMapping(args,remove,TRUE,TRUE);}

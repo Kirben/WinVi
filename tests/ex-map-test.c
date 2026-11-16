@@ -95,6 +95,38 @@ int main(void){
  Reset();CHECK(WvExMap(L"Q <Esc>",FALSE,FALSE));CHECK(WvExMap(L"",FALSE,FALSE));CHECK(wcsstr(listing,L"Q") && wcsstr(listing,L"Ctrl+"));
  outputFail=1;CHECK(!WvExMap(L"Q",FALSE,FALSE));CHECK(FirstMapping!=NULL);outputFail=0;
  WvExGlobalActive=TRUE;CHECK(!WvExMap(L"Q x",FALSE,FALSE));WvExGlobalActive=FALSE;running=1;CHECK(!WvExMap(L"Q",TRUE,FALSE));running=0;
+ Reset();CHECK(WvExAbbreviate(L"btw X",FALSE));CHECK(Feed('i',out)==1);Mode=InsertMode;
+ CHECK(Feed('b',out)==1);CHECK(Feed('t',out)==1);CHECK(Feed('w',out)==1);CHECK(Feed(' ',out)==5 && out[3]=='X' && out[4]==' ');
+ Reset();CHECK(WvExAbbreviate(L"abc LONG",FALSE));CHECK(WvExAbbreviate(L"ab SHORT",FALSE));Mode=InsertMode;
+ CHECK(Feed('a',out)==1);CHECK(Feed('b',out)==1);CHECK(Feed('c',out)==1);CHECK(Feed(' ',out)==8 && out[3]=='L' && out[7]==' ');
+ Reset();CHECK(WvExAbbreviate(L"btw X",FALSE));Mode=InsertMode;
+ CHECK(Feed('b',out)==1);CHECK(Feed('t',out)==1);CHECK(Feed('w',out)==1);
+ {MSG msg={0};WCHAR *keys=L" btw ";n=0;msg.hwnd=focus;msg.message=WM_CHAR;
+  for(i=0;keys[i];i++){msg.message=WM_CHAR;msg.wParam=keys[i];CHECK(IsKeyboardMapMsg(&msg));}
+  while(KeyboardMapDequeue(&msg)){CHECK(n<200);if(msg.message==WM_CHAR)out[n++]=(WCHAR)msg.wParam;}
+  CHECK(n==13 && out[3]=='X' && out[4]==' ' && out[5]=='b' && out[11]=='X' && out[12]==' ');}
+ Reset();CHECK(WvExAbbreviate(L"btw by the way",FALSE));CHECK(FirstMapping->Flags==(M_ABBREVIATION|M_INSERTMODE|M_COMMANDLINE));
+ Mode=InsertMode;CHECK(Feed('b',out)==1);CHECK(Feed('t',out)==1);CHECK(Feed('w',out)==1);
+ CHECK(Feed(' ',out)==14 && out[0]==8 && out[3]=='b' && out[13]==' ');
+ CHECK(WvExAbbreviate(L"btw X",FALSE));CHECK(!FirstMapping->Next);CHECK(WvExAbbreviate(L"btw",TRUE));CHECK(!FirstMapping);
+ Reset();CHECK(WvExMap(L"btw Z",FALSE,TRUE));CHECK(WvExAbbreviate(L"btw X",FALSE));CHECK(FirstMapping->Next!=NULL);
+ CHECK(WvExAbbreviate(L"btw",TRUE));CHECK(FirstMapping->Flags==(M_INSERTMODE|M_COMMANDLINE));CHECK(!FirstMapping->Next);
+ Reset();CHECK(!WvExAbbreviate(L"",TRUE));CHECK(!WvExAbbreviate(L"unknown",TRUE));CHECK(!WvExAbbreviate(L"btw extra",TRUE));
+ CHECK(WvExAbbreviate(L"btw X",FALSE));CHECK(WvExAbbreviate(L"",FALSE));CHECK(wcsstr(listing,L"b"));
+ /* Queued physical input grows beyond the old 63-message queue without loss. */
+ Reset();CHECK(WvExMap(L"Q X",FALSE,FALSE));
+ {MSG msg={0};msg.hwnd=focus;msg.message=WM_CHAR;msg.wParam='Q';CHECK(IsKeyboardMapMsg(&msg));
+  for(i=0;i<1000;i++){msg.message=WM_CHAR;msg.wParam='a';CHECK(IsKeyboardMapMsg(&msg));}
+  n=0;while(KeyboardMapDequeue(&msg)){CHECK(msg.message==WM_CHAR && msg.wParam==(n?'a':'X'));n++;}CHECK(n==1001);}
+ Reset();CHECK(WvExMap(L"Q X",FALSE,FALSE));
+ {MSG msg={0};msg.hwnd=focus;msg.message=WM_CHAR;msg.wParam='Q';CHECK(IsKeyboardMapMsg(&msg));
+  allocations=0;failAt=1;msg.wParam='a';CHECK(!IsKeyboardMapMsg(&msg));failAt=0;CHECK(!SequenceLen && !DeferredCount);CHECK(FirstMapping!=NULL);}
+ Reset();CHECK(WvExAbbreviate(L"#1 X",FALSE));CHECK(FirstMapping->InputMatch[0]==WvMapChar(L'#'));
+ Reset();{WCHAR definition[70];for(i=0;i<63;i++)definition[i]='a';wcscpy(definition+63,L" X");CHECK(WvExAbbreviate(definition,FALSE));Mode=InsertMode;
+  for(i=0;i<64;i++)CHECK(Feed('a',out)==1 && out[0]=='a');CHECK(Feed(' ',out)==1 && out[0]==' ');}
+ Reset();CHECK(WvExAbbreviate(L"btw X",FALSE));Mode=InsertMode;
+ CHECK(Feed('b',out)==1);CHECK(Feed('t',out)==1);hwndCmd=(HWND)2;focus=hwndCmd;
+ CHECK(Feed('w',out)==1);CHECK(Feed(' ',out)==1 && out[0]==' ');
  /* Every non-surrogate UTF-16 value survives Settings/profile text roundtrip. */
  for(i=0;i<=65535;i++)if(i<0xd800 || i>0xdfff){
   tokens[0]=WvMapChar((WCHAR)i);tokens[1]=0;text=NativeKeys(tokens);CHECK(text!=NULL);CHECK(TranslateMapping(&decoded,text));CHECK(IsMappingEqual(tokens,decoded));free(text);free(decoded);decoded=NULL;

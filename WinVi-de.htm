@@ -1294,6 +1294,22 @@ keinen Zeitablauf fuer mehrdeutige Praefixe. Eine Eingabe sollte daher kein
 Praefix einer anderen sein. Die woertliche Zeileneingabe bei append/insert/change
 wird nicht umgesetzt. Definitionen aendern weder Dokument noch Undo. Ein Makro
 beendet seine urspruengliche Ersetzung auch nach eigener Entfernung/Neudefinition.</p>
+<h3>Wortabkuerzungen</h3>
+<p><code>:ab[breviate] lhs rhs</code> definiert eine Wortabkuerzung fuer den
+Einfuege-/Ersetzungsmodus und die Kommandozeile.
+<code>:una[bbreviate] lhs</code> entfernt sie. Es gibt keine !-Varianten.
+Ohne Argumente zeigt abbreviate alle Abkuerzungen, mit nur lhs den passenden
+Eintrag. <code>:ab btw by the way</code> expandiert btw vor Leerzeichen,
+Satzzeichen, Enter oder Escape; die ausloesende Taste bleibt erhalten.
+Das laengere Wort btwx bleibt unveraendert. Bei ab und abc entscheidet das
+vollstaendige eingegebene Wort.</p>
+<p>Die Kommandos teilen die Abkuerzungstabelle der Einstellungen und verwenden
+Unicode, Tastennotation, Strg+V-Maskierung und das 63-Tastennachrichten-Limit
+von map. #1 ist hier woertlicher Text. Kommandomodus und woertliche ex-Zeilen
+aendern sich nicht. Ersetzungen werden nicht erneut expandiert. Definitionen
+aendern Undo nicht; expandierter Text gehoert zur normalen Texteingabe.
+Einstellungen muss zum Aendern geschlossen sein; Speichern macht die
+Definitionen dauerhaft. Normale Tastaturmakros bleiben beim Entfernen erhalten.</p>
 <h3>Befehlsdateien und interaktive Shell</h3>
 <p><code>:so[urce] Dateiname</code> f&uuml;hrt ex-Befehle aus einer lokalen Datei
 aus. Namen mit Leerzeichen in Anf&uuml;hrungszeichen setzen. Ein Doppelpunkt

@@ -690,6 +690,10 @@ BOOL CommandExec(PWSTR Cmd)
         Ok=WvExMap(Args,FALSE,CommandWithExclamation);
     } else if ((Args = Compare(Cmd, L"unmap", 3, 12)) != NULL) {
         Ok=WvExMap(Args,TRUE,CommandWithExclamation);
+    } else if ((Args = Compare(Cmd, L"abbreviate", 2, 4)) != NULL) {
+        Ok=WvExAbbreviate(Args,FALSE);
+    } else if ((Args = Compare(Cmd, L"unabbreviate", 3, 4)) != NULL) {
+        Ok=WvExAbbreviate(Args,TRUE);
     } else if ((Args = Compare(Cmd, L"source", 2, 0x14)) != NULL) {
         Ok=WvExSource(Args);
     } else if ((Args = Compare(Cmd, L"shell", 2, 0)) != NULL) {

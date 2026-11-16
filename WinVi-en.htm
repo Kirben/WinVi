@@ -1257,6 +1257,22 @@ It has no timeout for ambiguous prefixes: avoid making one input sequence a
 prefix of another. Literal append/insert/change line collection is not mapped.
 Definitions do not change document text or undo. A running macro finishes its
 original replacement even if it removes or redefines itself.</p>
+<h3>Word abbreviations</h3>
+<p><code>:ab[breviate] lhs rhs</code> defines a word abbreviation for insert,
+replace and command entry. <code>:una[bbreviate] lhs</code> removes it.
+There are no ! variants. With no arguments, abbreviate lists abbreviations;
+with only lhs it lists the matching entry. For example,
+<code>:ab btw by the way</code> expands btw when followed by a non-word key
+such as space, punctuation, Enter or Escape. The triggering key is retained.
+A longer word such as btwx is unchanged. Shared prefixes such as ab and abc
+are resolved by the complete typed word.</p>
+<p>Definitions share the Settings abbreviation table and the mapping command's
+Unicode, key notation, Ctrl+V quoting and 63-key input limit. Unlike map,
+#1 is literal abbreviation text. Normal-mode commands and literal ex line
+collection are unaffected. Expansion is not recursive. Definitions do not
+change document undo; expanded text participates in the normal input edit.
+Close Settings before changing definitions, and use its Store button to keep
+them for later sessions. Removal leaves ordinary mappings untouched.</p>
 <h3>Command files and an interactive shell</h3>
 <p><code>:so[urce] filename</code> executes ex commands from a local file.
 Quote names containing spaces. Commands may start with a colon; blank lines

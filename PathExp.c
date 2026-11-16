@@ -63,6 +63,8 @@ static struct {
 	{L"filename",	   1},
 	{L"map", 0},
 	{L"unmap", 0},
+    {L"abbreviate", 0},
+    {L"unabbreviate", 0},
 	{L"source", 1},
 	{L"shell", 0},
 	{L"z", 0},
