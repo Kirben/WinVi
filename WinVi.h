@@ -443,6 +443,7 @@ BOOL  SaveMatchList(VOID);
 BOOL  RestoreMatchList(VOID);
 VOID  FreeRepList(VOID);
 BOOL  CheckParenPairs(VOID);
+BOOL WvExRepeatSubstitute(WV_ULONG, WV_ULONG, PWSTR, BOOL);
 BOOL  SubstituteCmd(WV_LONG, WV_LONG, PWSTR);
 void  SearchNewCset(void);
 

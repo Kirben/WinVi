@@ -728,6 +728,10 @@ BOOL CommandExec(PWSTR Cmd)
 		}
 	} else if ((Args = Compare(Cmd, L"set",		   2,	 4)) != NULL) {
 		Ok = SetCmd(Args);
+	} else if ((Args = Compare(Cmd, L"&", 1, 7)) != NULL) {
+        Ok = WvExRepeatSubstitute(StartLine, EndLine, Args, FALSE);
+	} else if ((Args = Compare(Cmd, L"~", 1, 7)) != NULL) {
+        Ok = WvExRepeatSubstitute(StartLine, EndLine, Args, TRUE);
 	} else if ((Args = Compare(Cmd, L"substitute", 1, 7)) != NULL) {
 		wcsncpy(BufferW, CmdStart, WSIZE(BufferW));
 		NewStatus(0, BufferW, NS_BUSY);

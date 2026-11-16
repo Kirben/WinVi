@@ -1234,6 +1234,31 @@ and will not repeated here.</p>
 
 
 
+<h3>Repeating substitutions</h3>
+<p><code>:[range]&amp; [g][c] [count]</code> repeats the previous ex
+substitution's pattern and replacement. <code>:[range]~ [g][c] [count]</code>
+uses the most recent search pattern with that replacement instead. A valid
+previous ex substitution is required, including when its replacement is empty.
+For example, after <code>:s/foo/X/</code> followed by a search for bar,
+<code>:&amp;</code> replaces foo, while <code>:~</code> replaces bar with X.
+Each valid repeat becomes the latest substitution for later repeats.</p>
+<p>The default is the current line. Ranges and <code>%</code> are supported.
+A positive count starts at the last address and stops at EOF. <code>g</code>
+replaces all matches per line; <code>c</code> asks for confirmation. Flags apply
+only to this invocation and are not inherited from the previous command; put
+them before the optional count. For example, <code>:2,4&amp;g</code> repeats
+globally on lines 2-4. Other flags, new pattern/replacement arguments,
+<code>!</code> and command lists are not accepted.</p>
+<p>The complete pattern is retained separately from the shortened status text.
+<code>:&amp;</code> retains its saved pattern's magic interpretation;
+replacement expansion and case handling use the current settings, as with
+normal substitutions. Captures, <code>&amp;</code>, replacement case conversion
+and multiline replacements use WinVi's existing substitution engine. A repeat
+is one undo group. Text mode, an editable document and no running external
+command are required. Cancellation may leave completed edits, which can be
+undone. These repeat commands are standalone; the supported <code>:g</code>/
+<code>:v</code> body subset is unchanged.</p>
+
 <h3>Displaying lines and undo</h3>
 <p><code>:[range]p[rint] [count]</code> displays the addressed lines in a
 separate read-only window. <code>:[range]nu[mber] [count]</code> (also

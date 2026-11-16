@@ -1270,6 +1270,31 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Ersetzungen wiederholen</h3>
+<p><code>:[Bereich]&amp; [g][c] [Anzahl]</code> wiederholt Suchmuster und
+Ersetzung des letzten ex-Ersetzungsbefehls. <code>:[Bereich]~ [g][c] [Anzahl]</code>
+verwendet stattdessen das zuletzt benutzte Suchmuster mit dieser Ersetzung.
+Ein vorheriger g&uuml;ltiger ex-Ersetzungsbefehl ist erforderlich; seine
+Ersetzung darf leer sein. Nach <code>:s/foo/X/</code> und einer Suche nach bar
+ersetzt <code>:&amp;</code> foo, w&auml;hrend <code>:~</code> bar durch X ersetzt.
+Jede g&uuml;ltige Wiederholung gilt danach als letzter Ersetzungsbefehl.</p>
+<p>Standard ist die aktuelle Zeile. Bereiche und <code>%</code> sind erlaubt.
+Eine positive Anzahl beginnt an der letzten Adresse und endet am Dateiende.
+<code>g</code> ersetzt alle Treffer pro Zeile; <code>c</code> fragt nach einer
+Best&auml;tigung. Flags gelten nur f&uuml;r den aktuellen Aufruf und werden
+nicht &uuml;bernommen; sie stehen vor der optionalen Anzahl.
+<code>:2,4&amp;g</code> wiederholt global auf Zeilen 2-4. Andere Flags, neue
+Such-/Ersetzungstexte, <code>!</code> und Befehlslisten sind unzul&auml;ssig.</p>
+<p>Das vollst&auml;ndige Muster wird getrennt vom gek&uuml;rzten Statustext
+gespeichert. <code>:&amp;</code> beh&auml;lt die damalige magic-Interpretation
+des Musters; Ersetzung und Gro&szlig;-/Kleinschreibung verwenden die aktuellen
+Einstellungen. Gruppen, <code>&amp;</code>, Schreibweisen-Konvertierung und
+mehrzeilige Ersetzungen verwenden die bestehende Ersetzungsfunktion. Eine
+Wiederholung ist eine Undo-Gruppe. Erforderlich sind Textmodus, ein bearbeitbares
+Dokument und kein laufender externer Befehl. Nach Abbruch bleiben abgeschlossene
+&Auml;nderungen r&uuml;cknehmbar. Die Befehle sind eigenst&auml;ndig; die
+unterst&uuml;tzten <code>:g</code>/<code>:v</code>-Befehlsteile bleiben gleich.</p>
+
 <h3>Zeilen anzeigen und &Auml;nderungen zur&uuml;cknehmen</h3>
 <p><code>:[Bereich]p[rint] [Anzahl]</code> zeigt die Zeilen in einem eigenen
 schreibgesch&uuml;tzten Fenster. <code>:[Bereich]nu[mber] [Anzahl]</code>

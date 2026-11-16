@@ -8,6 +8,9 @@ static BOOL WINAPI QuietBeep(UINT type){(void)type;return TRUE;}
 static int allocationCountdown=-1;
 static void *TestCalloc(size_t count,size_t size){if(allocationCountdown==0){allocationCountdown=-2;return NULL;}if(allocationCountdown>0)allocationCountdown--;return calloc(count,size);}
 #define calloc TestCalloc
+static int historyAllocationCountdown=-1;
+static void *HistoryMalloc(size_t n){if(historyAllocationCountdown==0){historyAllocationCountdown=-2;return NULL;}if(historyAllocationCountdown>0)historyAllocationCountdown--;return malloc(n);}
+#define malloc HistoryMalloc
 static int interruptCountdown=-1;
 extern UINT Interrupted;
 static DWORD TestTime(void){if(interruptCountdown==0)Interrupted=TRUE;else if(interruptCountdown>0)interruptCountdown--;return 0;}
@@ -15,6 +18,7 @@ static DWORD TestTime(void){if(interruptCountdown==0)Interrupted=TRUE;else if(in
 #define GetCurrentTime TestTime
 #include "../Search.c"
 #undef calloc
+#undef malloc
 static int failures,checks;
 static void Expect(const char *name,const WCHAR *pattern,const BYTE *bytes,int length,int utf,BOOL yes){
  static PAGE pages[2];POSITION p;SEARCHPART sentinel={0};WCHAR cmd[512];INT error=0;BOOL result;int direction;
@@ -183,4 +187,43 @@ static void ReplacementCases(void){
  if(BuildReplaceString(source,&length,&pos,100,0) || nRepListCount || RepList.Next){printf("FAIL capture allocation failure cleanup\n");failures++;}
  allocationCountdown=-1;FreeRepList();}
 }
-int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();RootAlternatives();AlternativeContinuation();ContinuationOracle();SearchApi();SearchGuards();ReplacementCases();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}
+#define HISTORY_CHECK(x) do{checks++;if(!(x)){printf("FAIL history line %d: %s\n",__LINE__,#x);failures++;return;}}while(0)
+static void RepeatDocument(void){
+ static PAGE page;static BYTE bytes[]="safe\n";memset(&page,0,sizeof(page));page.PageBuf=bytes;page.Fill=5;page.Newlines=1;page.PageNo=1;
+ FirstPage=LastPage=CurrPos.p=ScreenStart.p=&page;CurrPos.i=CurrPos.f=ScreenStart.i=ScreenStart.f=0;LinesInFile=1;
+ UtfEncoding=0;CharSet=CS_ANSI;HexEditMode=ViewOnlyFlag=ReadOnlyFlag=ReadOnlyFile=WvExGlobalActive=Interrupted=Disabled=FALSE;
+}
+static void RepeatHistory(void){
+ PATTERN_SOURCE copy={0};PWSTR previousPattern,previousReplacement;WCHAR command[512];int i;
+ HISTORY_CHECK(CopyPattern(&copy,L"abc",3,'/',TRUE) && copy.delimiter=='/' && copy.magic);previousPattern=copy.text;
+ HISTORY_CHECK(!CopyPattern(&copy,L"x",(size_t)-1,'/',TRUE) && copy.text==previousPattern && copy.delimiter=='/' && copy.magic);free(copy.text);
+ Expect("repeat-history-foo",L"/foo/",(BYTE*)"foo",3,0,TRUE);HISTORY_CHECK(RememberSubstitution(L"X",TRUE));
+ HISTORY_CHECK(!wcscmp(SubstitutePattern.text,L"/foo/") && !wcscmp(pLastReplace,L"X"));
+ Expect("repeat-history-bar",L"/bar/",(BYTE*)"bar",3,0,TRUE);HISTORY_CHECK(!wcscmp(SubstitutePattern.text,L"/foo/") && !wcscmp(CurrentPattern.text,L"/bar/"));
+ previousPattern=SubstitutePattern.text;previousReplacement=pLastReplace;
+ for(i=0;i<2;i++){
+  historyAllocationCountdown=i;HISTORY_CHECK(!RememberSubstitution(L"Y",TRUE));historyAllocationCountdown=-1;
+  HISTORY_CHECK(SubstitutePattern.text==previousPattern && pLastReplace==previousReplacement && !wcscmp(pLastReplace,L"X"));
+ }
+ RepeatDocument();historyAllocationCountdown=1;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",FALSE));historyAllocationCountdown=-1;
+ HISTORY_CHECK(!wcscmp(CurrentPattern.text,L"/foo/") && SubstitutePattern.text==previousPattern && pLastReplace==previousReplacement && !WvExGlobalActive && !CurrPos.i);
+ Expect("repeat-history-new-search",L"/bar/",(BYTE*)"bar",3,0,TRUE);RepeatDocument();historyAllocationCountdown=0;
+ HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",TRUE));historyAllocationCountdown=-1;
+ HISTORY_CHECK(!wcscmp(CurrentPattern.text,L"/bar/") && SubstitutePattern.text==previousPattern && !WvExGlobalActive && !CurrPos.i);
+ {PWSTR flags[]={L"g",L"c",L"gc",L"cg",L"g c",L"2",L"g 2"};for(i=0;i<7;i++){RepeatDocument();historyAllocationCountdown=0;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,flags[i],TRUE));HISTORY_CHECK(historyAllocationCountdown==-2 && !WvExGlobalActive && FirstPage->Fill==5);historyAllocationCountdown=-1;}}
+ {PWSTR bad[]={L"0",L"g0",L"-1",L"9223372036854775808",L"p",L"r",L"2g",L"g|write",L"!",L"/x/y/"};for(i=0;i<10;i++){RepeatDocument();HISTORY_CHECK(!WvExRepeatSubstitute(1,1,bad[i],FALSE));HISTORY_CHECK(SubstitutePattern.text==previousPattern && pLastReplace==previousReplacement && !CurrPos.i && FirstPage->Fill==5);}}
+ RepeatDocument();HISTORY_CHECK(!WvExRepeatSubstitute(0,1,L"",FALSE));HISTORY_CHECK(!WvExRepeatSubstitute(2,1,L"",FALSE));HISTORY_CHECK(!WvExRepeatSubstitute(1,2,L"",TRUE));
+ HexEditMode=TRUE;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",FALSE));HexEditMode=FALSE;ViewOnlyFlag=TRUE;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",TRUE));ViewOnlyFlag=FALSE;
+ pLastReplace=NULL;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",FALSE));HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",TRUE));pLastReplace=previousReplacement;
+ MatchValid=FALSE;HISTORY_CHECK(!WvExRepeatSubstitute(1,1,L"",TRUE));
+ Expect("repeat-history-before-save",L"/foo/",(BYTE*)"foo",3,0,TRUE);HISTORY_CHECK(SaveMatchList());HISTORY_CHECK(!CurrentPattern.text);
+ wcscpy(command,L"/temporary/");BuildMatchList(command,'/',NULL);HISTORY_CHECK(!wcscmp(CurrentPattern.text,L"/temporary/"));
+ HISTORY_CHECK(RestoreMatchList());HISTORY_CHECK(!wcscmp(CurrentPattern.text,L"/foo/"));
+ {BYTE bytes[200];memset(bytes,'a',sizeof(bytes));command[0]='/';for(i=1;i<=200;i++)command[i]='a';command[201]='/';command[202]=0;
+  Expect("repeat-full-pattern-not-display",command,bytes,sizeof(bytes),0,TRUE);HISTORY_CHECK(wcslen(CurrentPattern.text)==202 && wcslen(SrchDispBuf)<100);HISTORY_CHECK(RememberSubstitution(L"long",TRUE));HISTORY_CHECK(wcslen(SubstitutePattern.text)==202);
+ }
+ previousPattern=CurrentPattern.text;wcscpy(command,L"/different/");historyAllocationCountdown=0;BuildMatchList(command,'/',NULL);historyAllocationCountdown=-1;
+ HISTORY_CHECK(!MatchValid && CurrentPattern.text==previousPattern);
+ Expect("repeat-final-history-search",L"/bar/",(BYTE*)"bar",3,0,TRUE);HISTORY_CHECK(RememberSubstitution(L"Y",TRUE));HISTORY_CHECK(!wcscmp(SubstitutePattern.text,L"/bar/") && !wcscmp(pLastReplace,L"Y"));
+}
+int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();RootAlternatives();AlternativeContinuation();ContinuationOracle();SearchApi();SearchGuards();ReplacementCases();RepeatHistory();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}

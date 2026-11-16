@@ -96,6 +96,19 @@ typedef struct tagSEARCHPART {
 } SEARCHPART, *PSEARCHPART;
 PSEARCHPART FirstMatch, FirstString, LastMatch;
 BOOL		MatchAtStartOfLine, MatchAtEndOfLine, MatchForward, MatchValid;
+/* Full pattern source is separate from the deliberately short status text.
+   Keep the delimiter and magic interpretation for faithful recompilation. */
+typedef struct {PWSTR text;INT delimiter;BOOL magic;} PATTERN_SOURCE;
+static PATTERN_SOURCE CurrentPattern,SubstitutePattern;
+static BOOL CopyPattern(PATTERN_SOURCE *to,LPCWSTR text,size_t n,INT delimiter,BOOL magic)
+{
+ PWSTR copy;
+ if(n>((size_t)-1)/sizeof(WCHAR)-1)return FALSE;
+ copy=malloc((n+1)*sizeof(WCHAR));if(!copy)return FALSE;
+ memcpy(copy,text,n*sizeof(WCHAR));copy[n]=0;
+ free(to->text);to->text=copy;to->delimiter=delimiter;to->magic=magic;return TRUE;
+}
+
 INT			RecursiveBranch;
 static PSEARCHPART ForwardBranchEnd, BackwardBranchStart;
 
@@ -1361,6 +1374,7 @@ PWSTR EnterChoice(PWSTR Cmd)
 PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 {	PWSTR		Start = Cmd;
 	BOOL		ForcedMagic = FALSE;
+    BOOL newPattern = Cmd[1] && Cmd[1]!=Delimiter;
 	PSEARCHPART	FirstBranch[10], LastBranch[10];
 
 	Level = 0;
@@ -1608,11 +1622,15 @@ PWSTR BuildMatchList(PWSTR Cmd, INT Delimiter, INT *ErrNo)
 		SearchErrNo = 249;
 		MatchValid = FALSE;
 	}
+    if(MatchValid && newPattern && !CopyPattern(&CurrentPattern,Start,(size_t)(Cmd-Start),Delimiter,MagicFlag)) {
+        MatchValid=FALSE;SearchErrNo=312;if(ErrNo)*ErrNo=312;
+    }
 	if (!MatchValid) MessageBeep(MB_ICONEXCLAMATION);
 	return (Cmd);
 }
 
 typedef struct tagSEARCH_DESCR {
+    PATTERN_SOURCE Source;
 	BOOL		MatchValid, MatchForward;
 	BOOL		RescanMaximumMatch, MatchAtStartOfLine, MatchAtEndOfLine;
 	PSEARCHPART	FirstMatch, FirstString, LastMatch;
@@ -1633,6 +1651,7 @@ BOOL SaveMatchList(VOID)
 	SavedSearch->MatchAtEndOfLine	= MatchAtEndOfLine;
 	SavedSearch->MatchForward		= MatchForward;
 	SavedSearch->MatchValid			= MatchValid;
+    SavedSearch->Source=CurrentPattern;CurrentPattern.text=NULL;
 	FirstMatch = FirstString = LastMatch = NULL;
 	*SrchDispBuf = '\0';
 	return (TRUE);
@@ -1655,6 +1674,7 @@ BOOL RestoreMatchList(VOID)
 	MatchAtEndOfLine	= SavedSearch->MatchAtEndOfLine;
 	MatchForward		= SavedSearch->MatchForward;
 	MatchValid			= SavedSearch->MatchValid;
+    free(CurrentPattern.text);CurrentPattern=SavedSearch->Source;
 	_ffree(SavedSearch);
 	SavedSearch = NULL;
 	return (TRUE);
@@ -1687,6 +1707,18 @@ PWCHAR ExpandRepList(PWCHAR Prev)
 }
 
 PWSTR pLastReplace;
+/* Commit the pattern/replacement pair only after all allocations succeed. */
+static BOOL RememberSubstitution(PWSTR replace,BOOL replaceChanged)
+{
+ PATTERN_SOURCE next={0},replacement={0};
+ if(!CurrentPattern.text || !CopyPattern(&next,CurrentPattern.text,wcslen(CurrentPattern.text),CurrentPattern.delimiter,CurrentPattern.magic)) {Error(312);return FALSE;}
+ if(replaceChanged && !CopyPattern(&replacement,replace,wcslen(replace),0,FALSE)) {free(next.text);Error(312);return FALSE;}
+ free(SubstitutePattern.text);SubstitutePattern=next;
+ if(replaceChanged){free(pLastReplace);pLastReplace=replacement.text;}
+ return TRUE;
+}
+
+
 INT	  nParenPairs;
 
 BOOL CheckParenPairs(VOID)
@@ -2028,17 +2060,12 @@ BOOL SubstituteCmd(WV_LONG StartLine, WV_LONG EndLine, PWSTR Args)
 			assert(*pSearch == '\0');
 		}
 		if (!pReplace) pReplace = L"";
-		if (pLastReplace) free(pLastReplace);
-		if ((pLastReplace = malloc(2*wcslen(pReplace)+2)) == NULL) {
-			Error(312);
-			return (FALSE);
-		}
-		WvCopyString(pLastReplace, pReplace);
 	}
 	if (!StartSearch()) return (FALSE);
 	Start.p = NULL;
 
 	if (!CheckParenPairs()) return (FALSE);
+    if(!RememberSubstitution(pReplace,pSearch!=NULL))return FALSE;
 
 	/*jump to start line...*/
 	if (StartLine != EndLine) {
@@ -2234,6 +2261,52 @@ BOOL SubstituteCmd(WV_LONG StartLine, WV_LONG EndLine, PWSTR Args)
 	ShowEditCaret();
 	SwitchCursor(SWC_HOURGLASS_OFF);
 	return (TRUE);
+}
+
+/* Repeat commands validate all syntax and addresses before changing search
+   state. The existing substitute engine supplies matching, confirmation and undo. */
+BOOL WvExRepeatSubstitute(WV_ULONG first,WV_ULONG last,PWSTR args,BOOL useSearch)
+{
+ extern HWND hwndSearch,hwndSettings;
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),count=0;WCHAR flags[3];INT n=0,i;
+ BOOL global=FALSE,confirm=FALSE,ok=FALSE,magic,enabled[2]={FALSE,FALSE};
+ HWND windows[2]={hwndSearch,hwndSettings};
+ if(WvExGlobalActive || HexEditMode || ExecRunning()){NewStatus(0,L"Repeat substitution requires text mode and no running external command.",NS_ERROR);return FALSE;}
+ if(IsViewOnly())return FALSE;
+ while(*args==L' ' || *args==L'\t')args++;
+ while(*args==L'g' || *args==L'c'){
+  if(*args++==L'g')global=TRUE;else confirm=TRUE;
+  while(*args==L' ' || *args==L'\t')args++;
+ }
+ if(*args>=L'0' && *args<=L'9'){
+  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)goto badArgs;count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
+  if(!count)goto badArgs;
+ }
+ while(*args==L' ' || *args==L'\t')args++;
+ if(*args)goto badArgs;
+ if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
+ if(!first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=total;
+ if(!first || first>last || last>total){NewStatus(0,L"Invalid repeat-substitution line range.",NS_ERROR);return FALSE;}
+ if(count){first=last;last=count-1>total-first?total:first+count-1;}
+ if(!pLastReplace || !SubstitutePattern.text){NewStatus(0,L"No previous substitution.",NS_ERROR);return FALSE;}
+ if(useSearch && (!MatchValid || !CurrentPattern.text)){NewStatus(0,L"No previous valid search pattern.",NS_ERROR);return FALSE;}
+ for(i=0;i<2;i++)if(windows[i] && IsWindowEnabled(windows[i])){enabled[i]=TRUE;EnableWindow(windows[i],FALSE);}
+ WvExGlobalActive=TRUE;
+ if(!useSearch){
+  magic=MagicFlag;MagicFlag=SubstitutePattern.magic;
+  BuildMatchList(SubstitutePattern.text,SubstitutePattern.delimiter,NULL);MagicFlag=magic;
+  if(!MatchValid)goto done;
+ }
+ if(global)flags[n++]=L'g';if(confirm)flags[n++]=L'c';flags[n]=0;
+ ok=SubstituteCmd((WV_LONG)first,(WV_LONG)last,flags);
+ if(Interrupted)ok=FALSE;
+done:
+ if(Disabled)Enable();WvExGlobalActive=FALSE;
+ for(i=0;i<2;i++)if(enabled[i] && IsWindow(windows[i]))EnableWindow(windows[i],TRUE);
+ return ok;
+badArgs:
+ NewStatus(0,L"Repeat substitution accepts g/c flags followed by a positive line count.",NS_ERROR);return FALSE;
 }
 
 void SearchNewCset(void)
