@@ -758,6 +758,8 @@ BOOL CommandExec(PWSTR Cmd)
         Ok = WvExDisplay(StartLine, EndLine, Args, 2);
 	} else if ((Args = Compare(Cmd, L"list", 1, 7)) != NULL) {
         Ok = WvExDisplay(StartLine, EndLine, Args, 3);
+	} else if ((Args = Compare(Cmd, L"z", 1, 0x25)) != NULL) {
+        Ok = WvExZ(StartLine, Args);
 	} else if ((Args = Compare(Cmd, L"undo", 1, 0)) != NULL) {
         Ok = WvExUndo();
 	} else if ((Args = Compare(Cmd, L">", 1, 7)) != NULL) {

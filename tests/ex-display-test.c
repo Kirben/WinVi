@@ -91,5 +91,46 @@ int main(void){
  {BYTE bytes[1500];memset(bytes,'a',sizeof(bytes));Document(bytes,sizeof(bytes),8,TRUE);failAlloc=2;CHECK(!WvExDisplay(1,1,L"",1));CHECK(allocCalls==2 && !shown && !CurrPos.i && !Disabled && !WvExGlobalActive);}
  {WCHAR *text=NULL;size_t capacity=(size_t)INT_MAX/sizeof(WCHAR),length=capacity-1;CHECK(!AppendOutput(&text,&length,&capacity,L'x') && !text);}
  Document((BYTE*)"a\n",2,8,TRUE);CHECK(!WvExUndo());CHECK(!CurrPos.i && FirstPage->Fill==2);
+
+ /* Exhaust every address/count/mode against a small independent line oracle. */
+ {int address,n,m,k;WCHAR modes[]=L"+-.^=";
+  for(address=1;address<=10;address++)for(n=1;n<=14;n++)for(m=0;m<5;m++)for(k=0;k<4;k++){
+   int lo=address,hi=address,target,j,rows;WCHAR arg[32],want[1024]=L"",part[64];
+   Document((BYTE*)"a\nb\nc\nd\ne\nf\ng\nh\ni\nj",19,8,TRUE);
+   if(m==0)hi=address+n-1;
+   if(m==1)lo=address-n+1;
+   if(m==2 || m==4){rows=m==4?(n>2?n-2:1):n;lo=address-rows/2;hi=address+(rows-1)/2;}
+   if(m==3){lo=address-2*n+1;if(lo<1)lo=1;hi=lo+n-1;}
+   if(lo<1)lo=1;if(hi>10)hi=10;target=m==4?address:hi;
+   for(j=lo;j<=hi;j++){
+    if(m==4 && j==address)wcscat(want,L"----------------------------------------\r\n");
+    if(k&1){swprintf(part,64,L"%d\t",j);wcscat(want,part);}
+    swprintf(part,64,L"%c%s\r\n",L'a'+j-1,k&2?L"$":L"");wcscat(want,part);
+    if(m==4 && j==address)wcscat(want,L"----------------------------------------\r\n");
+   }
+   swprintf(arg,32,L"%c%d%s%s",modes[m],n,k&1?L"#":L"",k&2?L"l":L"");
+   CHECK(WvExZ(address,arg));CHECK(!wcscmp(captured,want));CHECK(CountLines(&CurrPos)+1==target);
+   CHECK(!Disabled && !WvExGlobalActive && FirstPage->Fill==19);
+  }
+ }
+ Document((BYTE*)"a\nb\nc",5,8,TRUE);CrsrLines=3;
+ CHECK(WvExZ((WV_ULONG)-1,L""));CHECK(!wcscmp(captured,L"b\r\nc\r\n"));
+ CHECK(!WvExZ((WV_ULONG)-1,L""));CHECK(WvExZ(1,L"+9223372036854775807"));CHECK(!wcscmp(captured,L"a\r\nb\r\nc\r\n"));
+ CHECK(WvExZ(3,L"^9223372036854775807"));CHECK(!wcscmp(captured,L"a\r\nb\r\nc\r\n"));
+ CHECK(WvExZ(2,L"=9223372036854775807"));CHECK(CountLines(&CurrPos)==1);
+ {WCHAR *bad[]={L"0",L"-0",L"++",L"1x",L"9223372036854775808",L"1|write",L"1!",L"1 2",L"n"};int j;
+  for(j=0;j<9;j++){Document((BYTE*)"a\n",2,8,TRUE);CHECK(!WvExZ(1,bad[j]));CHECK(!shown && !CurrPos.i);}}
+ {WCHAR *bad[]={L":1,2z",L":%z",L":z!",L":0z"};int j;
+  for(j=0;j<4;j++){WCHAR cmd[32];Document((BYTE*)"a\nb\n",4,8,TRUE);wcscpy(cmd,bad[j]);CHECK(!CommandExec(cmd));CHECK(!shown && !CurrPos.i);}}
+ {int failure;for(failure=0;failure<7;failure++){
+  Document((BYTE*)"a\nb\nc",5,8,TRUE);
+  switch(failure){case 0:failAlloc=1;break;case 1:cancel=1;break;case 2:readFault=1;break;case 3:failWindow=1;break;case 4:failWindow=2;break;case 5:running=1;break;case 6:HexEditMode=TRUE;break;}
+  CHECK(!WvExZ(2,L"=5"));CHECK(!shown && !CurrPos.i && !Disabled && !WvExGlobalActive);
+ }}
+ Document((BYTE*)"",0,8,TRUE);CHECK(!WvExZ((WV_ULONG)-1,L""));
+ Document((BYTE*)"a\tb\nc",5,8,TRUE);ViewOnlyFlag=TRUE;CHECK(WvExZ(1,L"+1 p # l"));CHECK(!wcscmp(captured,L"1\ta^Ib$\r\n"));
+ CHECK(!WvExUndo());
+
+ {WCHAR cmd[]=L":1zlp";Document((BYTE*)"a\nb",3,8,TRUE);CrsrLines=2;CHECK(CommandExec(cmd));CHECK(!wcscmp(captured,L"a$\r\n"));}
  printf("PASS %d ex display/parser/failure checks\n",checks);return 0;
 }

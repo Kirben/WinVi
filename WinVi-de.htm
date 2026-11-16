@@ -1343,6 +1343,24 @@ Register und Undo-Verlauf bleiben unver&auml;ndert. Auch schreibgesch&uuml;tzte
 Dokumente sind erlaubt. Textmodus und kein laufender externer Befehl sind
 erforderlich. Bei Abbruch, Lesefehler oder Speichermangel bleibt das Dokument
 unver&auml;ndert; die unvollst&auml;ndige Ausgabe wird verworfen.</p>
+<p><code>:[Zeile]z [Typ] [Anzahl] [Flags]</code> zeigt ein Zeilenfenster.
+Ohne Typ steht die angegebene Zeile oben; <code>:z</code> beginnt nach der
+aktuellen Zeile. <code>+</code> beginnt an der Adresse/aktuellen Zeile,
+<code>-</code> endet dort, <code>.</code> zentriert sie. <code>^</code> zeigt
+das vorherige Fenster: Beginn Adresse minus zweimal Anzahl plus eins, mindestens eins.
+<code>=</code> zentriert die Zeile zwischen zwei Trennlinien aus je 40
+Bindestrichen; nur hierbei bleibt der Cursor auf der Adresse, sonst auf der
+letzten Ausgabezeile. Standardanzahl ist die sichtbare Editor-Zeilenanzahl
+minus eins (mindestens eins); eine explizite Anzahl gilt nur einmal.
+Dateigrenzen begrenzen die Ausgabe, ohne das andere Ende zu verschieben.
+Bei <code>=</code> sind zwei Ausgabezeilen f&uuml;r Trennlinien reserviert;
+kleine Anzahlen zeigen trotzdem die Adresse und beide Trennlinien.
+Bei gerader zentrierter Anzahl steht die zus&auml;tzliche Textzeile davor.
+<code>#</code> nummeriert, <code>l</code> verwendet Listendarstellung;
+beide Flags sind kombinierbar. <code>p</code> zeigt normale Ausgabe, sofern
+kein anderes Flag gesetzt ist. Einstellungen bleiben unver&auml;ndert.
+Bereiche, ! und leere Dokumente sind unzul&auml;ssig. Es gelten dieselben
+Regeln f&uuml;r Kodierung, Abbruch und Undo wie bei print.</p>
 <p><code>:u[ndo]</code> nimmt die letzte ganze Bearbeitungsoperation wie
 vi-<code>u</code> zur&uuml;ck. Ein zweites <code>:undo</code> stellt sie wieder
 her. Zwischenzeitliches Anzeigen von Zeilen &auml;ndert diese Gruppierung nicht.

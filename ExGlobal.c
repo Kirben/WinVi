@@ -99,47 +99,40 @@ static INT DisplayChar(PPOSITION pos)
 }
 /* Standalone display commands share the global output window, but do not
    compile a search, edit the document, or start an undo sequence. */
-BOOL WvExDisplay(WV_ULONG first,WV_ULONG last,PWSTR args,INT kind)
+static BOOL OutputDivider(WCHAR **text,size_t *used,size_t *capacity)
 {
- WV_ULONG total=LinesInFile+IncompleteLastLine(),count=0,line=1,work=0;
- POSITION pos={FirstPage,0,0},cursor=CurrPos;WCHAR *output=NULL;
- size_t used=0,capacity=0;INT c,i;BOOL ok=FALSE,enabled[2]={FALSE,FALSE};
- HWND dialogs[2]={hwndSearch,hwndSettings};
- if(WvExGlobalActive || HexEditMode || ExecRunning())return GlobalError(L"Display commands require text mode and no running external command.");
- while(*args==L' ' || *args==L'\t')args++;
- if(*args){
-  if(*args<L'0' || *args>L'9')return GlobalError(L"Display accepts only a positive line count.");
-  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)return GlobalError(L"Display count is too large.");count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
-  while(*args==L' ' || *args==L'\t')args++;
-  if(!count || *args)return GlobalError(L"Display accepts only a positive line count.");
- }
- if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
- if(!first && last==(WV_ULONG)-2)first=1;
- if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=total;
- if(!first || first>last || last>total || !total)return GlobalError(L"Invalid display line range.");
- if(count){first=last;last=count-1>total-first?total:first+count-1;}
+ INT i;for(i=0;i<40;i++)if(!AppendOutput(text,used,capacity,L'-'))return FALSE;
+ return AppendOutput(text,used,capacity,L'\r') && AppendOutput(text,used,capacity,L'\n');
+}
+static BOOL DisplayRange(WV_ULONG first,WV_ULONG last,INT flags,WV_ULONG target,WV_ULONG divider)
+{
+ WV_ULONG line=1,work=0;POSITION pos={FirstPage,0,0},cursor=CurrPos;
+ WCHAR *output=NULL;size_t used=0,capacity=0;INT c,i;
+ BOOL ok=FALSE,enabled[2]={FALSE,FALSE};HWND dialogs[2]={hwndSearch,hwndSettings};
  for(i=0;i<2;i++)if(dialogs[i] && IsWindowEnabled(dialogs[i])){enabled[i]=TRUE;EnableWindow(dialogs[i],FALSE);}
  WvExGlobalActive=TRUE;StartInterruptCheck();Disable(1);DragAcceptFiles(hwndMain,FALSE);
  if(CharAt(&pos)==C_BOM)CharAndAdvance(&pos);
  while(line<=last){
   if(CheckInterrupt())goto done;
-  cursor=pos;
-  if(line>=first && kind==2){WCHAR number[32],*p;_snwprintf(number,32,L"%I64u\t",line);for(p=number;*p;p++)if(!AppendOutput(&output,&used,&capacity,*p))goto noMemory;}
+  if(line==target)cursor=pos;
+  if(line>=first && divider && line==divider)if(!OutputDivider(&output,&used,&capacity))goto noMemory;
+  if(line>=first && (flags&1)){WCHAR number[32],*p;_snwprintf(number,32,L"%I64u\t",line);for(p=number;*p;p++)if(!AppendOutput(&output,&used,&capacity,*p))goto noMemory;}
   for(;;){
    c=DisplayChar(&pos);
    if(c==C_ERROR){GlobalError(L"Cannot read the display input.");goto done;}
    if(CharFlags(c)&1)break;
    if(line>=first){
-    if(kind==3 && ((c>=0 && c<32) || c==127)){
+    if((flags&2) && ((c>=0 && c<32) || c==127)){
      if(!AppendOutput(&output,&used,&capacity,L'^') || !AppendOutput(&output,&used,&capacity,c==127?L'?':(WCHAR)(c+64)))goto noMemory;
     }else if(!AppendOutput(&output,&used,&capacity,c<0?0xfffd:c==0?0x2400:(WCHAR)c))goto noMemory;
    }
    if((++work&255)==0 && CheckInterrupt())goto done;
   }
   if(line>=first){
-   if(kind==3 && !AppendOutput(&output,&used,&capacity,L'$'))goto noMemory;
+   if((flags&2) && !AppendOutput(&output,&used,&capacity,L'$'))goto noMemory;
    if(!AppendOutput(&output,&used,&capacity,L'\r') || !AppendOutput(&output,&used,&capacity,L'\n'))goto noMemory;
   }
+  if(divider && line==divider)if(!OutputDivider(&output,&used,&capacity))goto noMemory;
   if(line==last)break;
   if(c==C_EOF){GlobalError(L"Display range ended unexpectedly.");goto done;}
   line++;
@@ -156,6 +149,63 @@ done:
  if(Interrupted)return GlobalError(L"Display cancelled; document unchanged.");
  return ok;
 }
+BOOL WvExDisplay(WV_ULONG first,WV_ULONG last,PWSTR args,INT kind)
+{
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),count=0;
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return GlobalError(L"Display commands require text mode and no running external command.");
+ while(*args==L' ' || *args==L'\t')args++;
+ if(*args){
+  if(*args<L'0' || *args>L'9')return GlobalError(L"Display accepts only a positive line count.");
+  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)return GlobalError(L"Display count is too large.");count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
+  while(*args==L' ' || *args==L'\t')args++;
+  if(!count || *args)return GlobalError(L"Display accepts only a positive line count.");
+ }
+ if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
+ if(!first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=total;
+ if(!first || first>last || last>total || !total)return GlobalError(L"Invalid display line range.");
+ if(count){first=last;last=count-1>total-first?total:first+count-1;}
+ return DisplayRange(first,last,kind==2?1:kind==3?2:0,last,0);
+}
+/* Counts are clipped before addition/subtraction, including near 64-bit EOF.
+   A bare z advances past dot; an explicit mode starts from dot itself. */
+BOOL WvExZ(WV_ULONG address,PWSTR args)
+{
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),count=0,first,last,before,after;
+ WCHAR mode=0;INT flags=0;
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return GlobalError(L"Display commands require text mode and no running external command.");
+ while(*args==L' ' || *args==L'\t')args++;
+ if(*args && wcschr(L"+-.^=",*args))mode=*args++;
+ while(*args==L' ' || *args==L'\t')args++;
+ if(*args>=L'0' && *args<=L'9'){
+  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)return GlobalError(L"Display count is too large.");count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
+  if(!count)return GlobalError(L"z requires a positive count.");
+ }else count=CrsrLines>1?(WV_ULONG)CrsrLines-1:1;
+ while(*args){
+  if(*args==L'#')flags|=1;else if(*args==L'l')flags|=2;
+  else if(*args!=L'p' && *args!=L' ' && *args!=L'\t')return GlobalError(L"Use z [type] [count] [p l #].");
+  args++;
+ }
+ if(address==(WV_ULONG)-1){address=CountLines(&CurrPos)+1;if(!mode && address<WV_MAX_POSITION)address++;}
+ if(!address || address>total)return GlobalError(L"Invalid z line address.");
+ first=last=address;
+ switch(mode){
+ case L'-': first=count>address?1:address-count+1;break;
+ case L'^':
+  first=count>(address-1)/2?1:address-count-count+1;
+  last=count-1>total-first?total:first+count-1;break;
+ case L'.':case L'=':
+  /* '=' reserves two output rows for the separators. Small counts still
+     show the addressed line and both separators. Even counts favor above. */
+  before=(mode==L'=' && count>2?count-2:mode==L'='?1:count)-1;
+  after=before/2;before-=after;
+  first=before>=address?1:address-before;
+  last=after>total-address?total:address+after;break;
+ default:last=count-1>total-address?total:address+count-1;break;
+ }
+ return DisplayRange(first,last,flags,mode==L'='?address:last,mode==L'='?address:0);
+}
+
 BOOL WvExGlobal(WV_ULONG first,WV_ULONG last,PWSTR args,BOOL inverse)
 {
  WCHAR delimiter,*end,*classStart=NULL,*pattern=NULL,*body,*action=NULL,*output=NULL;

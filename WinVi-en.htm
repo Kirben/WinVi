@@ -1307,6 +1307,25 @@ displayed line. Displaying does not modify text, registers or undo history;
 view-only documents are supported. Text mode and no running external command
 are required. Cancellation, read errors or insufficient output memory leave
 the document unchanged and discard the unfinished output.</p>
+<p><code>:[line]z [type] [count] [flags]</code> displays a window of lines
+in the same read-only output window. Without a type, the addressed line is
+first; bare <code>:z</code> starts after the current line. <code>+</code>
+starts at the addressed/current line, <code>-</code> ends there,
+<code>.</code> centres it, and <code>^</code> shows the preceding window
+(starting two counts before the address, plus one). <code>=</code> centres the line
+between two 40-hyphen separators and leaves the cursor on that line;
+otherwise the last displayed line becomes current.</p>
+<p>The default count is the editor's visible text height minus one, at least
+one. Explicit counts apply only to that command; there is no window option.
+Endpoints clip at file boundaries; ^ starts at line one if its start is before it.
+For <code>=</code>, two rows are reserved for separators; counts below three
+still display the addressed line and both separators. Even centred counts
+put the extra text line above. Flags <code>#</code> and <code>l</code> enable
+numbering and list notation (and may be combined); <code>p</code> selects
+ordinary output unless another flag is also given. These flags do not change
+settings. For example, <code>:20z.5#</code> shows numbered lines 18-22.
+One address is accepted; ranges, ! and empty documents are rejected.
+The same encoding, cancellation and undo-preservation rules apply as above.</p>
 <p><code>:u[ndo]</code> undoes the last whole editing operation, just like
 vi-mode <code>u</code>. A second <code>:undo</code> redoes it. Displaying lines
 between an edit and undo does not break that grouping. No addresses, counts

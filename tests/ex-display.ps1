@@ -82,6 +82,30 @@ Check 'undo-large-operation' {
  [IO.File]::WriteAllBytes($path,$original);$script:v=Start-WV $path;Ex $v ':1copy $';Save-WV $v;Equal-Bytes $path $changed
  Ex $v ':undo';Save-WV $v;Equal-Bytes $path $original;Ex $v ':undo';Save-WV $v;Equal-Bytes $path $changed
 }
+
+$ztext=((& {foreach($i in 1..10){"L$i"}}) -join "`n")+"`n"
+DisplayCase 'z-adjacent-flags' "a`nb`n" ':1zlp' "a`$`r`nb`$`r`n" 2
+DisplayCase 'z-address' $ztext ':3z 3' "L3`r`nL4`r`nL5`r`n" 5
+DisplayCase 'z-bare' "a`nb`nc`n" ':z 2' "b`r`nc`r`n" 3
+DisplayCase 'z-plus' $ztext ':4z+3' "L4`r`nL5`r`nL6`r`n" 6
+DisplayCase 'z-minus' $ztext ':5z-3' "L3`r`nL4`r`nL5`r`n" 5
+DisplayCase 'z-dot' $ztext ':5z.5' "L3`r`nL4`r`nL5`r`nL6`r`nL7`r`n" 7
+DisplayCase 'z-caret' $ztext ':8z^3' "L3`r`nL4`r`nL5`r`n" 5
+DisplayCase 'z-caret-top' $ztext ':2z^3' "L1`r`nL2`r`nL3`r`n" 3
+DisplayCase 'z-equal' $ztext ':5z=5' ((('-'*40)+"`r`nL5`r`n"+('-'*40)+"`r`n").Insert(0,"L4`r`n")+"L6`r`n") 5
+DisplayCase 'z-number-list' "a`t$([char]1)`nb`n" ':1z+2#l' "1`ta^I^A`$`r`n2`tb`$`r`n" 2
+DisplayCase 'z-huge-count' $ztext ':8z+9223372036854775807' "L8`r`nL9`r`nL10`r`n" 10
+DisplayCase 'z-top-clip' $ztext ':1z.5' "L1`r`nL2`r`nL3`r`n" 3
+DisplayCase 'z-bottom-clip' $ztext ':10z.5' "L8`r`nL9`r`nL10`r`n" 10
+DisplayCase 'z-utf16' "é`r`n中😀`r`n" ':1z+2' "é`r`n中😀`r`n" 2 ([Text.UnicodeEncoding]::new($false,$true))
+DisplayCase 'z-large-output' (('a'*131071)+"`nb`n") ':1z+2' (('a'*131071)+"`r`nb`r`n") 2
+Check 'z-preserves-undo-register' {
+ $path=Join-Path $cases 'z-undo.txt';[IO.File]::WriteAllText($path,"a`nb`nc`n",$utf8);$script:v=Start-WV $path
+ Ex $v ':2yank';Ex $v ':1,2join';Output $v ':1z+2' "a b`r`nc`r`n"
+ Ex $v ':undo';Save-WV $v;Equal-Bytes $path $utf8.GetBytes("a`nb`nc`n")
+ Ex $v ':0put';Save-WV $v;Equal-Bytes $path $utf8.GetBytes("b`na`nb`nc`n")
+}
+
 $results|ConvertTo-Json|Set-Content "$PSScriptRoot/ex-display-results.json"
 if(@($results|Where-Object Result -eq 'FAIL').Count){throw 'Ex display/undo regressions failed'}
 "$($results.Count) display/undo application cases passed"

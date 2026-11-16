@@ -504,6 +504,7 @@ void WvWatchFlash(WPARAM,LPARAM);
 
 /* Two-pass ex global operations and document edit tracking. */
 extern BOOL WvExGlobalActive, WvExGlobalUndo;
+BOOL WvExZ(WV_ULONG, PWSTR);
 BOOL WvExDisplay(WV_ULONG, WV_ULONG, PWSTR, INT);
 BOOL WvExGlobal(WV_ULONG,WV_ULONG,PWSTR,BOOL);
 void WvExGlobalEdit(WV_ULONG,WV_ULONG,WV_ULONG);
