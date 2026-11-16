@@ -1243,19 +1243,25 @@ the current line. A positive count starts at the last address and stops at EOF.
 Only change accepts a range or count; <code>:%change</code> replaces the whole
 document. Empty documents accept default append/insert/change; insert and change
 use a virtual first line.</p>
-<p>These commands open a resizable multiline input dialog. Enter or paste text,
-then choose <b>Apply</b>. <b>Cancel</b> leaves the document unchanged. Apply takes
-the place of terminal ex's terminating dot line: a literal <code>.</code> line
-is ordinary text here. Applying empty append/insert input does nothing;
-applying empty change input deletes the addressed lines. Entered indentation
-and line widths are used as supplied. Inline text arguments and <code>!</code>
-are not accepted.</p>
+<p>These commands use the command bar for traditional ex input. Type text
+and press Enter to accept each line. A line containing only <code>.</code>
+finishes input; the dot is not inserted. Blank lines and whitespace are kept.
+Esc, Ctrl+C or Ctrl+Break ends input, discards the unfinished line and keeps
+all accepted lines. For change, finishing or interrupting with no accepted
+lines deletes the addressed range; append/insert then make no change.
+The title shows input mode and the accepted-line count. Accepted lines are
+staged and applied together when input finishes or is interrupted.</p>
+<p>Multiline paste accepts complete lines using the same dot rule; text after
+a terminating dot is ignored. A final clipboard line without a newline stays
+in the bar until Enter accepts it. A literal single-dot line cannot be entered
+with these commands; use ordinary insert mode for it. Indentation and widths
+are used as supplied. Inline text arguments and <code>!</code> are rejected.</p>
 <p>Entered CR/LF/CRLF breaks are converted to the document's newline convention,
 and an incomplete last input line receives a terminator. Blank input lines
 are preserved. Appending after an unfinished document line supplies a separator.
 At CR/LF boundaries, CRLF may be used to keep neighbouring lines separate.
 The document encoding and BOM are preserved. Characters that cannot be encoded
-exactly are rejected in the dialog while retaining the entered text.</p>
+exactly are rejected before acceptance; the pending line stays editable.</p>
 <p>Each applied edit is one undo group and preserves yank/delete registers.
 The cursor finishes at the beginning of the last entered line; an empty change
 uses the surviving deletion boundary. Text mode, an editable document and no

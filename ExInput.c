@@ -1,5 +1,6 @@
-/* GUI input and document encoding for line-oriented ex input. GPL-2.0-or-later. */
+/* Command-bar input and document encoding for ex. GPL-2.0-or-later. */
 #include <windows.h>
+#include <commctrl.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,88 +10,138 @@
 
 static BOOL InputError(LPCWSTR text)
 {NewStatus(0,(PWSTR)text,NS_ERROR);return FALSE;}
-typedef struct {INT kind;PWSTR text;BOOL busy,cancelled;} EX_INPUT;
+typedef struct {PWSTR text;size_t used,capacity;BOOL done,busy;WV_ULONG lines;} EX_INPUT;
+static EX_INPUT *ActiveInput;
+static void InputMessage(MSG *message)
+{
+ if((message->hwnd==hwndMain || message->hwnd==hwndCmd) &&
+    ((message->message==WM_CHAR && (message->wParam==27 || message->wParam==3)) ||
+     (message->message==WM_KEYDOWN && message->wParam==VK_CANCEL))){WvExInputDone(TRUE);return;}
+ TranslateMessage(message);DispatchMessageW(message);
+}
 static UINT InputScalar(LPCWSTR,UINT,BYTE[8]);
 static UINT InputUnits(LPCWSTR text)
 {
  if(*text>=0xd800 && *text<=0xdbff)return text[1]>=0xdc00 && text[1]<=0xdfff?2:0;
  return *text>=0xdc00 && *text<=0xdfff?0:1;
 }
-static BOOL InputRepresentable(HWND window,EX_INPUT *input,LPCWSTR text)
+/* Validate before accepting a line: never silently replace unencodable text.
+   Pump bounded batches so interruption remains available on long pasted lines. */
+static BOOL InputRepresentable(EX_INPUT *input,LPCWSTR text)
 {
  BYTE encoded[8];UINT units,work=0;
  while(*text){
-  if(*text==L'\r' || *text==L'\n')text++;
-  else{units=InputUnits(text);if(!units || !InputScalar(text,units,encoded))return FALSE;text+=units;}
-  if((++work&255)==0){
-   MSG message;UINT pending=0;
-   while(pending++<32 && PeekMessage(&message,NULL,0,0,PM_REMOVE)){
-    if(message.message==WM_QUIT){PostQuitMessage((INT)message.wParam);input->cancelled=TRUE;break;}
-    if(!IsDialogMessage(window,&message)){TranslateMessage(&message);DispatchMessage(&message);}
+  if(*text==L'\r' || *text==L'\n')return FALSE;
+  units=InputUnits(text);if(!units || !InputScalar(text,units,encoded))return FALSE;text+=units;
+  if((++work&255)==0){MSG message;UINT pending=0;
+   while(pending++<32 && PeekMessageW(&message,NULL,0,0,PM_REMOVE)){
+    if(message.message==WM_QUIT){PostQuitMessage((INT)message.wParam);input->done=TRUE;break;}
+    InputMessage(&message);
    }
-   if(input->cancelled)return FALSE;
+   if(Interrupted){Interrupted=FALSE;input->done=TRUE;}
+   if(input->done)return FALSE;
   }
  }
  return TRUE;
 }
-static void InputLayout(HWND window)
+/* Called by both the edit subclass and the normal command-bar completion
+   message. Returning TRUE prevents recursive execution/history recording. */
+BOOL WvExInputDone(BOOL interrupt)
 {
- RECT r,pad={0,0,8,8},button={0,0,56,16},note;WCHAR text[256];HWND label=GetDlgItem(window,32002);
- HDC dc;HFONT old,font;INT height,top;
- GetClientRect(window,&r);MapDialogRect(window,&pad);MapDialogRect(window,&button);
- GetWindowTextW(label,text,256);note.left=note.top=note.bottom=0;note.right=r.right-2*pad.right;
- dc=GetDC(label);font=(HFONT)SendMessage(label,WM_GETFONT,0,0);old=(HFONT)SelectObject(dc,font);
- DrawTextW(dc,text,-1,&note,DT_CALCRECT|DT_WORDBREAK);SelectObject(dc,old);ReleaseDC(label,dc);
- height=note.bottom>2*pad.bottom?note.bottom:2*pad.bottom;top=pad.bottom+height+pad.bottom/2;
- MoveWindow(label,pad.right,pad.bottom,r.right-2*pad.right,height,TRUE);
- MoveWindow(GetDlgItem(window,32001),pad.right,top,r.right-2*pad.right,r.bottom-top-button.bottom-3*pad.bottom,TRUE);
- MoveWindow(GetDlgItem(window,IDOK),r.right-2*button.right-2*pad.right,r.bottom-button.bottom-pad.bottom,button.right,button.bottom,TRUE);
- MoveWindow(GetDlgItem(window,IDCANCEL),r.right-button.right-pad.right,r.bottom-button.bottom-pad.bottom,button.right,button.bottom,TRUE);
-}
-static INT_PTR CALLBACK InputProc(HWND window,UINT message,WPARAM w,LPARAM l)
-{
- EX_INPUT *input=(EX_INPUT*)GetWindowLongPtrW(window,DWLP_USER);
- switch(message){
- case WM_INITDIALOG:
-  input=(EX_INPUT*)l;SetWindowLongPtrW(window,DWLP_USER,(LONG_PTR)input);
-  SetWindowTextW(window,input->kind==0?L"WinVi - Append lines":input->kind==1?L"WinVi - Insert lines":L"WinVi - Change lines");
-  if(input->kind==2)SetDlgItemTextW(window,32002,L"Enter replacement lines, then choose Apply. Empty input deletes the addressed lines. Cancel makes no changes.");
-  SendDlgItemMessageW(window,32001,EM_LIMITTEXT,INT_MAX-1,0);InputLayout(window);
-  SetFocus(GetDlgItem(window,32001));return FALSE;
- case WM_SIZE:if(input)InputLayout(window);return TRUE;
- case WM_GETMINMAXINFO:{RECT minimum={0,0,240,160};MapDialogRect(window,&minimum);
-  ((MINMAXINFO*)l)->ptMinTrackSize.x=minimum.right+2*GetSystemMetrics(SM_CXFRAME);
-  ((MINMAXINFO*)l)->ptMinTrackSize.y=minimum.bottom+GetSystemMetrics(SM_CYCAPTION)+2*GetSystemMetrics(SM_CYFRAME);return TRUE;}
- case WM_COMMAND:
-  if(LOWORD(w)==IDCANCEL){if(input->busy)input->cancelled=TRUE;else EndDialog(window,0);return TRUE;}
-  if(LOWORD(w)==IDOK){
-   HWND edit=GetDlgItem(window,32001);INT n,read;PWSTR text;
-   BOOL valid;if(input->busy)return TRUE;
-   SetLastError(ERROR_SUCCESS);n=GetWindowTextLengthW(edit);
-   if((!n && GetLastError()!=ERROR_SUCCESS) || n<0 || n>=INT_MAX || (size_t)n>((size_t)-1)/sizeof(WCHAR)-1){InputError(L"Cannot determine the input length.");return TRUE;}
-   text=malloc(((size_t)n+1)*sizeof(WCHAR));
-   if(!text){InputError(L"Not enough memory to collect the entered lines.");return TRUE;}
-   SetLastError(ERROR_SUCCESS);read=GetWindowTextW(edit,text,n+1);
-   if(read!=n || (!read && GetLastError()!=ERROR_SUCCESS)){free(text);InputError(L"Cannot read the entered lines.");return TRUE;}
-   input->busy=TRUE;EnableWindow(edit,FALSE);EnableWindow(GetDlgItem(window,IDOK),FALSE);
-   valid=InputRepresentable(window,input,text);
-   input->busy=FALSE;EnableWindow(edit,TRUE);EnableWindow(GetDlgItem(window,IDOK),TRUE);
-   if(input->cancelled){free(text);EndDialog(window,0);return TRUE;}
-   if(!valid){
-    free(text);SetDlgItemTextW(window,32002,L"Some characters cannot be represented exactly in this document's encoding. Correct the text or choose Cancel; the document is unchanged.");InputLayout(window);SetFocus(edit);return TRUE;
-   }
-   input->text=text;EndDialog(window,1);return TRUE;
+ EX_INPUT *input=ActiveInput;INT n,read;PWSTR line,grown;size_t next,capacity;
+ if(!input)return FALSE;
+ if(interrupt){input->done=TRUE;return TRUE;}
+ if(input->done || input->busy)return TRUE;
+ SetLastError(ERROR_SUCCESS);n=GetWindowTextLengthW(hwndCmd);
+ if((!n && GetLastError()!=ERROR_SUCCESS) || n<0 || n>=INT_MAX || (size_t)n>SIZE_MAX/sizeof(WCHAR)-1)return TRUE;
+ line=malloc(((size_t)n+1)*sizeof(WCHAR));if(!line){SetWindowTextW(hwndMain,L"WinVi - not enough memory; pending line not accepted");return TRUE;}
+ SetLastError(ERROR_SUCCESS);read=GetWindowTextW(hwndCmd,line,n+1);if(read!=n || (!read && GetLastError()!=ERROR_SUCCESS)){free(line);return TRUE;}
+ if(n==1 && line[0]==L'.'){input->done=TRUE;free(line);return TRUE;}
+ input->busy=TRUE;EnableWindow(hwndCmd,FALSE);
+ if(!InputRepresentable(input,line)){
+  if(!input->done)SetWindowTextW(hwndMain,L"WinVi - line cannot be encoded exactly; correct it or interrupt");
+ }else if(input->used>SIZE_MAX/sizeof(WCHAR)-3 || (size_t)n>SIZE_MAX/sizeof(WCHAR)-input->used-3){
+  SetWindowTextW(hwndMain,L"WinVi - input too large; pending line not accepted");
+ }else{
+  next=input->used+(size_t)n+2;
+  capacity=input->capacity;
+  if(capacity<next+1){
+   capacity=capacity>SIZE_MAX/sizeof(WCHAR)/2?SIZE_MAX/sizeof(WCHAR):capacity*2;
+   if(capacity<next+1)capacity=next+1;
+   grown=realloc(input->text,capacity*sizeof(WCHAR));
+  }else grown=input->text;
+  if(!grown)SetWindowTextW(hwndMain,L"WinVi - not enough memory; pending line not accepted");
+  else{WCHAR title[160];input->text=grown;input->capacity=capacity;memcpy(grown+input->used,line,(size_t)n*sizeof(WCHAR));
+   grown[next-2]=L'\r';grown[next-1]=L'\n';grown[next]=0;input->used=next;input->lines++;
+   SetWindowTextW(hwndCmd,L"");
+   _snwprintf(title,160,L"WinVi - ex input: %I64u line(s) accepted; . then Enter finishes; Esc/Ctrl+C interrupts",input->lines);
+   SetWindowTextW(hwndMain,title);
   }
-  break;
- case WM_CLOSE:if(input->busy)input->cancelled=TRUE;else EndDialog(window,0);return TRUE;
  }
- return FALSE;
+ input->busy=FALSE;EnableWindow(hwndCmd,TRUE);SetFocus(hwndCmd);free(line);return TRUE;
+}
+/* Multiline paste follows the same Enter/dot rules. The final unterminated
+   clipboard line stays editable. Ignore everything following a dot line. */
+static void InputPaste(HWND edit)
+{
+ HANDLE data;LPCWSTR clip;PWSTR copy,p,start;SIZE_T bytes,n;
+ if(!ActiveInput || ActiveInput->busy || ActiveInput->done || !OpenClipboard(edit))return;
+ data=GetClipboardData(CF_UNICODETEXT);bytes=data?GlobalSize(data):0;clip=data?GlobalLock(data):NULL;
+ copy=NULL;
+ if(clip){
+  for(n=0;n<bytes/sizeof(WCHAR) && clip[n];n++);
+  if(n<bytes/sizeof(WCHAR) && n<=SIZE_MAX/sizeof(WCHAR)-1){copy=malloc((n+1)*sizeof(WCHAR));if(copy)memcpy(copy,clip,(n+1)*sizeof(WCHAR));}
+  GlobalUnlock(data);
+ }
+ CloseClipboard();if(!copy)return;
+ for(start=p=copy;!ActiveInput->done;p++){
+  WCHAR c=*p;
+  if(!c || c==L'\r' || c==L'\n'){
+   *p=0;SendMessageW(edit,EM_REPLACESEL,TRUE,(LPARAM)start);
+   if(!c)break;
+   WvExInputDone(FALSE);
+   /* Invalid/unallocated lines remain editable; do not merge later lines. */
+   if(GetWindowTextLengthW(edit) && !ActiveInput->done)break;
+   if(c==L'\r' && p[1]==L'\n')p++;
+   start=p+1;
+  }
+ }
+ free(copy);
+}
+static LRESULT CALLBACK InputEdit(HWND edit,UINT message,WPARAM w,LPARAM l,UINT_PTR id,DWORD_PTR data)
+{
+ (void)id;(void)data;
+ if(message==WM_CHAR){
+  if(w==L'\t'){SendMessageW(edit,EM_REPLACESEL,TRUE,(LPARAM)L"\t");return 0;}
+  if(w==L'\r'){WvExInputDone(FALSE);return 0;}
+  if(w==27 || w==3){WvExInputDone(TRUE);return 0;}
+ }
+ if(message==WM_KEYDOWN && w==VK_CANCEL){WvExInputDone(TRUE);return 0;}
+ if(message==WM_PASTE){InputPaste(edit);return 0;}
+ return DefSubclassProc(edit,message,w,l);
 }
 BOOL WvExAskText(INT kind,PWSTR *text)
 {
- EX_INPUT input={kind,NULL};INT_PTR result;
- *text=NULL;result=DialogBoxParamW(hInst,MAKEINTRESOURCEW(32000),hwndMain,InputProc,(LPARAM)&input);
- if(result!=1){free(input.text);if(result==-1)InputError(L"Cannot open the line input dialog.");return FALSE;}
+ EX_INPUT input={0};MSG message;BOOL quit=FALSE;INT quitCode=0;HWND edit;
+ *text=NULL;if(ActiveInput)return FALSE;
+ CommandEdit(0);edit=hwndCmd;
+ if(!edit)return InputError(L"Cannot open the ex input bar.");
+ if(!SetWindowSubclass(edit,InputEdit,1,0)){CommandDone(TRUE);return InputError(L"Cannot initialize the ex input bar.");}
+ input.text=malloc(sizeof(WCHAR));if(!input.text){RemoveWindowSubclass(edit,InputEdit,1);CommandDone(TRUE);return InputError(L"Not enough memory for ex input.");}
+ input.text[0]=0;input.capacity=1;ActiveInput=&input;Disable(3);DragAcceptFiles(hwndMain,FALSE);
+ SendMessageW(edit,EM_LIMITTEXT,INT_MAX-1,0);
+ SendMessageW(edit,EM_SETCUEBANNER,FALSE,(LPARAM)L"Enter text; . alone finishes; Esc/Ctrl+C keeps accepted lines");
+ SetWindowTextW(hwndMain,kind==0?L"WinVi - ex append input; . then Enter finishes":kind==1?L"WinVi - ex insert input; . then Enter finishes":L"WinVi - ex change input; . then Enter finishes");
+ while(!input.done){
+  INT result=GetMessageW(&message,NULL,0,0);
+  if(result<=0){quit=result==0;quitCode=quit?(INT)message.wParam:0;break;}
+  InputMessage(&message);
+  if(Interrupted){Interrupted=FALSE;input.done=TRUE;}
+ }
+ RemoveWindowSubclass(edit,InputEdit,1);ActiveInput=NULL;
+ if(hwndCmd==edit){hwndCmd=NULL;DestroyWindow(edit);}
+ Enable();DragAcceptFiles(hwndMain,TRUE);GenerateTitle(TRUE);
+ if(quit)PostQuitMessage(quitCode);
  *text=input.text;return TRUE;
 }
 /* Convert one validated scalar without silently substituting a default/best-fit

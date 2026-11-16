@@ -1279,19 +1279,26 @@ Standard ist die aktuelle Zeile. Eine positive Anzahl beginnt an der letzten
 Adresse und endet am Dateiende. Nur change erlaubt Bereiche und Anzahl;
 <code>:%change</code> ersetzt das ganze Dokument. Leere Dokumente erlauben alle
 drei Befehle ohne Adresse; insert/change verwenden eine virtuelle erste Zeile.</p>
-<p>Die Befehle &ouml;ffnen einen vergr&ouml;&szlig;erbaren mehrzeiligen Dialog.
-Text eingeben/einf&uuml;gen und <b>Apply</b> w&auml;hlen; <b>Cancel</b> l&auml;sst
-das Dokument unver&auml;ndert. Apply ersetzt die abschlie&szlig;ende Punktzeile
-des Terminal-ex: Eine Zeile mit nur <code>.</code> ist hier normaler Text.
-Leere Eingabe bei append/insert &auml;ndert nichts; bei change werden die
-angegebenen Zeilen gel&ouml;scht. Einr&uuml;ckung und Zeilenbreite gelten wie
-eingegeben. Direkte Textargumente und <code>!</code> sind unzul&auml;ssig.</p>
+<p>Die Befehle verwenden die Befehlszeile f&uuml;r traditionelle ex-Eingabe.
+Enter &uuml;bernimmt jeweils eine Zeile. Eine Zeile mit nur <code>.</code>
+beendet die Eingabe, ohne den Punkt einzuf&uuml;gen. Leerzeilen und Leerraum
+bleiben erhalten. Esc, Ctrl+C oder Ctrl+Break beendet die Eingabe, verwirft
+die unfertige Zeile und beh&auml;lt alle &uuml;bernommenen Zeilen.
+Ohne &uuml;bernommene Zeilen l&ouml;scht change den Bereich; append/insert
+&auml;ndern nichts. Der Fenstertitel zeigt Eingabemodus und Zeilenanzahl.
+Die &uuml;bernommenen Zeilen werden beim Beenden gemeinsam angewendet.</p>
+<p>Mehrzeiliges Einf&uuml;gen verwendet dieselbe Punktregel; Text nach dem
+abschlie&szlig;enden Punkt wird ignoriert. Eine letzte Zwischenablagezeile
+ohne Zeilenende bleibt bis Enter editierbar. Eine einzelne Punktzeile kann
+mit diesen Befehlen nicht eingegeben werden; daf&uuml;r normalen Einf&uuml;gemodus
+verwenden. Einr&uuml;ckung und Breiten gelten wie eingegeben. Direkte
+Textargumente und <code>!</code> sind unzul&auml;ssig.</p>
 <p>CR/LF/CRLF aus der Eingabe werden im Zeilenende-Format des Dokuments gespeichert;
 eine unvollst&auml;ndige letzte Eingabezeile erh&auml;lt ein Zeilenende. Leere
 Eingabezeilen bleiben erhalten. Hinter einer unvollst&auml;ndigen Dokumentzeile
 wird ein Trenner erg&auml;nzt. An CR/LF-Grenzen kann CRLF verwendet werden, damit
 Zeilen getrennt bleiben. Zeichensatz und BOM bleiben erhalten. Nicht exakt
-darstellbare Zeichen werden im Dialog abgewiesen; der Eingabetext bleibt stehen.</p>
+darstellbare Zeichen werden vor der &Uuml;bernahme abgewiesen; die Zeile bleibt editierbar.</p>
 <p>Jede &Auml;nderung ist eine Undo-Gruppe und erh&auml;lt Yank-/L&ouml;schregister.
 Der Cursor endet am Anfang der letzten neuen Zeile; bei leerem change an der
 verbleibenden L&ouml;schgrenze. Erforderlich sind Textmodus, ein bearbeitbares

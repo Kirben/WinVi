@@ -24,8 +24,8 @@ try {
   if($Configuration -in 'Both','Asan'){Run-Step 'build-asan' {& "$root/build-asan.cmd"} $results}
  }
  Run-Step 'build-command-fixture' {& "$tests/command-fixture.cmd"} $results
- foreach($native in 'search-regression','auto-split','compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global','ex-line','ex-display'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
- if($Configuration -in 'Both','Asan'){Run-Step 'ex-display-asan' {& "$tests/ex-display-test.cmd" asan} $results;Run-Step 'ex-line-asan' {& "$tests/ex-line-test.cmd" asan} $results;Run-Step 'search-regression-asan' {& "$tests/search-regression-test.cmd" asan} $results;Run-Step 'auto-split-asan' {& "$tests/auto-split-test.cmd" asan} $results;Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
+ foreach($native in 'search-regression','auto-split','compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global','ex-line','ex-display','ex-input-state'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ if($Configuration -in 'Both','Asan'){Run-Step 'ex-input-state-asan' {& "$tests/ex-input-state-test.cmd" asan} $results;Run-Step 'ex-display-asan' {& "$tests/ex-display-test.cmd" asan} $results;Run-Step 'ex-line-asan' {& "$tests/ex-line-test.cmd" asan} $results;Run-Step 'search-regression-asan' {& "$tests/search-regression-test.cmd" asan} $results;Run-Step 'auto-split-asan' {& "$tests/auto-split-test.cmd" asan} $results;Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
  Run-Step 'focused-asan-regressions' {& "$tests/bugs/build-and-test.cmd"} $results
  Copy-Item "$tests/bugs/bug-results.json" "$results/focused-results.json"
  Copy-Item "$tests/bugs/after-command-faults.stdout.txt" "$results/resource-fault-details.txt"

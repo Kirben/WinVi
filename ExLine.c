@@ -336,7 +336,7 @@ BOOL WvExTextCommand(WV_ULONG first,WV_ULONG last,PWSTR args,INT kind)
  sourceSize=TransferSize();
  if(!WvExAskText(kind,&text))goto done;
  if(Interrupted)goto done;
- /* A modal owner prevents normal editing. Also reject a reload/size change
+ /* Input mode prevents normal editing. Also reject a reload/size change
     rather than applying input to stale page pointers. Resolve addresses anew. */
  if(FirstPage!=originalFirst || LastPage!=originalLast || TransferSize()!=sourceSize || HexEditMode || ExecRunning() || IsViewOnly()){
   LineError(L"The document changed while entering lines; no edits applied.");goto done;

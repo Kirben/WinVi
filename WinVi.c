@@ -1268,7 +1268,7 @@ LRESULT CALLBACK MainProc(HWND hWnd, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			break;
 
 		case WM_USER+1234:
-			CommandDone((BOOL)wPar);
+			if(!WvExInputDone((BOOL)wPar))CommandDone((BOOL)wPar);
 			break;
 
 		case WM_USER+1235:
