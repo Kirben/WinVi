@@ -148,3 +148,6 @@ PWSTR  ExtractIdentifier(PPOSITION);
 
 /*charflags.c*/
 BYTE CharFlags(INT);
+
+void WvFreePageChain(LPPAGE);
+void WvReplacePageChain(LPPAGE,LPPAGE);

@@ -71,6 +71,9 @@ BOOL		  NotEdited = FALSE;
 PWSTR		  Brackets = L"\253%s\273";
 POSITION	  ReadPos;
 
+static BOOL IncompleteRead, IncompleteIdentityValid;
+static BY_HANDLE_FILE_INFORMATION IncompleteReadIdentity;
+
 void SetUnsafe(void)
 {
 	if (!Unsafe) {
@@ -268,6 +271,7 @@ void New(HWND hParent, BOOL SaveAltFile)
 {
 	PARAM_NOT_USED(hParent);
 	if (!AskForSave(hwndMain, 0)) return;
+    IncompleteRead=IncompleteIdentityValid=FALSE;
 	Unsafe = FALSE;
 	EnableToolButton(IDB_SAVE, FALSE);
 	DisableUndo();
@@ -477,8 +481,6 @@ BOOL OpenFileName(BOOL DontCreate)
 }
 
 /* Reject only sizes not representable by Windows signed 64-bit file positions. */
-static BOOL IncompleteRead, IncompleteIdentityValid;
-static BY_HANDLE_FILE_INFORMATION IncompleteReadIdentity;
 static BOOL SameIncompleteFile(HANDLE file)
 {
  BY_HANDLE_FILE_INFORMATION info;
@@ -1494,4 +1496,18 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 	}
 	ShowEditCaret();
 	return (Ret);
+}
+
+/* Recovery must retain the source timestamp for the normal changed-on-disk
+   warning, without opening/replacing the staged document a second time. */
+BOOL WvDocumentComplete(void){return !IncompleteRead;}
+void WvRecoveredFileName(PCWSTR name,const FILETIME *time,BOOL newFile)
+{
+ WatchFile(NULL);
+ if(CurrFile && *CurrFile && wcscmp(CurrFile,name))SetAltFileName(CurrFile,NULL);
+ WvCopyString(CurrFileName+2,name);CurrFile=CurrFileName+2;
+ LastTime=*time;NotEdited=newFile;IncompleteRead=IncompleteIdentityValid=FALSE;
+ ReadOnlyFile=FALSE;CheckReadOnly();
+ if(*CurrFile)WatchFile(CurrFile);
+ GenerateTitle(TRUE);
 }

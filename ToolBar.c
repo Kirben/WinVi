@@ -584,6 +584,7 @@ void SetCharSet(UINT CSet, UINT Flags)
 	/*Flags: 1=Invalidate Text and show cursor
 	 *		 2=Update toolbar buttons
 	 *		 4=Guess Little/Big Endian if switching to UTF-16
+	 *       8=Recovery supplied already-counted pages
 	 */
 {	INT  BomBytes = 0;
 	BOOL CountNewlines = FALSE;
@@ -653,6 +654,8 @@ void SetCharSet(UINT CSet, UINT Flags)
 			}
 		}
 	}
+    /* Recovery has already counted its detached page chain. */
+    if(Flags&8)CountNewlines=FALSE;
 	if (FirstPage != NULL) {
 		LPPAGE	Page, PrevPage;
 		WV_LONG	CntNl[9], Newlines, Carry;

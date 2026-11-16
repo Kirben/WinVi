@@ -65,6 +65,8 @@ static struct {
 	{L"unmap", 0},
     {L"abbreviate", 0},
     {L"unabbreviate", 0},
+    {L"preserve", 0},
+    {L"recover", 1},
 	{L"source", 1},
 	{L"shell", 0},
 	{L"z", 0},

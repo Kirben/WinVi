@@ -250,6 +250,28 @@ BOOL ReloadPage(LPPAGE p)
     return (Result);
 }
 
+/* Release a detached recovery chain, or the previous document after a fully
+   staged replacement. Keep the paging file: both chains may have pages in it. */
+void WvFreePageChain(LPPAGE page)
+{
+ while(page){
+  LPPAGE next=page->Next;
+  if(page->PageBuf){
+   HGLOBAL h=GLOBALHANDLE(page->PageBuf);UnlinkResident(page);
+   GlobalUnlock(h);GlobalFree(h);--PagesOccupied;
+  }
+  PAGEFREE(page);page=next;
+ }
+}
+void WvReplacePageChain(LPPAGE first,LPPAGE last)
+{
+ WvFreePageChain(FirstPage);FirstPage=first;LastPage=last;
+ CurrPos.p=ScreenStart.p=SelectStart.p=first;
+ CurrPos.i=CurrPos.f=ScreenStart.i=ScreenStart.f=SelectStart.i=SelectStart.f=0;
+ SelectCount=FirstVisible=0;AdditionalNullByte=FALSE;
+ if(LineInfo)memset(LineInfo,0,(VisiLines+2)*sizeof(LINEINFO));
+ memset(MarkPos,0,sizeof(MarkPos));
+}
 void FreeAllPages(void)
 {	LPPAGE lp = FirstPage, lp2;
 

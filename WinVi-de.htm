@@ -1337,6 +1337,34 @@ mit <code>/d</code> ohne AutoRun gestartet; andere Shells ohne Argumente.
 Adressen, Argumente und <code>!</code> sind unzul&auml;ssig. Beide Befehle setzen
 voraus, dass kein global-/Eingabebefehl oder externer Filter l&auml;uft.</p>
 
+<h3>Ungespeicherten Text sichern und wiederherstellen</h3>
+<p><code>:pre[serve]</code> erstellt einen dauerhaften Schnappschuss mit
+Rohdaten, Kodierung, Dateiname und Cursorposition. Originaldatei, Aenderungsflag
+und Undo bleiben unveraendert. Dies ist eine ausdrueckliche Sicherung, keine
+automatische Absturzsicherung. Wiederholungen erzeugen weitere Versionen;
+Fehler oder Abbruch lassen fruehere Sicherungen bestehen.</p>
+<p><code>:rec[over][!] [Dateiname]</code> laedt die neueste intakte Sicherung
+dieses Originalnamens, ohne Argument den aktuellen Namen. Ein unbenannter
+Puffer verwendet die neueste unbenannte Sicherung. Namen mit Leerzeichen
+duerfen in Anfuehrungszeichen stehen. Ungespeicherte aktuelle Aenderungen
+erfordern <code>recover!</code>. Die Daten werden vor dem Ersetzen vollstaendig
+bereitgestellt; ein Fehler oder Abbruch erhaelt Text und Undo. Erfolg stellt
+Name, Kodierung und Cursor wieder her, loescht altes Undo, Marken und Auswahl
+und markiert den Text geaendert. Erst write schreibt die Originaldatei.
+Beschaedigte Sicherungen werden zugunsten einer aelteren intakten uebersprungen.</p>
+<p>Die Dateien sind nur fuer den Windows-Benutzer und SYSTEM zugaenglich und
+besitzen eine Integritaetspruefung. Standardort ist
+<code>%LOCALAPPDATA%\WinVi-recovery</code>. Mit eigener
+<code>tmpdirectory</code>-Einstellung wird deren Unterverzeichnis
+<code>WinVi-recovery</code> verwendet; nach einem Neustart ist dieselbe
+Einstellung erforderlich. Das uebergeordnete Verzeichnis muss vorhanden sein.
+Sicherungen bleiben auch nach normalem Beenden erhalten und muessen bei Bedarf
+manuell geloescht werden. Sie enthalten Dokumentdaten, aber keine Register,
+Suchhistorie oder vollstaendige Undo-Historie. Das Format ist WinVi-spezifisch.</p>
+<p>Adressen sind nicht erlaubt; preserve akzeptiert weder Argumente noch !.
+Binaerdateien werden unterstuetzt. Ein unvollstaendig geladenes Dokument kann
+nicht als vollstaendige Sicherung gespeichert werden. Globale/Eingabeoperationen
+und gefilterte externe Kommandos muessen vorher beendet sein.</p>
 <h3>Ganze Zeilen eingeben und &auml;ndern</h3>
 <p><code>:[Zeile]a[ppend]</code> f&uuml;gt Zeilen hinter der angegebenen/aktuellen
 Zeile ein. <code>:0append</code> f&uuml;gt vor der ersten Zeile, nach einer BOM,

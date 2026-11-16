@@ -1301,6 +1301,34 @@ other configured shells launch without arguments. No addresses, arguments or
 <code>!</code> are accepted. Both source and shell require no active global/
 input operation or running filtered external command.</p>
 
+<h3>Preserving and recovering unsaved text</h3>
+<p><code>:pre[serve]</code> makes a durable snapshot of the current buffer,
+including its raw bytes, encoding, filename and cursor position. It does not
+write the original file, clear the modified flag or change undo. This is an
+explicit checkpoint, not automatic crash saving. Repeating preserve creates
+another snapshot; a failed or interrupted capture leaves earlier ones intact.</p>
+<p><code>:rec[over][!] [filename]</code> restores the newest intact snapshot
+for the specified original filename, or the current filename when omitted.
+An unnamed buffer uses the newest unnamed snapshot. File names containing
+spaces may be quoted. Unsaved current edits require <code>recover!</code>.
+Loading is staged before replacing the buffer: failure or interruption retains
+the old text and undo history. Successful recovery restores the original name,
+encoding and cursor, clears old undo/marks/selections, and marks the recovered
+text modified. It does not write the original file; use write after inspection.
+Corrupt snapshots are skipped in favor of an older intact capture.</p>
+<p>Snapshots are private to the Windows user and SYSTEM, with integrity checks.
+By default they live in <code>%LOCALAPPDATA%\WinVi-recovery</code>.
+With a custom <code>:set tmpdirectory=...</code>, they live in its
+<code>WinVi-recovery</code> subdirectory; use that same setting after restart.
+The directory must already exist apart from the recovery subdirectory.
+Snapshots survive normal exit and must be removed manually when no longer
+needed. Retained versions consume disk space. They contain document contents,
+but no registers, search history or complete undo history. They are a WinVi
+format, not interchangeable with other vi recovery files.</p>
+<p>Neither command accepts addresses; preserve accepts no arguments or !.
+Recovery is available for binary buffers too. A partial/failed file load cannot
+be preserved as a complete snapshot. Global/input operations and running
+filtered commands must finish before preservation or recovery.</p>
 <h3>Entering and changing complete lines</h3>
 <p><code>:[line]a[ppend]</code> adds lines after the addressed/current line.
 <code>:0append</code> adds them before the first line, after any BOM.
