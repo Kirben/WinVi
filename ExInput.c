@@ -123,7 +123,8 @@ static LRESULT CALLBACK InputEdit(HWND edit,UINT message,WPARAM w,LPARAM l,UINT_
 BOOL WvExAskText(INT kind,PWSTR *text)
 {
  EX_INPUT input={0};MSG message;BOOL quit=FALSE;INT quitCode=0;HWND edit;
- *text=NULL;if(ActiveInput)return FALSE;
+ *text=NULL;if(WvExSourceActive())return WvExSourceText(text);
+ if(ActiveInput)return FALSE;
  CommandEdit(0);edit=hwndCmd;
  if(!edit)return InputError(L"Cannot open the ex input bar.");
  if(!SetWindowSubclass(edit,InputEdit,1,0)){CommandDone(TRUE);return InputError(L"Cannot initialize the ex input bar.");}

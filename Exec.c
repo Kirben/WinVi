@@ -140,7 +140,7 @@ VOID ReleaseXOff(VOID)
 BOOL ExecRunning(VOID){return ActiveCommand!=NULL;}
 VOID ExecInterrupt(INT event)
 {
- (void)event;if(ActiveCommand){SetEvent(ActiveCommand->Stop);SetEvent(ActiveCommand->Continue);SetEvent(ActiveCommand->Run);TerminateJobObject(ActiveCommand->Job,ERROR_CANCELLED);}
+ (void)event;WvExSourceCancel();if(ActiveCommand){SetEvent(ActiveCommand->Stop);SetEvent(ActiveCommand->Continue);SetEvent(ActiveCommand->Run);TerminateJobObject(ActiveCommand->Job,ERROR_CANCELLED);}
  XOffState=FALSE;
 }
 VOID ExecShutdown(VOID)

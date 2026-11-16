@@ -1270,6 +1270,33 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Befehlsdateien und interaktive Shell</h3>
+<p><code>:so[urce] Dateiname</code> f&uuml;hrt ex-Befehle aus einer lokalen Datei
+aus. Namen mit Leerzeichen in Anf&uuml;hrungszeichen setzen. Ein Doppelpunkt
+am Befehlsanfang ist optional; Leerzeilen und Kommentarzeilen mit f&uuml;hrendem
+doppeltem Anf&uuml;hrungszeichen werden ignoriert. Unterst&uuml;tzt werden UTF-8
+mit/ohne BOM und UTF-16 LE/BE mit BOM sowie CR, LF und CRLF. Der letzte Befehl
+wird auch ohne abschlie&szlig;enden Zeilenumbruch ausgef&uuml;hrt.</p>
+<p>Nach append, insert oder change sind folgende Zeilen bis zur einzelnen
+Punktzeile oder zum Dateiende w&ouml;rtliche Eingabe; keine Eingabezeile wird
+ge&ouml;ffnet. Jeder Befehl beh&auml;lt seine normale Undo-Gruppierung.
+Fehler oder Abbruch beendet die Ausf&uuml;hrung; vorherige erfolgreiche
+&Auml;nderungen bleiben erhalten. Relative Pfade beziehen sich auf das aktuelle
+Arbeitsverzeichnis. Zyklen werden abgewiesen; h&ouml;chstens 32 Dateien d&uuml;rfen
+verschachtelt sein. Die Quelldatei bleibt w&auml;hrenddessen schreibgesch&uuml;tzt
+ge&ouml;ffnet. Es gelten die L&auml;ngengrenzen der Befehls-/Eingabezeile.
+source ist nicht innerhalb von global-Befehlen erlaubt.</p>
+<p><code>:sh[ell]</code> &ouml;ffnet die konfigurierte Shell in einer eigenen
+Konsole und kehrt zum Editor zur&uuml;ck. Die Konsole bleibt beim Beenden von
+WinVi bestehen. Dokument, Register und Undo bleiben unver&auml;ndert.
+Die Shell wird unter Einstellungen &rarr; Shell oder mit
+<code>:set shell="C:\Pfad\shell.exe"</code> gew&auml;hlt; nicht exakt in der
+Windows-Codepage darstellbare Pfade werden abgewiesen. Das Format f&uuml;r
+Stapelbefehle wird nicht verwendet. cmd.exe wird explizit aufgel&ouml;st und
+mit <code>/d</code> ohne AutoRun gestartet; andere Shells ohne Argumente.
+Adressen, Argumente und <code>!</code> sind unzul&auml;ssig. Beide Befehle setzen
+voraus, dass kein global-/Eingabebefehl oder externer Filter l&auml;uft.</p>
+
 <h3>Ganze Zeilen eingeben und &auml;ndern</h3>
 <p><code>:[Zeile]a[ppend]</code> f&uuml;gt Zeilen hinter der angegebenen/aktuellen
 Zeile ein. <code>:0append</code> f&uuml;gt vor der ersten Zeile, nach einer BOM,

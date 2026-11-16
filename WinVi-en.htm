@@ -1234,6 +1234,34 @@ and will not repeated here.</p>
 
 
 
+<h3>Command files and an interactive shell</h3>
+<p><code>:so[urce] filename</code> executes ex commands from a local file.
+Quote names containing spaces. Commands may start with a colon; blank lines
+and lines beginning with a double quote (after optional colons/whitespace)
+are ignored. UTF-8 with or without BOM and BOM-marked UTF-16 LE/BE are supported.
+CR, LF and CRLF end lines. An unfinished final command is executed.</p>
+<p>After append, insert or change, following lines are literal input until a
+single-dot line or EOF. No input bar is opened. For example, a file containing
+<code>1append</code>, <code>Hello</code>, and <code>.</code> on successive lines
+adds Hello after line one. Commands retain their usual undo behavior; source
+does not combine a whole file into one edit. Execution stops on an error or
+interruption, retaining earlier successful edits. Nested files use the current
+working directory for relative paths; cycles are rejected and nesting is limited
+to 32 files. The command file stays open read-only during execution. Command
+lines have the command bar's length limit; input lines have its edit control's
+limit. Source is not accepted inside global command bodies.</p>
+<p><code>:sh[ell]</code> opens the configured shell in a separate console and
+returns to the editor. The console is independent and remains open if WinVi
+closes. It receives no document text and does not change registers or undo.
+The executable is selected under Settings &rarr; Shell or using
+<code>:set shell="C:\path\shell.exe"</code>. The existing shell setting uses
+the Windows code page; paths that cannot be represented exactly are rejected.
+The interactive launch does not use the batch-command format. The system
+cmd.exe is resolved explicitly and gets <code>/d</code> to disable AutoRun;
+other configured shells launch without arguments. No addresses, arguments or
+<code>!</code> are accepted. Both source and shell require no active global/
+input operation or running filtered external command.</p>
+
 <h3>Entering and changing complete lines</h3>
 <p><code>:[line]a[ppend]</code> adds lines after the addressed/current line.
 <code>:0append</code> adds them before the first line, after any BOM.

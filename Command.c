@@ -442,7 +442,16 @@ static BOOL SetCmd(PWSTR Args)
 				for (p=Args; *Args && *Args!=c; ++Args);
 				if (!*Args) c = '\0';
 				else *Args = '\0';
-				AllocStringW((PWSTR*)VarDescr[i].Variable, p);
+                if((LPSTR*)VarDescr[i].Variable==&Shell){
+                    UINT cp=GetACP();BOOL used=FALSE;INT n;LPSTR narrow;
+                    n=WideCharToMultiByte(cp,cp==CP_UTF8?WC_ERR_INVALID_CHARS:WC_NO_BEST_FIT_CHARS,p,-1,NULL,0,NULL,cp==CP_UTF8?NULL:&used);
+                    if(!n || used){*Args=c;NewStatus(0,L"Shell path cannot be represented exactly in the Windows code page.",NS_ERROR);return FALSE;}
+                    narrow=malloc(n);
+                    if(!narrow){*Args=c;Error(300,2);return FALSE;}
+                    if(WideCharToMultiByte(cp,cp==CP_UTF8?WC_ERR_INVALID_CHARS:WC_NO_BEST_FIT_CHARS,p,-1,narrow,n,NULL,cp==CP_UTF8?NULL:&used)!=n || used){free(narrow);*Args=c;return FALSE;}
+                    if(!AllocStringA(&Shell,narrow)){free(narrow);*Args=c;Error(300,2);return FALSE;}
+                    free(narrow);
+                }else if(!AllocStringW((PWSTR*)VarDescr[i].Variable,p)){*Args=c;Error(300,2);return FALSE;}
 				*Args = c;
 				if (c) ++Args;
 				DefaultTmpFlag = TmpDirectory==NULL || !*TmpDirectory;
@@ -677,7 +686,11 @@ BOOL CommandExec(PWSTR Cmd)
 		}
 		if (Cmd == NULL) return (FALSE);
 	}
-	if ((Args = Compare(Cmd, L"global", 1, 15)) != NULL) {
+	if ((Args = Compare(Cmd, L"source", 2, 0x14)) != NULL) {
+        Ok=WvExSource(Args);
+    } else if ((Args = Compare(Cmd, L"shell", 2, 0)) != NULL) {
+        Ok=WvExShell();
+    } else if ((Args = Compare(Cmd, L"global", 1, 15)) != NULL) {
 		Ok=WvExGlobal(StartLine,EndLine,Args,CommandWithExclamation);
 	} else if ((Args = Compare(Cmd, L"v", 1, 7)) != NULL) {
 		Ok=WvExGlobal(StartLine,EndLine,Args,TRUE);
