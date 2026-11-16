@@ -618,6 +618,18 @@ static PWSTR GetAddr(PWSTR Line, WV_ULONG *Ptr)
 	return (Line);
 }
 
+static BOOL TransferCmd(WV_ULONG first,WV_ULONG last,PWSTR args,BOOL move)
+{
+    WV_ULONG destination=(WV_ULONG)-1;INT savedMask=CmdMask;BOOL found;
+    PWSTR tail;
+    while(*args==L' ' || *args==L'\t')args++;
+    tail=GetAddr(args,&destination);found=(CmdMask&1)!=0;CmdMask=savedMask;
+    if(!tail)return FALSE;
+    while(*tail==L' ' || *tail==L'\t')tail++;
+    if(!found || *tail){NewStatus(0,L"Move/copy requires one destination line address.",NS_ERROR);return FALSE;}
+    return WvExTransfer(first,last,destination,move);
+}
+
 BOOL CommandExec(PWSTR Cmd)
 {	BOOL  Ok = FALSE;
 	WV_ULONG StartLine, EndLine;
@@ -727,6 +739,11 @@ BOOL CommandExec(PWSTR Cmd)
 		else if (EndLine == (WV_ULONG)-2) EndLine = 2147000000;
 		DeleteCmd(StartLine, EndLine, Args);
 		Ok = TRUE;
+	} else if ((Args = Compare(Cmd, L"move", 1, 7)) != NULL) {
+        Ok = TransferCmd(StartLine, EndLine, Args, TRUE);
+	} else if ((Args = Compare(Cmd, L"copy", 2, 7)) != NULL ||
+               (Args = Compare(Cmd, L"t", 1, 7)) != NULL) {
+        Ok = TransferCmd(StartLine, EndLine, Args, FALSE);
 	} else if ((Args = Compare(Cmd, L"join", 1, 15)) != NULL) {
         Ok = WvExLineCommand(StartLine, EndLine, 0, Args, CommandWithExclamation);
 	} else if ((Args = Compare(Cmd, L"yank", 1, 7)) != NULL) {

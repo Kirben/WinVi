@@ -1,5 +1,7 @@
-/* Line-oriented ex join/yank/put commands. GPL-2.0-or-later. */
+/* Line-oriented ex editing commands. GPL-2.0-or-later. */
 #include <windows.h>
+#include <stdlib.h>
+#include <string.h>
 #include <wchar.h>
 #include "winvi.h"
 #include "page.h"
@@ -169,5 +171,109 @@ done:
  if(Disabled)Enable();
  for(i=0;i<2;i++)if(enabled[i] && IsWindow(windows[i]))EnableWindow(windows[i],TRUE);
  if(Interrupted)return LineError(L"Line command cancelled; completed edits can be undone.");
+ return ok;
+}
+
+static WV_ULONG TransferSize(void)
+{POSITION p={LastPage,LastPage->Fill,0};return CountBytes(&p);}
+static UINT TransferLf(BYTE *bytes)
+{
+ if(UtfEncoding==16){bytes[0]=UtfLsbFirst?'\n':0;bytes[1]=UtfLsbFirst?0:'\n';return 2;}
+ bytes[0]=(BYTE)(CharSet==CS_EBCDIC?MapAnsiToEbcdic['\n']:'\n');return 1;
+}
+static BOOL TransferRead(PPOSITION start,BYTE *bytes,WV_ULONG length)
+{
+ POSITION p=*start;
+ while(length){
+  WV_ULONG n;
+  if(ByteAt(&p)<0 || !p.p->PageBuf)return LineError(L"Cannot read the transfer source.");
+  n=p.p->Fill-p.i;if(n>length)n=length;
+  if(!n)return LineError(L"Transfer source ended unexpectedly.");
+  memcpy(bytes,p.p->PageBuf+p.i,(size_t)n);bytes+=n;length-=n;Advance(&p,n);
+  if(CheckInterrupt())return FALSE;
+ }
+ return TRUE;
+}
+
+/* Snapshot first: overlap is safe for copy, and move never removes its source
+   unless the complete insertion and deletion-undo allocation have succeeded. */
+BOOL WvExTransfer(WV_ULONG first,WV_ULONG last,WV_ULONG destination,BOOL move)
+{
+ WV_ULONG lines=LinesInFile+IncompleteLastLine(),length,sourceOffset,destOffset;
+ WV_ULONG oldSize,newSize,payloadSize,growth,lastInserted,removeLength;
+ POSITION begin,end,dest,p,cursor;BYTE *snapshot=NULL,prefix[8],suffix[8];
+ UINT prefixSize=0,suffixSize=0;INT firstChar,lastChar,previous=C_EOF,next,i;
+ BOOL ok=FALSE;HWND windows[2]={NULL,NULL};BOOL enabled[2]={FALSE,FALSE};
+ if(HexEditMode || ExecRunning())return LineError(L"Transfers require text mode and no running external command.");
+ if(IsViewOnly())return FALSE;
+ if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
+ if(!first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=lines;
+ if(!first || first>last || last>lines || destination>lines)return LineError(L"Invalid transfer line address.");
+ if(move && destination>=first && destination<=last)return LineError(L"Move destination is inside the source range.");
+ FreezeLineDialogs(windows,enabled);StartInterruptCheck();
+ if(!LineSpan(first,last,&begin,&end))goto done;
+ if(move && destination==first-1){
+  if(LineSpan(last,last,&cursor,&p)){CurrPos=cursor;FinishLineEdit();ok=TRUE;}goto done;
+ }
+ sourceOffset=CountBytes(&begin);length=CountBytes(&end)-sourceOffset;
+ if(!length || (UtfEncoding==16 && (length&1))){LineError(L"Transfer source is not a complete text range.");goto done;}
+ firstChar=CharAt(&begin);p=end;lastChar=GoBackAndChar(&p);
+ if(firstChar==C_ERROR || lastChar==C_ERROR){LineError(L"Cannot read the transfer source.");goto done;}
+ removeLength=length;
+ if(move){
+  INT before,after;p=begin;before=GoBackAndChar(&p);after=CharAt(&end);
+  if(before==C_ERROR || after==C_ERROR){LineError(L"Cannot read the move boundary.");goto done;}
+  /* Retain the final LF when deletion would combine two surviving lines.
+     This LF completes the preceding CR; the following LF stays a blank line. */
+  if(before=='\r' && after=='\n')removeLength-=UtfEncoding==16?2:1;
+ }
+ if(destination){
+  if(!LineSpan(destination,destination,&p,&dest))goto done;
+  p=dest;previous=GoBackAndChar(&p);
+ }else{dest.p=FirstPage;dest.i=dest.f=0;if(CharAt(&dest)==C_BOM)CharAndAdvance(&dest);}
+ next=CharAt(&dest);
+ if(previous==C_ERROR || next==C_ERROR){LineError(L"Cannot read the transfer destination.");goto done;}
+ /* Supply line boundaries at incomplete EOF, and prevent a lone CR and an
+    adjacent LF from accidentally collapsing two distinct lines into one. */
+ if(destination && !(CharFlags(previous)&1))prefixSize=WvEncodedEol(prefix);
+ if(firstChar=='\n' && ((prefixSize && RegisterLast(prefix,prefixSize)=='\r') || (!prefixSize && previous=='\r')))
+  prefixSize+=TransferLf(prefix+prefixSize);
+ if(!(CharFlags(lastChar)&1))suffixSize=WvEncodedEol(suffix);
+ if(next=='\n' && (suffixSize?RegisterLast(suffix,suffixSize):lastChar)=='\r')suffixSize+=TransferLf(suffix+suffixSize);
+ if(!WvSizeAdd(length,prefixSize+suffixSize,&payloadSize) || !WvSizeAdd(TransferSize(),payloadSize,&newSize)){
+  LineError(L"Transfer would exceed the document size limit.");goto done;
+ }
+ snapshot=malloc((size_t)payloadSize);
+ if(!snapshot){LineError(L"Not enough memory for the transfer snapshot.");goto done;}
+ memcpy(snapshot,prefix,prefixSize);
+ if(!TransferRead(&begin,snapshot+prefixSize,length))goto done;
+ memcpy(snapshot+prefixSize+length,suffix,suffixSize);
+ if(CheckInterrupt())goto done;
+ oldSize=TransferSize();destOffset=CountBytes(&dest);
+ StartUndoSequence();SelectCount=0;CurrPos=dest;
+ if(!InsertBuffer(snapshot,payloadSize,0) || Interrupted)goto edited;
+ newSize=TransferSize();
+ if(newSize<oldSize || (growth=newSize-oldSize)!=payloadSize){LineError(L"Transfer stopped after insertion; completed edits can be undone.");goto edited;}
+ lastInserted=destination+(last-first+1);
+ if(move){
+  WV_ULONG adjusted=sourceOffset+(destOffset<=sourceOffset?growth:0);
+  p.p=FirstPage;p.i=p.f=0;
+  if(Advance(&p,adjusted)!=adjusted){LineError(L"Original move range is no longer available.");goto edited;}
+  SelectStart=p;SelectCount=removeLength;
+  if(!EnterDeleteForUndo(&SelectStart,SelectCount,0)){
+   SelectCount=0;LineError(L"Cannot record move undo; the original text was retained.");goto edited;
+  }
+  DeleteSelected(2|8|64); /* no register update; undo was checked above */
+  if(TransferSize()!=newSize-removeLength){LineError(L"Move did not remove its complete source range.");goto edited;}
+  if(destination>last)lastInserted=destination;
+ }
+ if(LineSpan(lastInserted,lastInserted,&cursor,&p)){CurrPos=cursor;ok=TRUE;}
+edited:
+ FinishLineEdit();
+done:
+ free(snapshot);if(Disabled)Enable();
+ for(i=0;i<2;i++)if(enabled[i] && IsWindow(windows[i]))EnableWindow(windows[i],TRUE);
+ if(Interrupted)return LineError(L"Transfer cancelled; completed edits can be undone.");
  return ok;
 }

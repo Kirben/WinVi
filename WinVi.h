@@ -411,6 +411,7 @@ BOOL NewViEditCmd(PWSTR);
 BOOL QuitCmd(BOOL);
 void ResizeWithLinesAndColumns(void);
 UINT WvEncodedEol(BYTE[4]);
+BOOL WvExTransfer(WV_ULONG, WV_ULONG, WV_ULONG, BOOL);
 BOOL WvExLineCommand(WV_ULONG, WV_ULONG, INT, PWSTR, BOOL);
 BOOL CommandExec(PWSTR);
 

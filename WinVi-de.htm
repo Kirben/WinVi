@@ -1292,7 +1292,24 @@ auf der letzten eingef&uuml;gten Zeile. Fehlende Zeilenenden werden im Format
 des Dokuments erg&auml;nzt. Auch zeichenweise vi-Register werden als Zeilen
 eingef&uuml;gt. Register behalten die Dokumentbytes; es erfolgt keine
 Umkodierung zwischen Dateizeichens&auml;tzen.</p>
-<p>Nur im Textmodus. Yank funktioniert auch bei Schreibschutz. Join und put
+<p><code>:[Bereich]m[ove] Ziel</code> verschiebt ganze Zeilen;
+<code>:[Bereich]co[py] Ziel</code> und <code>:[Bereich]t Ziel</code> kopieren sie.
+Standardquelle ist die aktuelle Zeile. Das Ziel ist erforderlich und bezeichnet
+die Zeile, <em>hinter</em> der eingef&uuml;gt wird; alle Adressen beziehen sich
+auf den Zustand vor der &Auml;nderung. Null bedeutet vor der ersten Zeile, nach
+einer BOM. Zahlen, <code>.</code>, <code>$</code>, Marken, relative Adressen
+und Suchadressen sind erlaubt. <code>:2,4move $</code> verschiebt Zeilen 2-4
+ans Ende; <code>:%t0</code> kopiert das Dokument vor seine erste Zeile.</p>
+<p>Ein Verschiebeziel innerhalb der Quelle ist unzul&auml;ssig; direkt davor
+bleibt der Text unver&auml;ndert. Beim Kopieren sind &Uuml;berlappungen erlaubt.
+Yank-/L&ouml;schregister bleiben erhalten. Der Cursor endet am Anfang der letzten
+&uuml;bertragenen Zeile. Jeder Transfer kann als eine Operation zur&uuml;ckgenommen
+werden. Fehlende letzte Zeilenenden werden im Dokumentformat erg&auml;nzt;
+gemischte CR/LF-Grenzen bleiben getrennt. Die Quellzeilen werden vor&uuml;bergehend
+im Arbeitsspeicher gespeichert. Scheitert das Einf&uuml;gen oder das Anlegen der
+L&ouml;sch-Undo-Daten, bleibt die Quelle erhalten. Bereits ausgef&uuml;hrte
+&Auml;nderungen bleiben r&uuml;cknehmbar.</p>
+<p>Nur im Textmodus. Yank funktioniert auch bei Schreibschutz. Join, put und Transfers
 lassen sich jeweils als eine Operation zur&uuml;cknehmen. Nach Abbruch k&ouml;nnen
 bereits ausgef&uuml;hrte &Auml;nderungen zur&uuml;ckgenommen werden. Die Befehle
 sind noch nicht als Befehlsteil von <code>:g</code>/<code>:v</code> verf&uuml;gbar.</p>

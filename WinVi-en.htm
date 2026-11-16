@@ -1254,7 +1254,23 @@ selects one for put. The cursor finishes on the last inserted line. Missing
 line terminators are supplied using the document's newline convention. A
 characterwise vi register is also put as lines. Registers retain raw document
 bytes; these commands do not transcode between file encodings.</p>
-<p>Text mode is required. Yank is available in view-only documents; join and put
+<p><code>:[range]m[ove] destination</code> moves complete lines;
+<code>:[range]co[py] destination</code> and <code>:[range]t destination</code>
+copy them. The source defaults to the current line. The destination is required
+and means <em>after</em> that line, using addresses from before the edit.
+Zero inserts before the first line, after any BOM. Numbers, <code>.</code>,
+<code>$</code>, marks, relative offsets and search addresses are accepted.
+For example, <code>:2,4move $</code> moves lines 2-4 to the end;
+<code>:%t0</code> duplicates the document before its first line.</p>
+<p>A move destination inside the source range is rejected; immediately before
+the range is a no-op. Copy permits overlapping source and destination.
+Yank/delete registers are preserved. The cursor finishes at the beginning of
+the last transferred line. Each transfer is one undo operation. Missing final
+line terminators are supplied using the document's newline convention; mixed
+CR/LF boundaries are kept separate. Transfers require a temporary in-memory
+snapshot of the selected lines. If insertion or deletion-undo allocation fails,
+the original is retained. Completed edits remain undoable.</p>
+<p>Text mode is required. Yank is available in view-only documents; join, put and transfers
 are edits and each can be undone as one operation. Cancellation may leave
 completed edits, which can be undone. The supported global-command body subset
 is unchanged: these commands are not yet accepted inside <code>:g</code>/<code>:v</code>.</p>

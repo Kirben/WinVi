@@ -647,6 +647,7 @@ void DeleteSelected(INT Flags) {
 	 *		 8=Suppress cursor setting to displayable position
 	 *		16=Area was really selected (reselect when undoing)
 	 *		32=cannot be undone (called for replacing ^ after typing ^V)
+	 *       64=caller has already successfully recorded deletion undo
 	 */
 	WV_ULONG	 Newlines = SelectStart.p->Prev ? SelectStart.p->Prev->Newlines : 0;
 	WV_ULONG	 SelectBytePos;
@@ -657,7 +658,7 @@ void DeleteSelected(INT Flags) {
 	if (!SelectCount) return;
 	if (IsViewOnly()) return;
 	SelectBytePos = CountBytes(&SelectStart);
-	EnterDeleteForUndo(&SelectStart, SelectCount, (WORD)((Flags >> 4) & 3));
+	if (!(Flags & 64)) EnterDeleteForUndo(&SelectStart, SelectCount, (WORD)((Flags >> 4) & 3));
 	EndSel = SelectStart;
 	Advance(&EndSel, SelectCount);
 	if (!(Flags & 2)) Yank(&SelectStart, SelectCount,

@@ -48,6 +48,40 @@ Case 'join-page-boundary' (('a'*4095)+"`nlast`n") @(':join') (('a'*4095)+" last`
 Case 'yank-page-boundary' (('a'*4095)+"`nlast`n") @(':1yank',':2put') (('a'*4095)+"`nlast`n"+('a'*4095)+"`n")
 $empty=Join-Path $cases 'empty-put-target.txt';[IO.File]::WriteAllBytes($empty,[byte[]]@())
 Case 'put-empty-buffer' "a`n" @(':1yank',(':edit '+$empty),':0put') "a`n" $utf8 $true $empty
+Case 'transfer-move-down' "a`nb`nc`nd`n" @(':1,2move 4') "c`nd`na`nb`n"
+Case 'transfer-move-up' "a`nb`nc`nd`n" @(':3,4m0') "c`nd`na`nb`n"
+Case 'transfer-move-middle' "a`nb`nc`nd`ne`n" @(':2,3move 4') "a`nd`nb`nc`ne`n"
+Case 'transfer-copy-down' "a`nb`nc`n" @(':1,2copy $') "a`nb`nc`na`nb`n"
+Case 'transfer-copy-up' "a`nb`nc`n" @(':2,3co0') "b`nc`na`nb`nc`n"
+Case 'transfer-copy-overlap' "a`nb`nc`n" @(':1,2t1') "a`na`nb`nb`nc`n"
+Case 'transfer-copy-self' "a`nb`n" @(':1t1') "a`na`nb`n"
+Case 'transfer-default-source' "a`nb`nc`n" @(':2',':t0') "b`na`nb`nc`n"
+Case 'transfer-relative-destination' "a`nb`nc`nd`n" @(':2',':1copy +1') "a`nb`nc`na`nd`n"
+Case 'transfer-search-destination' "a`nb`nc`n" @(':1copy /b/') "a`nb`na`nc`n"
+Case 'transfer-mark-destination' "a`nb`nc`n" @(':2','ma',":3copy 'a") "a`nb`nc`nc`n"
+Case 'transfer-percent' "a`nb`n" @(':%t0') "a`nb`na`nb`n"
+Case 'transfer-noop' "a`nb`nc`n" @(':2,3m1') "a`nb`nc`n" $utf8 $false
+Case 'transfer-copy-unterminated' "a`nb" @(':2t0') "b`na`nb"
+Case 'transfer-copy-after-unterminated' "a`nb" @(':1copy $') "a`nb`na`n"
+Case 'transfer-move-unterminated-up' "a`nb" @(':2m0') "b`na`n"
+Case 'transfer-move-after-unterminated' "a`nb" @(':1m$') "b`na`n"
+Case 'transfer-empty-lines' "`n`na`n" @(':1,2m$') "a`n`n`n"
+Case 'transfer-seam-delete' "a`rb`n`nc`n" @(':2m$') "a`r`n`nc`nb`n"
+Case 'transfer-seam-insert-prefix' "a`rb`n`nc`n" @(':3t1') "a`r`n`nb`n`nc`n"
+Case 'transfer-seam-insert-suffix' "a`r`nb`rc`n" @(':2t0') "b`ra`r`nb`rc`n"
+Case 'transfer-seam-before-empty-lf' "a`r`nb`rc`n`nd`n" @(':2t3') "a`r`nb`rc`nb`r`n`nd`n"
+Case 'transfer-preserve-register' "a`nb`nc`n" @(':2yank',':1move 3',':0put') "b`nb`nc`na`n" $utf8 $false
+Case 'transfer-copy-cursor' "a`nb`nc`n" @(':1,2t3',':yank z',':0put z') "b`na`nb`nc`na`nb`n" $utf8 $false
+Case 'transfer-move-cursor' "a`nb`nc`nd`n" @(':1,2m4',':yank z',':0put z') "b`nc`nd`na`nb`n" $utf8 $false
+foreach($enc in @(@('utf8',[Text.UTF8Encoding]::new($true)),@('utf16le',[Text.UnicodeEncoding]::new($false,$true)),@('utf16be',[Text.UnicodeEncoding]::new($true,$true)))){
+ Case ('transfer-copy-'+$enc[0]) "é`r`n中`r`n😀`r`n" @(':2,3t0') "中`r`n😀`r`né`r`n中`r`n😀`r`n" $enc[1]
+ Case ('transfer-move-'+$enc[0]) "é`r`n中`r`n😀" @(':3m0') "😀`r`né`r`n中`r`n" $enc[1]
+ Case ('transfer-seam-delete-'+$enc[0]) "é`r中`n`n😀`n" @(':2m$') "é`r`n`n😀`n中`n" $enc[1]
+}
+Case 'transfer-copy-page-boundary' (('a'*8191)+"`nb`nc`n") @(':1,2t$') (('a'*8191)+"`nb`nc`n"+('a'*8191)+"`nb`n")
+Case 'transfer-move-page-boundary' (('a'*8191)+"`nb`nc`n") @(':1,2m$') ("c`n"+('a'*8191)+"`nb`n")
+Case 'transfer-copy-large-undo' (('a'*131071)+"`nb`nc`n") @(':1,2t$') (('a'*131071)+"`nb`nc`n"+('a'*131071)+"`nb`n")
+Case 'transfer-move-large-undo' (('a'*131071)+"`nb`nc`n") @(':1,2m$') ("c`n"+('a'*131071)+"`nb`n")
 $results|ConvertTo-Json|Set-Content "$PSScriptRoot/ex-line-results.json"
 if(@($results|Where-Object Result -eq 'FAIL').Count){throw 'Ex line command regressions failed'}
 "$($results.Count) line command cases passed"

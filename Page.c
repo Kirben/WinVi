@@ -690,10 +690,12 @@ INT CountNewlinesInBuf(LPBYTE Buf, INT Len, WV_LONG NewLineCnt[9], DWORD *pFlags
 		if (UtfEncoding == 16) {
 			if (UtfLsbFirst) {
 				if (Ptr-Buf+1 >= Len || Ptr[1] != '\0') {
+					PrevCr = PrevNul = FALSE; /* Non-ASCII is not CR/LF. */
 					Ptr += 2;
 					continue;
 				}
 			} else if (Ptr-Buf+1 >= Len || *Ptr++ != '\0') {
+				PrevCr = PrevNul = FALSE;
 				++Ptr;
 				continue;
 			}
