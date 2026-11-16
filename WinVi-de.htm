@@ -1221,6 +1221,20 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
           wurde (Zahl zwischen 1 und 9)<br>
       </td>
     </tr><tr>
+      <td>Gro&szlig;-/Kleinschreibung im Ersatztext</td>
+      <td><code>\u</code>, <code>\l</code><br><code>\U</code>, <code>\L</code><br><code>\E</code>, <code>\e</code></td>
+      <td>Das n&auml;chste Ausgabezeichen bzw. alle folgenden Zeichen in Gro&szlig;-
+          oder Kleinbuchstaben umwandeln. <code>\E</code> und <code>\e</code>
+          beenden beide Umwandlungen; der Zustand wird bei jedem Treffer
+          zur&uuml;ckgesetzt. Gilt auch f&uuml;r &amp;, Gruppen und numerische
+          Zeichenangaben. Nach einer Einzelumwandlung wird die laufende
+          Umwandlung fortgesetzt; eine leere Gruppe verbraucht sie nicht.
+          <code>\\U</code> ergibt einen w&ouml;rtlichen Backslash und U.
+          Beispiel: <code>:%s/\(wort\)/\U\1\E/g</code>.
+          Einfache Windows-Zuordnungen f&uuml;r BMP-Zeichen, ohne Erweiterung auf
+          mehrere Zeichen oder kontextabh&auml;ngige Schreibweise. Bei deaktiviertem
+          Magic im Ersetzen-Dialog bleiben diese Folgen w&ouml;rtlich.</td>
+    </tr><tr>
       <td>Steuerzeichen:<br>
       </td>
       <td><code>^V</code><br>

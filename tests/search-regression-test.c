@@ -23,7 +23,7 @@ static void Expect(const char *name,const WCHAR *pattern,const BYTE *bytes,int l
  FirstPage=LastPage=&pages[0];
  if(length>4096){pages[1].PageBuf=(BYTE*)bytes+4096;pages[1].Fill=length-4096;pages[1].PageNo=2;pages[1].Prev=&pages[0];pages[0].Next=&pages[1];LastPage=&pages[1];}
  CurrPos.p=ScreenStart.p=FirstPage;CurrPos.i=CurrPos.f=ScreenStart.i=ScreenStart.f=0;
- UtfEncoding=utf;UtfLsbFirst=TRUE;CharSet=utf==8?CS_UTF8:utf==16?CS_UTF16LE:CS_ANSI;
+ UtfEncoding=utf==17?16:utf;UtfLsbFirst=utf!=17;CharSet=utf==8?CS_UTF8:utf==16?CS_UTF16LE:utf==17?CS_UTF16BE:CS_ANSI;
  AnsiCodePage=1252;OemCodePage=437;MagicFlag=TRUE;IgnoreCaseFlag=FALSE;WrapScanFlag=FALSE;hwndMain=NULL;Disabled=0;
  wcscpy(cmd,pattern);BuildMatchList(cmd,L'/',&error);
  if(!MatchValid){printf("FAIL %s: compile error %d\n",name,error);failures++;return;}
@@ -131,4 +131,56 @@ static void SearchGuards(void){
  if(CheckFwd(&p,FirstMatch) || !Interrupted || SearchDepth){printf("FAIL depth guard/unwind\n");failures++;}free(deep);Interrupted=FALSE;
  Expect("after-guard-recovery",L"/\\(x\\|xy\\)z/",(BYTE*)"xyz",3,0,TRUE);
 }
-int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();RootAlternatives();AlternativeContinuation();ContinuationOracle();SearchApi();SearchGuards();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}
+
+static void Replacement(const char *name,const BYTE *text,int bytes,int utf,const WCHAR *pattern,const WCHAR *replacement,const WCHAR *wanted,int flags){
+ WCHAR source[512];WV_LONG length=0;POSITION pos;LPREPLIST block;int i;BOOL good;
+ Expect(name,pattern,text,bytes,utf,TRUE);
+ pos.p=FirstPage;pos.i=pos.f=0;wcscpy(source,replacement);FreeRepList();CheckParenPairs();
+ MagicFlag=!(flags&8);flags&=7;
+ good=BuildReplaceString(source,&length,&pos,bytes,(WORD)flags);checks++;
+ if(!good || length!=(WV_LONG)wcslen(wanted)){printf("FAIL %s replacement length=%lld wanted=%u\n",name,(long long)length,(unsigned)wcslen(wanted));failures++;}
+ else{block=&RepList;for(i=0;i<length;i++){if(i && i%40==0)block=block->Next;if(block->Buf[i%40]!=wanted[i]){printf("FAIL %s replacement unit %d: %04x wanted %04x\n",name,i,block->Buf[i%40],wanted[i]);failures++;break;}}}
+ FreeRepList();
+}
+static void ReplacementCases(void){
+ const BYTE *word=(BYTE*)"aBc";BYTE utf8[]={0xc3,0xa9,0xce,0xbb},wide[]={0xe9,0,0xbb,3},big[]={0,0xe9,3,0xbb};
+ Replacement("upper-all",word,3,0,L"/aBc/",L"\\U&",L"ABC",0);
+ Replacement("lower-all",word,3,0,L"/aBc/",L"\\L&",L"abc",0);
+ Replacement("upper-next",word,3,0,L"/aBc/",L"\\u&",L"ABc",0);
+ Replacement("lower-next",word,3,0,L"/aBc/",L"\\lXYZ",L"xYZ",0);
+ Replacement("upper-reset",word,3,0,L"/aBc/",L"\\Ufoo\\Ebar",L"FOObar",0);
+ Replacement("lower-reset-alias",word,3,0,L"/aBc/",L"\\LFOO\\eBAR",L"fooBAR",0);
+ Replacement("single-overrides-run",word,3,0,L"/aBc/",L"\\Uab\\lcd",L"ABcD",0);
+ Replacement("single-before-run",word,3,0,L"/aBc/",L"\\u\\LFOO",L"Foo",0);
+ Replacement("reset-clears-single",word,3,0,L"/aBc/",L"\\u\\Ea",L"a",0);
+ Replacement("case-captures",word,3,0,L"/\\(a\\)\\(Bc\\)/",L"\\U\\2\\E-\\u\\1",L"BC-A",0);
+ Replacement("case-empty-capture",(BYTE*)"b",1,0,L"/\\(a*\\)b/",L"\\u\\1foo",L"Foo",0);
+ Replacement("case-hex-octal",word,3,0,L"/aBc/",L"\\U\\%61\\L\\102",L"Ab",0);
+ Replacement("case-punctuation",word,3,0,L"/aBc/",L"\\u-a",L"-a",0);
+ Replacement("case-escaped-directive",word,3,0,L"/aBc/",L"\\\\U&",L"\\UaBc",0);
+ Replacement("case-literal-dialog",word,3,0,L"/aBc/",L"\\U&",L"\\U&",4);
+ Replacement("case-nomagic-match",word,3,0,L"/aBc/",L"\\U\\&",L"ABC",8);
+ Replacement("case-nomagic-literal-amp",word,3,0,L"/aBc/",L"\\U&",L"&",8);
+ Replacement("case-utf8-match",utf8,4,8,L"/\x00e9\x03bb/",L"\\U&",L"\x00c9\x039b",0);
+ Replacement("case-utf16-match",wide,4,16,L"/\x00e9\x03bb/",L"\\U&",L"\x00c9\x039b",0);
+ Replacement("case-utf16be-match",big,4,17,L"/\x00e9\x03bb/",L"\\U&",L"\x00c9\x039b",0);
+ Replacement("case-cp1252",(BYTE*)"\xe9",1,0,L"/\x00e9/",L"\\U&",L"\x00c9",0);
+ Replacement("case-utf8-capture",utf8,4,8,L"/\\(\x00e9\x03bb\\)/",L"\\U\\1",L"\x00c9\x039b",0);
+ Replacement("case-crlf",(BYTE*)"a\r\nb",4,0,L"/a\\%0d\\%0ab/",L"\\U&",L"A\r\nB",0);
+ Replacement("case-many-blocks",word,3,0,L"/aBc/",L"\\Uabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\Eend",L"ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZend",0);
+ Replacement("case-empty-output",word,3,0,L"/aBc/",L"\\U\\E",L"",0);
+ Replacement("case-state-resets",word,3,0,L"/aBc/",L"&",L"aBc",0);
+ {WCHAR source[90];WV_LONG length=0;POSITION pos={FirstPage,0,0};int i;
+ source[0]='\\';source[1]='U';for(i=2;i<85;i++)source[i]='a';source[85]=0;
+ allocationCountdown=0;FreeRepList();checks++;
+ if(BuildReplaceString(source,&length,&pos,3,0) || nRepListCount || RepList.Next){printf("FAIL replacement allocation failure cleanup\n");failures++;}
+ allocationCountdown=-1;FreeRepList();}
+ {BYTE text[100];WCHAR wanted[101],source[]=L"\\U\\1";WV_LONG length=0;POSITION pos;int i;
+ memset(text,'a',100);for(i=0;i<100;i++)wanted[i]='A';wanted[100]=0;
+ Replacement("case-long-capture",text,100,0,L"/\\(a*\\)/",source,wanted,0);
+ Expect("case-capture-oom-setup",L"/\\(a*\\)/",text,100,0,TRUE);
+ pos.p=FirstPage;pos.i=pos.f=0;FreeRepList();CheckParenPairs();allocationCountdown=0;checks++;
+ if(BuildReplaceString(source,&length,&pos,100,0) || nRepListCount || RepList.Next){printf("FAIL capture allocation failure cleanup\n");failures++;}
+ allocationCountdown=-1;FreeRepList();}
+}
+int main(int argc,char **argv){extern BOOL SuppressStatusBeep;(void)argc;(void)argv;SuppressStatusBeep=TRUE;ByteClasses();RepeatAlternatives();RootAlternatives();AlternativeContinuation();ContinuationOracle();SearchApi();SearchGuards();ReplacementCases();printf("%s %d search regression checks, %d failures\n",failures?"FAIL":"PASS",checks,failures);return failures?1:0;}

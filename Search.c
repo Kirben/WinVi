@@ -1714,6 +1714,26 @@ BOOL CheckParenPairs(VOID)
 	return (TRUE);
 }
 
+/* Apply simple Windows case mapping to newly emitted replacement units.
+   A one-character override resumes the surrounding run after that character. */
+static void CaseReplacement(LPREPLIST block, PWCHAR from, LPREPLIST last,
+                            PWCHAR to, INT mode, INT *once)
+{
+    ++from;
+    while (block != last || from <= to) {
+        INT change;
+        if (from == block->Buf + WSIZE(block->Buf)) {
+            block = block->Next;
+            from = block->Buf;
+        }
+        change = *once ? *once : mode;
+        if (change > 0) CharUpperBuffW(from, 1);
+        else if (change < 0) CharLowerBuffW(from, 1);
+        *once = 0;
+        ++from;
+    }
+}
+
 BOOL BuildReplaceString
 	 (PWSTR Source, WV_LONG *DestLen, PPOSITION Pos, WV_LONG Len, WORD Flags)
 	/*Flags: 1=hex input flag checked in dialog box
@@ -1723,8 +1743,11 @@ BOOL BuildReplaceString
 {	PWCHAR		pRep = RepList.Buf-1;
 	PSEARCHPART	pSp;
 	INT			c;
+    INT caseMode = 0, caseOnce = 0;
 
 	while (*Source) {
+        LPREPLIST beforeBlock = lpLastRep;
+        PWCHAR before = pRep;
 		switch (*Source) {
 			case '\\':
 				if (Flags & 4) {
@@ -1736,6 +1759,15 @@ BOOL BuildReplaceString
 						if ((pRep = ExpandRepList(pRep)) != NULL)
 							*pRep = *--Source;
 						break;
+                    case 'u': case 'l':
+                        caseOnce = c == 'u' ? 1 : -1;
+                        break;
+                    case 'U': case 'L':
+                        caseMode = c == 'U' ? 1 : -1;
+                        break;
+                    case 'E': case 'e':
+                        caseMode = caseOnce = 0;
+                        break;
 					case '1': case '2': case '3': case '4': case '5':
 					case '6': case '7': case '8': case '9':
 						if (c-'0' <= nParenPairs) {
@@ -1845,18 +1877,16 @@ BOOL BuildReplaceString
 						/*TODO: show error message*/
 						--n;
 					}
-					while (n) {
-						if ((c = CharAndAdvance(&p)) == C_CRLF) {
-							if (n) {
-								if ((pRep = ExpandRepList(pRep)) != NULL)
-									*pRep = '\r';
-								c = '\n';
-								n -= UtfEncoding == 16 ? 2 : 1;
-							} else c = '\r';
-						}
-						if ((pRep = ExpandRepList(pRep)) != NULL) *pRep = c;
-						n -= UtfEncoding == 16 ? 2 : 1;
-					}
+                    /* Len counts document bytes, not decoded UTF-8 characters. */
+                    {
+                        POSITION end = p;
+                        if (n > 0) Advance(&end, (WV_ULONG)n);
+                        while (ComparePos(&p, &end) < 0) {
+                            c = SingleCharAndAdvance(&p);
+                            if ((pRep = ExpandRepList(pRep)) == NULL) break;
+                            *pRep = c;
+                        }
+                    }
 					break;
 				}
 				/*FALLTHROUGH*/
@@ -1903,6 +1933,9 @@ BOOL BuildReplaceString
 				}
 				break;
 		}
+        if (pRep == NULL) break;
+        if (caseMode || caseOnce)
+            CaseReplacement(beforeBlock, before, lpLastRep, pRep, caseMode, &caseOnce);
 		++Source;
 	}
 	if (pRep == NULL) {

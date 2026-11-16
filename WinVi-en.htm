@@ -1186,6 +1186,19 @@ and will not repeated here.</p>
           (number between 1 and 9)
       </td>
     </tr><tr>
+      <td>Replacement case conversion</td>
+      <td><code>\u</code>, <code>\l</code><br><code>\U</code>, <code>\L</code><br><code>\E</code>, <code>\e</code></td>
+      <td>Uppercase/lowercase the next output character, or all following output
+          until either end escape or the end of this replacement. These apply to
+          literal text, &amp;, captured groups and numeric escapes. A next-character
+          override resumes the surrounding conversion afterwards; an empty group
+          does not consume it. An end escape cancels both forms. State resets for
+          every match. Use <code>\\U</code> for literal backslash-U.
+          Example: <code>:%s/\(word\)/\U\1\E/g</code>.
+          Conversion uses simple Windows mappings for BMP characters, without
+          multi-character expansion or context-sensitive casing. With Magic
+          disabled in the Replace dialog, these sequences remain literal.</td>
+    </tr><tr>
       <td>Control codes:<br>
       </td>
       <td><code>^V</code><br>
