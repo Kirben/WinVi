@@ -95,27 +95,45 @@ static void NormalizeEditingPosition(BOOL after)
   }
  }
 }
-void InsertChar(INT Char) {
+/* Short-lived raw-byte journal for a contiguous R typing run. Ordinary undo
+   remains authoritative; backspacing records a new edit in that same sequence. */
+typedef struct WV_REPLACED {
+ struct WV_REPLACED *Previous;
+ WV_ULONG Offset;UINT OldSize,NewSize;BYTE Old[4];
+} WV_REPLACED;
+static WV_REPLACED *Replaced;
+static BOOL ReplacingInternally;
+static INT ReplaceEncoding;static UINT ReplaceCodePage,ReplaceCharSet;static BOOL ReplaceLsb;
+void WvReplaceReset(void)
+{
+ if(ReplacingInternally)return;
+ while(Replaced){WV_REPLACED *previous=Replaced->Previous;free(Replaced);Replaced=previous;}
+ WvReplaceEditHook=NULL;
+}
+static BOOL ReplaceContext(void)
+{return ReplaceEncoding==UtfEncoding && ReplaceCodePage==WvLegacyCodePage() && ReplaceCharSet==CharSet && ReplaceLsb==UtfLsbFirst;}
+
+static BOOL InsertCharacter(INT Char) {
 	BYTE legacyBytes[4];INT legacy=0;
  INT space = CharSize(Char);
  if(WvDbcsText() && Char!=C_CRLF){
   legacy=WvLegacyEncode(Char,legacyBytes);
-  if(!legacy){NewStatus(0,L"Character cannot be represented in the selected code page.",NS_ERROR);return;}
+  if(!legacy){NewStatus(0,L"Character cannot be represented in the selected code page.",NS_ERROR);return FALSE;}
   space=legacy;
  }
     if((UtfEncoding || WvDbcsText()) && !HexEditMode)NormalizeEditingPosition(Mode!=ReplaceMode);
 
-	if (IsViewOnly()) return;
+	if (IsViewOnly()) return FALSE;
 	SetUnsafe();
 	if (Mode != ReplaceMode || (HexEditMode ? CharAt(&CurrPos) == C_EOF
 											: CharFlags(CharAt(&CurrPos)) & 1)) {
-		if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
+		if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return FALSE;}
 	} else {
 		INT oldspace = (UtfEncoding || WvDbcsText()) && !HexEditMode ? EncodedCharacterSize(&CurrPos) : CharSize(CharAt(&CurrPos));
 
 		if (space != oldspace) {
-			if (!Reserve(&CurrPos, -oldspace, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
-			if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return;}
+			if (!Reserve(&CurrPos, -oldspace, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return FALSE;}
+			if (!Reserve(&CurrPos, space, 0)) {NewStatus(0,L"Cannot reserve page storage for this edit.",NS_ERROR);return FALSE;}
 		} else {
 			EnterDeleteForUndo(&CurrPos, oldspace, 0);
 			EnterInsertForUndo(&CurrPos, space);
@@ -137,7 +155,7 @@ void InsertChar(INT Char) {
 	if(legacy){
   POSITION p=CurrPos;
   for(INT i=0;i<legacy;i++){
-   if(ByteAt(&p)==C_ERROR)return;
+   if(ByteAt(&p)==C_ERROR)return FALSE;
    p.p->PageBuf[p.i]=legacyBytes[i];UnsafePage(&p);Advance(&p,1);
   }
  }else if (space > 1) {
@@ -254,6 +272,66 @@ void InsertChar(INT Char) {
 			else Indenting = FALSE;
 		}
 	}
+ return TRUE;
+}
+
+void InsertChar(INT character)
+{
+ WV_REPLACED *entry;POSITION p;INT c;UINT oldSize=0;
+ if(Mode!=ReplaceMode || HexEditMode || ReplaceSingle || ViewOnlyFlag){
+  WvReplaceReset();InsertCharacter(character);return;
+ }
+ NormalizeEditingPosition(FALSE);
+ if(Replaced && (!ReplaceContext() || CountBytes(&CurrPos)!=Replaced->Offset+Replaced->NewSize))WvReplaceReset();
+ /* Conversion failures must not allocate history or change existing text. */
+ if(WvDbcsText() && character!=C_CRLF){BYTE bytes[4];if(!WvLegacyEncode(character,bytes)){InsertCharacter(character);return;}}
+ c=CharAt(&CurrPos);if(c==C_ERROR)return;
+ if(!(CharFlags(c)&1))oldSize=EncodedCharacterSize(&CurrPos);
+ if(oldSize>4){NewStatus(0,L"Cannot record replaced character.",NS_ERROR);return;}
+ entry=malloc(sizeof(*entry));if(!entry){NewStatus(0,L"Cannot record replaced character; text unchanged.",NS_ERROR);return;}
+ entry->Offset=CountBytes(&CurrPos);entry->OldSize=oldSize;p=CurrPos;
+ for(UINT i=0;i<oldSize;i++){INT b=ByteAndAdvance(&p);if(b<0){free(entry);return;}entry->Old[i]=(BYTE)b;}
+ ReplacingInternally=TRUE;BOOL ok=InsertCharacter(character);ReplacingInternally=FALSE;
+ if(!ok){free(entry);WvReplaceReset();return;}
+ WV_ULONG after=CountBytes(&CurrPos);
+ if(after<=entry->Offset || after-entry->Offset>4){free(entry);WvReplaceReset();return;}
+ entry->NewSize=(UINT)(after-entry->Offset);entry->Previous=Replaced;Replaced=entry;
+ ReplaceEncoding=UtfEncoding;ReplaceCodePage=WvLegacyCodePage();ReplaceCharSet=CharSet;ReplaceLsb=UtfLsbFirst;
+ WvReplaceEditHook=WvReplaceReset;
+}
+BOOL WvReplaceBackspace(void)
+{
+ WV_REPLACED *entry=Replaced;POSITION start;
+ if(IsViewOnly())return FALSE;
+ if(!entry || !ReplaceContext() || CountBytes(&CurrPos)!=entry->Offset+entry->NewSize){
+  WvReplaceReset();start=CurrPos;
+  if(CharFlags(GoBackAndChar(&start))&1)return FALSE;
+  CurrPos=start;NewPosition(&CurrPos);ShowEditCaret();GetXPos(&CurrCol);return TRUE;
+ }
+ start=CurrPos;if(GoBack(&start,entry->NewSize)!=entry->NewSize){WvReplaceReset();return FALSE;}
+ HideEditCaret();ReplacingInternally=TRUE;CurrPos=start;SetUnsafe();
+ /* One preallocated logical record serves vi and Windows-style undo. Do not
+    let the physical resize add a separate, potentially partial-character edit. */
+ BOOL ok=EnterDeleteForUndo(&CurrPos,entry->NewSize,0) && EnterInsertForUndo(&CurrPos,entry->OldSize);
+ INT delta=(INT)entry->OldSize-(INT)entry->NewSize;
+ if(ok && delta){
+  POSITION end={LastPage,LastPage->Fill,0};WV_ULONG before=CountBytes(&end);
+  WvReplaceResizing=TRUE;ok=Reserve(&CurrPos,delta,0);WvReplaceResizing=FALSE;
+  if(!ok){
+   end.p=LastPage;end.i=LastPage->Fill;WV_ULONG after=CountBytes(&end);
+   WvReplaceUndoSize(after>=before?entry->NewSize+(after-before):entry->NewSize-(before-after));
+  }
+ }
+ if(ok && entry->OldSize){
+  POSITION p=CurrPos;
+  if(ok)for(UINT i=0;i<entry->OldSize;i++){
+   if(ByteAt(&p)<0){ok=FALSE;break;}p.p->PageBuf[p.i]=entry->Old[i];UnsafePage(&p);Advance(&p,1);
+  }
+ }
+ ReplacingInternally=FALSE;
+ if(ok){Replaced=entry->Previous;free(entry);if(InsertCount)--InsertCount;if(!Replaced)WvReplaceEditHook=NULL;}
+ else{WvReplaceReset();NewStatus(0,L"Cannot restore replaced character.",NS_ERROR);}
+ InvalidateArea(&CurrPos,0,9);NewPosition(&CurrPos);ShowEditCaret();GetXPos(&CurrCol);return ok;
 }
 
 BOOL DeleteChar(void) {

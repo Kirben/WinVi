@@ -159,3 +159,5 @@ BOOL WvDbcsBoundary(PPOSITION);
 void WvDbcsNormalize(PPOSITION,BOOL);
 
 void WvDbcsDirty(LPPAGE);
+
+extern void (*WvReplaceEditHook)(void);

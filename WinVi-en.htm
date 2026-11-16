@@ -261,7 +261,11 @@ are separated by a bar, as in <code>|</code>.<br>
     <td>&nbsp;</td>
     <td>Writes lines of the working buffer into a file ("write").  The default
         line range is the entire file (<code>$</code> means "the last line").
-        With <code>&gt;&gt;</code>, the text is appended to the file.</td>
+        With <code>&gt;&gt;</code>, the text is appended to the file.
+        Writing only part of the buffer over the current file requires
+        <code>!</code>, for example <code>:1,5w!</code>. This also applies to
+        alternate paths or hard links identifying the current file. Writing a
+        range to a new file, appending, and writing the entire buffer are unchanged.</td>
 </tr><tr>
     <td nowrap="true"><code>:[1,$]wq [&gt;&gt;][{TAB}|file]{Enter}</code></td>
     <td>&nbsp;</td>
@@ -445,7 +449,11 @@ are separated by a bar, as in <code>|</code>.<br>
 </tr><tr>
     <td nowrap="true"><code>[n]R[text]{ESC}</code></td>
     <td>replace (n times) the text in the current line at the cursor position
-        by "text" (replace mode)</td>
+        by "text" (replace mode). Backspace restores characters overwritten
+        during the current uninterrupted typing run, or removes characters
+        appended past the end of the line. Before that run it moves left without
+        deleting existing text. Escape, cursor navigation, a mouse click or another
+        editing operation ends restoration history; ordinary undo remains available.</td>
 </tr><tr>
     <td nowrap="true"><code>[n]~</code></td>
     <td>change case (n times) within the current line starting at the cursor

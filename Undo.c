@@ -88,6 +88,7 @@ static BOOL StartWithRemove, Redoing;
 
 void StartUndoSequence(void)
 {
+ if(WvReplaceEditHook)WvReplaceEditHook();
 	if(WvExGlobalUndo){GlobalUndoFlags &= ~UD_NEWOP;return;}
 	if (ViewOnlyFlag) return;
 	if (!(GlobalUndoFlags & UD_BYUNDO) && Redoing) {
@@ -154,6 +155,10 @@ static void EnableUndo(void)
 	EnableToolButton(IDB_UNDO, TRUE);
 }
 
+/* A replacement resize belongs to the caller's preallocated logical record. */
+BOOL WvReplaceResizing;
+void WvReplaceUndoSize(WV_ULONG size){if(LastUndo)LastUndo->Inserted=size;}
+
 BOOL EnterDeleteForUndo(PPOSITION Pos, WV_ULONG Length, WORD Flags)
 	/*Flags: 1=enter as selected, reselect after undo
 	 *		 2=remove last undo information, cannot be undone later
@@ -166,6 +171,7 @@ BOOL EnterDeleteForUndo(PPOSITION Pos, WV_ULONG Length, WORD Flags)
 	WV_ULONG	 OldSize;
 	LPUNDO	 Reallocated = NULL;
 
+	if(WvReplaceResizing)return TRUE;
 	if (Flags & 2) {
 		if (!LastUndo->Inserted) return (FALSE);
 		--LastUndo->Inserted;
@@ -278,6 +284,7 @@ void SetSafeForUndo(BOOL FileChanged)
 
 BOOL EnterInsertForUndo(PPOSITION Pos, WV_ULONG Length)
 {	WV_ULONG ByteCount = CountBytes(Pos);
+ if(WvReplaceResizing)return TRUE;
 
 	CheckForUndoneToRelease(TRUE);
 	EnableUndo();

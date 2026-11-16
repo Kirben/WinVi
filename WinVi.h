@@ -532,3 +532,9 @@ INT WvExMatchLine(struct tagPOSITION*,struct tagPOSITION*);
 extern void (*WvExGlobalEditHook)(WV_ULONG,WV_ULONG,WV_ULONG);
 
 #endif /* WINVI_H_INCLUDED */
+
+void WvReplaceReset(void);
+BOOL WvReplaceBackspace(void);
+
+extern BOOL WvReplaceResizing;
+void WvReplaceUndoSize(WV_ULONG);

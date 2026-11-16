@@ -1072,6 +1072,22 @@ DWORD TimeDiff(FILETIME *q1, FILETIME *q2)
 
 BOOL SetSafeAfterWrite;
 
+/* Compare normalized paths first, then identities so hard-link/short-name aliases
+   cannot turn an addressed write into an accidental overwrite of this document. */
+static BOOL CurrentWriteTarget(PCWSTR name)
+{
+ PWSTR target,current;BOOL same=FALSE;HANDLE a,b;BY_HANDLE_FILE_INFORMATION ai,bi;
+ if(!CurrFile || !*CurrFile)return FALSE;
+ target=WvAbsolutePath(name);current=WvAbsolutePath(CurrFile);
+ if(!target || !current){free(target);free(current);return TRUE;}
+ same=!_wcsicmp(target,current);free(target);free(current);if(same)return TRUE;
+ a=CreateFileW(name,FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,0,NULL);
+ b=CreateFileW(CurrFile,FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,0,NULL);
+ if(a!=INVALID_HANDLE_VALUE && b!=INVALID_HANDLE_VALUE && GetFileInformationByHandle(a,&ai) && GetFileInformationByHandle(b,&bi))
+  same=ai.dwVolumeSerialNumber==bi.dwVolumeSerialNumber && ai.nFileIndexHigh==bi.nFileIndexHigh && ai.nFileIndexLow==bi.nFileIndexLow;
+ if(a!=INVALID_HANDLE_VALUE)CloseHandle(a);if(b!=INVALID_HANDLE_VALUE)CloseHandle(b);return same;
+}
+
 BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 	/*Flags: 1=Write command with '!', don't ask for overwrite
 	 */
@@ -1216,8 +1232,14 @@ BOOL WriteCmd(WV_LONG StartLine, WV_LONG EndLine, PCWSTR FName, WORD Flags)
 		EndPos.i = LastPage->Fill;
 		EndPos.f = 0;	/*TODO: set flags*/
 	}
+ if(!(Flags&1) && OpenMode!=OF_WRITE){
+  POSITION end={LastPage,LastPage->Fill,0};
+  if((CountBytes(&StartPos)!=0 || CountBytes(&EndPos)!=CountBytes(&end)) && CurrentWriteTarget(FileName)){
+   ShowEditCaret();NewStatus(0,L"Partial write to the current file requires ! (use :write!).",NS_ERROR);return FALSE;
+  }
+ }
 	if (Length > WV_MAX_POSITION) {NewStatus(0,L"Document size exceeds the signed 64-bit file-position range.",NS_ERROR);ShowEditCaret();return FALSE;}
-	if (c != C_EOF) {
+	if (c != C_EOF || CountBytes(&EndPos)>CountBytes(&StartPos)) {
 		HFILE  hf;
 		BOOL   FileExists;
 		INT	   i;

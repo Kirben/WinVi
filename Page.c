@@ -252,8 +252,10 @@ BOOL ReloadPage(LPPAGE p)
 
 /* Release a detached recovery chain, or the previous document after a fully
    staged replacement. Keep the paging file: both chains may have pages in it. */
+void (*WvReplaceEditHook)(void);
 void WvFreePageChain(LPPAGE page)
 {
+ if(WvReplaceEditHook)WvReplaceEditHook();
  WvDbcsInvalidate();
  while(page){
   LPPAGE next=page->Next;
@@ -274,7 +276,8 @@ void WvReplacePageChain(LPPAGE first,LPPAGE last)
  memset(MarkPos,0,sizeof(MarkPos));
 }
 void FreeAllPages(void)
-{ WvDbcsInvalidate();
+{ if(WvReplaceEditHook)WvReplaceEditHook();
+ WvDbcsInvalidate();
  LPPAGE lp = FirstPage, lp2;
 
 	if (!*ErrorUseVirtual) {
@@ -943,7 +946,8 @@ INT CountNewlinesInBuf(LPBYTE Buf, INT Len, WV_LONG NewLineCnt[9], DWORD *pFlags
 }
 
 void UnsafePage(PPOSITION Pos)
-{ WvDbcsDirty(Pos->p);
+{ if(WvReplaceEditHook)WvReplaceEditHook();
+ WvDbcsDirty(Pos->p);
  BYTE  Nl = CharSet==CS_EBCDIC ? MapAnsiToEbcdic['\n'] : '\n';
 
 	Pos->p->Flags &= ~ISSAFE;
@@ -975,6 +979,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 	if (Amount > PAGESIZE || Amount == (-9223372036854775807LL-1)) {
         NewStatus(0,L"Invalid page-reservation size.",NS_ERROR);return FALSE;
     }
+    if(WvReplaceEditHook)WvReplaceEditHook();
     WvDbcsDirty(Pos->p);
     /* A full document near INT64_MAX must also reject single-character growth.
        Normal edits avoid a whole-document count: that size requires this many pages. */

@@ -275,7 +275,11 @@ getrennt.<br>
         (&bdquo;write&ldquo;); Standard ist die Auswahl aller Zeilen
         (<code>$</code> steht f&uuml;r die letzte Zeile), mit
         <code>&gt;&gt;</code> wird der Text an die (ggf. eigene) Datei
-        angeh&auml;ngt</td>
+        angeh&auml;ngt. Das &Uuml;berschreiben der aktuellen Datei mit nur einem
+        Teil des Puffers erfordert <code>!</code>, etwa <code>:1,5w!</code>.
+        Dies gilt auch f&uuml;r andere Pfade oder Hardlinks derselben Datei.
+        Das Schreiben in eine neue Datei, Anh&auml;ngen und das Schreiben des
+        gesamten Puffers bleiben unver&auml;ndert.</td>
 </tr><tr>
     <td nowrap="true"><code>:[1,$]wq [&gt;&gt;][{Tab}|file]{Enter}</code></td>
     <td>&nbsp;</td>
@@ -453,7 +457,12 @@ getrennt.<br>
     <td nowrap="true"><code>[n]R[text]{Esc}</code></td>
     <td>(n-mal) innerhalb der Zeile die vorhandenen Zeichen durch
         &bdquo;text&ldquo; &uuml;berschreiben
-        (&bdquo;&Uuml;berschreibmodus&ldquo;)</td>
+        (&bdquo;&Uuml;berschreibmodus&ldquo;). Backspace stellt Zeichen der
+        aktuellen ununterbrochenen Eingabefolge wieder her; hinter dem Zeilenende
+        angeh&auml;ngte Zeichen werden entfernt. Davor bewegt sich der Cursor nach
+        links, ohne vorhandenen Text zu l&ouml;schen. Escape, Cursorbewegungen,
+        Mausklicks oder andere Bearbeitungen beenden diese Wiederherstellung;
+        die normale Undo-Funktion bleibt verf&uuml;gbar.</td>
 </tr><tr>
     <td nowrap="true"><code>[n]~</code></td>
     <td>(n-mal) innerhalb der Zeile f&uuml;r Zeichen unter (ab) Cursor

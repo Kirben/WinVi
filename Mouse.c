@@ -75,6 +75,7 @@ void MouseInTextArea(UINT uMsg, WPARAM wPar, int Line, int xPixel, int yPixel,
 					 BOOL Activated)
 {	BOOL Down;
 
+ if(uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK)WvReplaceReset();
 	PARAM_NOT_USED(wPar);
 	PARAM_NOT_USED(yPixel);
 	if (TimerRunning) {
@@ -181,6 +182,7 @@ void MouseInTextArea(UINT uMsg, WPARAM wPar, int Line, int xPixel, int yPixel,
 
 void MouseSelectText(UINT uMsg, WPARAM wPar, WV_LONG xPixel, BOOL BelowText)
 {
+ if(uMsg==WM_LBUTTONDOWN || uMsg==WM_LBUTTONDBLCLK)WvReplaceReset();
 	PARAM_NOT_USED(wPar);
 	if (LButtonPushed) {
 		if (uMsg == WM_LBUTTONUP) {

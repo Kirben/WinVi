@@ -676,6 +676,7 @@ void GotKeydown(WPARAM VirtualKey)
 	PWSTR NewStatusString = L"";
 	UINT  Flags = 0;
 
+ if(VirtualKey==VK_LEFT || VirtualKey==VK_RIGHT || VirtualKey==VK_UP || VirtualKey==VK_DOWN || VirtualKey==VK_HOME || VirtualKey==VK_END || VirtualKey==VK_PRIOR || VirtualKey==VK_NEXT || VirtualKey==VK_INSERT || VirtualKey==VK_DELETE)WvReplaceReset();
 	Num = InNumber ? Number : 0;
 	switch (VirtualKey) {
 		case '6':	/*check for <Ctrl+6>*/
@@ -1106,6 +1107,7 @@ void GotChar(INT Character, WORD Flags)
 	static INT		ShiftOutPrefix;
 					/*previously inserted character for test of [0^]<Ctrl+D>*/
 
+ if(Mode!=ReplaceMode || Character=='\033')WvReplaceReset();
 	if (Character == CTRL('o') || Character == CTRL('s')) {
 		static WCHAR SavText[40];
 		BOOL		 Saved;
@@ -1973,7 +1975,8 @@ void GotChar(INT Character, WORD Flags)
 					break;
 
 				case '\b':
-					DeleteChar();
+                    if(Mode==ReplaceMode && !ReplaceSingle && !HexEditMode)WvReplaceBackspace();
+                    else DeleteChar();
 					break;
 
 				case CTRL('w'):

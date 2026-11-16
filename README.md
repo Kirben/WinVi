@@ -24,3 +24,8 @@ and `tests/mbcs-command-test.cmd` (optionally with `asan`), plus
 `pwsh -STA -NoProfile -File tests/mbcs.ps1` with `WINVI_TEST_EXE` set to the
 build under test. They are also included in `test.ps1`. Clipboard tests use
 an isolated fake clipboard and do not replace the system clipboard contents.
+
+`tests/write-replace.ps1` checks partial-write protection and Replace-mode
+Backspace, including undo/redo, Unicode, DBCS and page boundaries.
+`tests/replace-backspace-test.cmd` (or `asan`) checks raw restoration and
+allocation failure without a GUI. Both are included in `test.ps1`.
