@@ -26,3 +26,5 @@
 /tests/split-cases/
 /tests/ex-global-obj/
 /tests/global-*/
+
+/tests/ex-line-obj/

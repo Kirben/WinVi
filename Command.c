@@ -727,11 +727,12 @@ BOOL CommandExec(PWSTR Cmd)
 		else if (EndLine == (WV_ULONG)-2) EndLine = 2147000000;
 		DeleteCmd(StartLine, EndLine, Args);
 		Ok = TRUE;
-	#if 0
-	//	} else if ((Args = Compare(Cmd, L"yank",   1,	 3)) != NULL) {
-	//	} else if ((Args = Compare(Cmd, L"global", 1,	 3)) != NULL) {
-	//	} else if ((Args = Compare(Cmd, L"v",	   1,	 3)) != NULL) {
-	#endif
+	} else if ((Args = Compare(Cmd, L"join", 1, 15)) != NULL) {
+        Ok = WvExLineCommand(StartLine, EndLine, 0, Args, CommandWithExclamation);
+	} else if ((Args = Compare(Cmd, L"yank", 1, 7)) != NULL) {
+        Ok = WvExLineCommand(StartLine, EndLine, 1, Args, FALSE);
+	} else if ((Args = Compare(Cmd, L"put", 2, 5)) != NULL) {
+        Ok = WvExLineCommand(StartLine, EndLine, 2, Args, FALSE);
 	} else if ((Args = Compare(Cmd, L"version",	   2,	 0)) != NULL) {
 		VersionCmd();
 		Ok = TRUE;

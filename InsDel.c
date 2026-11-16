@@ -960,12 +960,14 @@ INT        YankIndex = 0;
 
 BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 	/*Flags: 1: Enter in YankHandles[1...9] (delete row(s) operation)
+	 *       2: linewise ex yank, terminate complete register lines
 	 */
 	POSITION  YankPos;
 	HGLOBAL   YankHandle;
 	CHAR huge *YankMem;
 	WV_ULONG	  Expand = 0;
 	INT		  NumericIndex;
+    BYTE eol[4];UINT prefix=0,suffix=0,eolSize=0;WV_ULONG storedLength;
 
 	YankPos = *Pos;
 	if (DblQuoteChar) {
@@ -1018,13 +1020,27 @@ BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 			YankHandle = NULL;
 		} else Expand = YankLength[YankIndex];
 	}
+    storedLength=Length;
+    if((Flags&2) && Length){
+        POSITION tail=*Pos;INT c;
+        eolSize=WvEncodedEol(eol);Advance(&tail,Length);c=GoBackAndChar(&tail);
+        suffix=(CharFlags(c)&1)?0:eolSize;
+        if(Expand){
+            BYTE *old=GlobalLock(YankHandle);
+            if(!old)return FALSE;
+            if(UtfEncoding==16 && Expand>=2)c=UtfLsbFirst?old[Expand-2]|old[Expand-1]<<8:old[Expand-2]<<8|old[Expand-1];
+            else c=CharSet==CS_EBCDIC?MapEbcdicToAnsi[old[Expand-1]]:old[Expand-1];
+            prefix=(CharFlags(c)&1)?0:eolSize;GlobalUnlock(YankHandle);
+        }
+        if(!WvSizeAdd(Length,prefix+suffix,&storedLength)){NewStatus(0,L"Yank allocation size overflow.",NS_ERROR);return FALSE;}
+    }
 	if (Length) {
 		CHAR huge *p;
 
 		if (YankHandle != NULL) {
 			WV_ULONG combined;
             HGLOBAL h;
-            if (!WvSizeAdd(Expand,Length,&combined)) {NewStatus(0,L"Yank allocation size overflow.",NS_ERROR);ShowEditCaret();return FALSE;}
+            if (!WvSizeAdd(Expand,storedLength,&combined)) {NewStatus(0,L"Yank allocation size overflow.",NS_ERROR);ShowEditCaret();return FALSE;}
             h = GlobalReAlloc(YankHandle, combined, GMEM_MOVEABLE);
 			if (!h) {
 				ErrorBox(MB_ICONSTOP, 308);
@@ -1032,7 +1048,7 @@ BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 				return (FALSE);
 			}
 			YankHandle = h;
-		} else YankHandle = GlobalAlloc(GMEM_MOVEABLE, Length);
+		} else YankHandle = GlobalAlloc(GMEM_MOVEABLE, storedLength);
 		if (YankHandle == NULL || (YankMem = GlobalLock(YankHandle)) == NULL) {
 			if (YankHandle != NULL) GlobalFree(YankHandle);
 			YankHandles[YankIndex] = NULL;
@@ -1040,12 +1056,18 @@ BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 			ShowEditCaret();
 			return (FALSE);
 		}
-		YankLength[YankIndex] = Expand + Length;
+		YankLength[YankIndex] = Expand + storedLength;
 		p = YankMem + Expand;
+        if(prefix){memcpy(p,eol,prefix);p+=prefix;}
 		while (Length) {
 			UINT n;
 
-			CharAt(&YankPos);	/*...normalize pos and enforce page load*/
+            if(CharAt(&YankPos)==C_ERROR || !YankPos.p->PageBuf){
+                GlobalUnlock(YankHandle);GlobalFree(YankHandle);
+                YankHandles[YankIndex]=NULL;YankLength[YankIndex]=0;
+                NewStatus(0,L"Cannot read the yank input.",NS_ERROR);
+                ShowEditCaret();return FALSE;
+            }
 			n = YankPos.p->Fill - YankPos.i;
 			if ((WV_ULONG)n > Length) n = (UINT)Length;
 			assert(n > 0);
@@ -1066,6 +1088,7 @@ BOOL Yank(PPOSITION Pos, WV_ULONG Length, WORD Flags) {
 			YankPos.i += n;
 			p		  += n;
 		}
+        if(suffix)memcpy(p,eol,suffix);
 		GlobalUnlock(YankHandle);
 	}
 	YankHandles[YankIndex] = YankHandle;
@@ -1090,7 +1113,11 @@ BOOL Put(WV_LONG Number, BOOL Behind) {
 	HideEditCaret();
 	YankMem = GlobalLock(YankHandles[Index]);
 	if (!YankMem) return (FALSE);
-	LineFlag = CharFlags(YankMem[YankLength[Index]-1]) & 1;
+    if(UtfEncoding==16 && YankLength[Index]>=2){
+        WV_ULONG n=YankLength[Index];
+        c=UtfLsbFirst?YankMem[n-2]|YankMem[n-1]<<8:YankMem[n-2]<<8|YankMem[n-1];
+    }else c=CharSet==CS_EBCDIC?MapEbcdicToAnsi[YankMem[YankLength[Index]-1]]:YankMem[YankLength[Index]-1];
+    LineFlag=CharFlags(c)&1;
 	if (LineFlag) {
 		/*insert as lines...*/
 		if (Behind) {

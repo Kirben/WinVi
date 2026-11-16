@@ -1270,6 +1270,33 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3><a name="ExLineCommands"></a>Zeilen verbinden, kopieren und einf&uuml;gen</h3>
+<p><code>:[Bereich]j[oin][!] [Anzahl]</code> verbindet die angegebenen Zeilen.
+Ohne Bereich werden die angegebene/aktuelle und die folgende Zeile verbunden.
+Normal gelten die Abstandsregeln von WinVis J-Befehl: f&uuml;hrende Einr&uuml;ckung
+der Folgezeilen wird entfernt und bei Bedarf ein Leerzeichen eingef&uuml;gt.
+<code>join!</code> entfernt nur Zeilenumbr&uuml;che. Bei keiner/einer Adresse
+bezeichnet Anzahl die folgenden Zeilen; bei einem Bereich beginnt die Anzahl
+an dessen letzter Adresse.</p>
+<p><code>:[Bereich]y[ank] [Register] [Anzahl]</code> kopiert ganze Zeilen, ohne
+Text oder Cursor zu &auml;ndern. Standard ist die aktuelle Zeile. Eine Anzahl
+beginnt an der letzten angegebenen Adresse und endet sp&auml;testens am Dateiende.
+a-z w&auml;hlt ein benanntes Register; A-Z h&auml;ngt ganze Zeilen daran an.
+Beispiel: <code>:2,4yank a</code> kopiert Zeilen 2-4 nach Register a.</p>
+<p><code>:[Zeile]pu[t] [Register]</code> f&uuml;gt das Register als ganze Zeilen
+hinter der angegebenen/aktuellen Zeile ein. <code>:0put a</code> f&uuml;gt vor
+der ersten Zeile, nach einer BOM, ein. Standard ist das zuletzt benutzte
+Yank-/L&ouml;schregister. Numerische Register sind ebenfalls w&auml;hlbar; bei
+yank steht vor der Ziffer ein doppeltes Anf&uuml;hrungszeichen. Der Cursor endet
+auf der letzten eingef&uuml;gten Zeile. Fehlende Zeilenenden werden im Format
+des Dokuments erg&auml;nzt. Auch zeichenweise vi-Register werden als Zeilen
+eingef&uuml;gt. Register behalten die Dokumentbytes; es erfolgt keine
+Umkodierung zwischen Dateizeichens&auml;tzen.</p>
+<p>Nur im Textmodus. Yank funktioniert auch bei Schreibschutz. Join und put
+lassen sich jeweils als eine Operation zur&uuml;cknehmen. Nach Abbruch k&ouml;nnen
+bereits ausgef&uuml;hrte &Auml;nderungen zur&uuml;ckgenommen werden. Die Befehle
+sind noch nicht als Befehlsteil von <code>:g</code>/<code>:v</code> verf&uuml;gbar.</p>
+
 <h2><a name="ExVariables"></a>ex - Optionen</h2>
 
 

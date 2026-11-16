@@ -410,6 +410,8 @@ BOOL MouseHandle(UINT, WPARAM, LPARAM);
 BOOL NewViEditCmd(PWSTR);
 BOOL QuitCmd(BOOL);
 void ResizeWithLinesAndColumns(void);
+UINT WvEncodedEol(BYTE[4]);
+BOOL WvExLineCommand(WV_ULONG, WV_ULONG, INT, PWSTR, BOOL);
 BOOL CommandExec(PWSTR);
 
 /*exec.c*/

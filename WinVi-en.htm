@@ -1234,6 +1234,31 @@ and will not repeated here.</p>
 
 
 
+<h3><a name="ExLineCommands"></a>Joining, yanking and putting lines</h3>
+<p><code>:[range]j[oin][!] [count]</code> joins addressed lines. Without a range,
+the addressed/current line and the following line are joined. Normal joining
+uses WinVi's J spacing rules, stripping leading indentation from following
+lines and inserting a space where appropriate; <code>join!</code> removes only
+the line breaks. A count with zero/one address means that many following lines;
+with a range it selects that many lines starting at the range's last address.</p>
+<p><code>:[range]y[ank] [register] [count]</code> copies complete lines without
+changing the text or cursor. The default is the current line. A count selects
+lines starting at the last addressed line. Counts stop at the end of the file.
+Use a letter a-z for a named register, or A-Z to append complete lines to it.
+For example, <code>:2,4yank a</code> copies lines 2-4 to register a.</p>
+<p><code>:[line]pu[t] [register]</code> inserts the register as complete lines
+after the addressed/current line. <code>:0put a</code> inserts before the first
+line, after any BOM. The default register is the most recently used yank/delete
+register; a quoted digit can select a numbered register for yank, and a digit
+selects one for put. The cursor finishes on the last inserted line. Missing
+line terminators are supplied using the document's newline convention. A
+characterwise vi register is also put as lines. Registers retain raw document
+bytes; these commands do not transcode between file encodings.</p>
+<p>Text mode is required. Yank is available in view-only documents; join and put
+are edits and each can be undone as one operation. Cancellation may leave
+completed edits, which can be undone. The supported global-command body subset
+is unchanged: these commands are not yet accepted inside <code>:g</code>/<code>:v</code>.</p>
+
 <h2><a name="ExVariables"></a>ex - Options</h2>
 
 
