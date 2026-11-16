@@ -157,6 +157,33 @@ int main(void){
   for(i=0;i<sizeof(bad)/sizeof(bad[0]);i++){WCHAR cmd[128];wcscpy(cmd,bad[i]);Document((BYTE*)"a\nb\nc\n",6,0,TRUE);transferModel=1;CHECK(!CommandExec(cmd));CHECK(!undoCalls && !deleteCalls && FirstPage->Fill==6);}
  }
  Transfers();
+ {extern POSITION MarkPos[27];int first,last,right,ts,sw;char input[]="a\n  b\n\tc\n";
+  for(ts=1;ts<=8;ts*=2)for(sw=1;sw<=4;sw++)for(first=1;first<=3;first++)for(last=first;last<=3;last++)for(right=0;right<2;right++){
+   BYTE want[100];int n=0,line,col,tabs,k;Document((BYTE*)input,sizeof(input)-1,0,TRUE);transferModel=1;TabStop=ts;ShiftWidth=sw;
+   for(line=1;line<=3;line++){
+    col=line==1?0:line==2?2:ts;
+    if(line>=first && line<=last){col=right?col+sw:col>sw?col-sw:0;tabs=ts>1?col/ts:0;for(k=0;k<tabs;k++)want[n++]='\t';for(k=0;k<(ts>1?col%ts:col);k++)want[n++]=' ';}
+    else if(line==2){want[n++]=' ';want[n++]=' ';}else if(line==3)want[n++]='\t';
+    want[n++]=(BYTE)('a'+line-1);want[n++]='\n';
+   }
+   CHECK(WvExIndent(first,last,L"",right));CHECK(FirstPage->Fill==n && !memcmp(FirstPage->PageBuf,want,n));CHECK(CountLines(&CurrPos)+1==last && !WvExGlobalActive);
+  }
+  TabStop=8;ShiftWidth=4;
+  Document((BYTE*)" a\nb\n",5,0,TRUE);transferModel=1;CHECK(WvExIndent(1,1,L"> 2",TRUE));CHECK(FirstPage->Fill==7 && !memcmp(FirstPage->PageBuf,"\t a\n\tb\n",7) && undoCalls==1);
+  Document((BYTE*)" \t\na\n",5,0,TRUE);transferModel=1;CHECK(WvExIndent(1,1,L"",TRUE));CHECK(FirstPage->Fill==3 && !memcmp(FirstPage->PageBuf,"\na\n",3));
+  Document((BYTE*)"  a\nb\n",6,0,TRUE);failSnapshot=1;CHECK(!WvExIndent(1,1,L"",TRUE) && !undoCalls && !deleteCalls && FirstPage->Fill==6);
+  Document((BYTE*)"  a\nb\n",6,0,TRUE);failInsert=1;CHECK(!WvExIndent(1,1,L"",TRUE) && !deleteCalls && FirstPage->Fill==6);
+  Document((BYTE*)"  a\nb\n",6,0,TRUE);transferModel=failDeleteUndo=1;CHECK(!WvExIndent(1,1,L"",TRUE) && !deleteCalls && FirstPage->Fill==12 && !memcmp(FirstPage->PageBuf,"        a\nb\n",12));
+  Document((BYTE*)"  a\nb\n",6,0,TRUE);cancel=1;CHECK(!WvExIndent(1,1,L"",TRUE) && !undoCalls && !WvExGlobalActive && FirstPage->Fill==6);
+  Document((BYTE*)"  a\nb\n",6,0,TRUE);readFault=2;CHECK(!WvExIndent(1,1,L"",TRUE) && !undoCalls && !WvExGlobalActive);
+  Document((BYTE*)"a\nb\n",4,0,TRUE);readOnly=1;CHECK(!WvExIndent(1,1,L"",TRUE));readOnly=0;
+  memset(MarkPos,0,sizeof(POSITION)*27);CHECK(WvExMark(2,L"a") && CountBytes(&MarkPos[1])==2 && !CurrPos.i && !undoCalls);
+  CHECK(!WvExMark(1,L"") && CountBytes(&MarkPos[1])==2);CHECK(!WvExMark(1,L"A"));CHECK(!WvExMark(1,L"aa"));CHECK(!WvExMark(0,L"a"));CHECK(!WvExMark(3,L"a"));
+  cancel=1;CHECK(!WvExMark(1,L"a") && CountBytes(&MarkPos[1])==2 && !WvExGlobalActive);cancel=0;
+  readFault=2;CHECK(!WvExMark(1,L"a") && CountBytes(&MarkPos[1])==2 && !WvExGlobalActive);readFault=0;
+  CHECK(CommandExec(L":1ka") && CountBytes(&MarkPos[1])==0);CHECK(CommandExec(L":2ma z") && CountBytes(&MarkPos[26])==2);
+  {static const WCHAR *bad[]={L":>0",L":< -1",L":>>garbage",L":>1|write",L":>9223372036854775808",L":0>",L":3,1<",L":mark",L":ka extra",L":1,2ka",L":mark! a",L":k A"};int i;for(i=0;i<sizeof(bad)/sizeof(bad[0]);i++){WCHAR cmd[100];Document((BYTE*)"a\nb\n",4,0,TRUE);wcscpy(cmd,bad[i]);CHECK(!CommandExec(cmd));CHECK(!undoCalls && !deleteCalls && FirstPage->Fill==4);}}
+ }
  {BYTE le[]={0xe9,0,13,0,0x2d,0x4e,10,0,10,0,'x',0,10,0};BYTE be[sizeof(le)];DWORD flags;WV_LONG counts[9];int i,order;
   for(i=0;i<sizeof(le);i+=2){be[i]=le[i+1];be[i+1]=le[i];}
   for(order=0;order<2;order++){

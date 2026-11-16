@@ -662,6 +662,28 @@ void CorrectLineInfo(LPPAGE OldPage, UINT OldInx, LPPAGE NewPage, UINT NewInx,
 					 WV_ULONG OldCount, INT CountDiff)
 {	int i;
 
+    /* Marks follow their original character (right gravity on insertion).
+       Page splits relocate positions; deletions clamp consumed marks to the
+       surviving boundary instead of leaving an index beyond the page fill. */
+    for (i=0; i<27; ++i) if (MarkPos[i].p) {
+        PPOSITION mark=&MarkPos[i];
+        while (mark->p->Next && mark->i>=mark->p->Fill) {
+            mark->i-=mark->p->Fill;mark->p=mark->p->Next;
+        }
+        if (OldPage && mark->p==OldPage) {
+            if (mark->i>=OldInx) {
+                mark->p=NewPage;
+                mark->i=mark->i-OldInx+NewInx;
+            } else if (OldPage==NewPage && CountDiff>0 && OldInx && mark->i==OldInx-1) {
+                mark->i+=(UINT)CountDiff;
+            } else if (OldPage==NewPage && NewInx<OldInx && mark->i>=NewInx) {
+                mark->i=NewInx;mark->f=0;
+            }
+        }
+        while (mark->p->Next && mark->i>=mark->p->Fill) {
+            mark->i-=mark->p->Fill;mark->p=mark->p->Next;
+        }
+    }
 	LineInfo[0].Pos = ScreenStart;
 	for (i=CurrLine; i<=VisiLines; ++i) {
 		if (LineInfo[i].Pos.p == OldPage && LineInfo[i].Pos.i >= OldInx) {
@@ -849,7 +871,7 @@ BOOL Reserve(PPOSITION Pos, WV_LONG Amount, WORD Flags)
 		}
 		if (ScreenStart.p==Pos->p->Next && ScreenStart.i==0)
 			LineInfo[0].Pos = ScreenStart = *Pos;
-		CorrectLineInfo(NULL, 0, NULL, 0, CountBytes(Pos), Amount);
+		CorrectLineInfo(Pos->p, Pos->i+1, Pos->p, Pos->i+Amount+1, CountBytes(Pos), Amount);
 		if(WvExGlobalEditHook)WvExGlobalEditHook(globalOffset,0,Amount);
 		return (TRUE);
 	}

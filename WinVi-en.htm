@@ -1258,6 +1258,30 @@ between an edit and undo does not break that grouping. No addresses, counts
 or arguments are accepted. Undo requires an editable document and no running
 external command.</p>
 
+<h3>Indentation and line marks</h3>
+<p><code>:[range]&gt; [count]</code> shifts lines right by
+<code>shiftwidth</code> columns; <code>:[range]&lt; [count]</code> shifts left,
+stopping at column zero. The default is the current line. A positive count
+starts at the last address and stops at EOF. Repeating the operator multiplies
+the shift: <code>:2,4&gt;&gt;</code> shifts lines 2-4 by twice shiftwidth.</p>
+<p>Leading tabs use <code>tabstop</code> columns. The resulting indentation
+uses tabs plus remaining spaces, following WinVi's existing vi shift rules;
+<code>tabstop=1</code> produces spaces only. Empty lines remain empty and
+whitespace-only lines are cleared. Other text and line endings are preserved.
+The cursor finishes at the first nonblank on the last addressed line. A shift
+is one undo group and preserves yank/delete registers. Text mode, an editable
+document and no running external command are required. Cancellation or an
+editing failure may leave completed edits, which can be undone.</p>
+<p><code>:[line]ma[rk] a</code> and <code>:[line]k a</code> set an existing
+vi mark named a-z; compact <code>:ka</code> is also accepted. The default is
+the current line. The mark points to its first nonblank character, or the
+beginning of an empty/whitespace-only line. The current cursor, text, registers
+and undo history are unchanged. A range is not accepted. Marks work in
+view-only documents, require text mode and no running external command, and
+follow insertions and deletions. Marks inside deleted text move
+to the surviving deletion boundary. Use
+<code>'a</code> or <code>`a</code> in vi mode to return to the mark.</p>
+
 <h3><a name="ExLineCommands"></a>Joining, yanking and putting lines</h3>
 <p><code>:[range]j[oin][!] [count]</code> joins addressed lines. Without a range,
 the addressed/current line and the following line are joined. Normal joining

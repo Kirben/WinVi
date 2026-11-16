@@ -22,6 +22,21 @@ BOOL EnterInsertForUndo(PPOSITION p,WV_ULONG n){(void)p;(void)n;return TRUE;}
 static void Drop(PAGE *p){if(p->PageBuf){HGLOBAL h=GLOBALHANDLE(p->PageBuf);UnlinkResident(p);GlobalUnlock(h);GlobalFree(h);p->PageBuf=NULL;--PagesOccupied;}}
 int main(void) {
  PAGE p={0},a={0},b={0},c={0},d={0};BYTE data[PAGESIZE];DWORD n;int i;
+ {PAGE x={0},y={0};LINEINFO lines[1]={0};LineInfo=lines;FirstPage=LastPage=&x;x.Fill=20;
+  MarkPos[1].p=MarkPos[2].p=MarkPos[3].p=&x;MarkPos[1].i=1;MarkPos[2].i=2;MarkPos[3].i=5;
+  CorrectLineInfo(&x,3,&x,7,2,4);CHECK(MarkPos[1].i==1 && MarkPos[2].i==6 && MarkPos[3].i==9);
+  MarkPos[1].i=5;MarkPos[1].f=2;MarkPos[2].i=7;MarkPos[3].i=11;
+  CorrectLineInfo(&x,8,&x,4,4,-4);CHECK(MarkPos[1].i==4 && !MarkPos[1].f && MarkPos[2].i==4 && MarkPos[3].i==7);
+  CorrectLineInfo(&x,6,&y,0,0,0);CHECK(MarkPos[3].p==&y && MarkPos[3].i==1);
+  memset(MarkPos,0,sizeof(MarkPos));x.Fill=7;MarkPos[1].p=&x;MarkPos[1].i=4;CorrectLineInfo(&x,5,&x,8,4,3);CHECK(MarkPos[1].i==7);
+  x.Fill=10;y.Fill=10;x.Next=&y;y.Prev=&x;MarkPos[1].p=&x;MarkPos[1].i=8;MarkPos[2].p=&y;MarkPos[2].i=2;
+  CorrectLineInfo(&x,10,&x,5,5,-5);CHECK(MarkPos[1].p==&x && MarkPos[1].i==5 && MarkPos[2].p==&y && MarkPos[2].i==2);
+  x.Fill=5;CorrectLineInfo(&y,4,&y,0,5,-4);CHECK(MarkPos[2].p==&y && MarkPos[2].i==0);
+  memset(MarkPos,0,sizeof(MarkPos));x.Fill=1;y.Fill=6;MarkPos[1].p=&x;MarkPos[1].i=1;MarkPos[2].p=&y;
+  CorrectLineInfo(&y,1,&y,2,1,1);CHECK(MarkPos[1].p==&y && MarkPos[1].i==1 && MarkPos[2].i==1);
+  memset(MarkPos,0,sizeof(MarkPos));LineInfo=NULL;FirstPage=LastPage=NULL;
+  puts("PASS mark tracking: insertion boundaries, deletion clamping, page splits, append and multi-page deletion");
+ }
  CHECK(!Reserve(NULL,PAGESIZE+1,1) && LinesInFile==0);
  CHECK(!Reserve(NULL,(-9223372036854775807LL-1),0));
  for(i=0;i<PAGESIZE;i++)data[i]=(BYTE)i;

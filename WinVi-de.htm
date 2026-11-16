@@ -1294,6 +1294,32 @@ her. Zwischenzeitliches Anzeigen von Zeilen &auml;ndert diese Gruppierung nicht.
 Adressen, Anzahl und Argumente sind unzul&auml;ssig. Das Dokument muss
 bearbeitbar sein; kein externer Befehl darf laufen.</p>
 
+<h3>Einr&uuml;cken und Zeilenmarken</h3>
+<p><code>:[Bereich]&gt; [Anzahl]</code> r&uuml;ckt Zeilen um
+<code>shiftwidth</code> Spalten nach rechts; <code>:[Bereich]&lt; [Anzahl]</code>
+r&uuml;ckt bis h&ouml;chstens Spalte null nach links. Standard ist die aktuelle
+Zeile. Eine positive Anzahl beginnt an der letzten Adresse und endet am
+Dateiende. Wiederholte Zeichen vervielfachen die Breite:
+<code>:2,4&gt;&gt;</code> verwendet zweimal shiftwidth.</p>
+<p>Tabulatoren richten sich nach <code>tabstop</code>. Die neue Einr&uuml;ckung
+verwendet wie WinVis vi-Befehl Tabulatoren und restliche Leerzeichen;
+<code>tabstop=1</code> erzeugt nur Leerzeichen. Leere Zeilen bleiben leer;
+Zeilen mit nur Leerraum werden geleert. Anderer Text und Zeilenenden bleiben
+erhalten. Der Cursor endet am ersten Nicht-Leerzeichen der letzten Zeile.
+Ein Befehl ist eine Undo-Gruppe und erh&auml;lt Yank-/L&ouml;schregister.
+Erforderlich sind Textmodus, ein bearbeitbares Dokument und kein laufender
+externer Befehl. Nach Abbruch oder Schreibfehler bleiben bereits ausgef&uuml;hrte
+&Auml;nderungen r&uuml;cknehmbar.</p>
+<p><code>:[Zeile]ma[rk] a</code> und <code>:[Zeile]k a</code> setzen eine
+vi-Marke a-z; auch <code>:ka</code> ist erlaubt. Standard ist die aktuelle
+Zeile. Die Marke zeigt auf das erste Nicht-Leerzeichen, bei leeren oder nur
+aus Leerraum bestehenden Zeilen auf den Anfang. Cursor, Text, Register und
+Undo-Verlauf bleiben unver&auml;ndert. Bereiche sind unzul&auml;ssig. Marken
+funktionieren auch bei Schreibschutz; erforderlich sind Textmodus und kein
+laufender externer Befehl. Marken folgen Einf&uuml;gungen und L&ouml;schungen. Marken im gel&ouml;schten Text werden an die verbleibende
+L&ouml;schgrenze gesetzt.
+Mit <code>'a</code> oder <code>`a</code> im vi-Modus springt man zur Marke.</p>
+
 <h3><a name="ExLineCommands"></a>Zeilen verbinden, kopieren und einf&uuml;gen</h3>
 <p><code>:[Bereich]j[oin][!] [Anzahl]</code> verbindet die angegebenen Zeilen.
 Ohne Bereich werden die angegebene/aktuelle und die folgende Zeile verbunden.

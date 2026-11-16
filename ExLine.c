@@ -176,6 +176,121 @@ done:
 
 static WV_ULONG TransferSize(void)
 {POSITION p={LastPage,LastPage->Fill,0};return CountBytes(&p);}
+/* Checked, cancellable ex shifting. Follow vi Shift's tab/space and blank-line
+   policy without its unchecked Reserve writes. Preserve yank/delete registers. */
+BOOL WvExIndent(WV_ULONG first,WV_ULONG last,PWSTR args,BOOL right)
+{
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),repeat=1,count=0,width;
+ WV_ULONG line,columns,oldLength,newLength,chars,tabs,i,offset,size,expected,work=0;
+ POSITION begin,end,p,lastCursor;BYTE *bytes=NULL;INT c,j;UINT unit=UtfEncoding==16?2:1;
+ BOOL ok=FALSE,started=FALSE,enabled[2]={FALSE,FALSE};HWND windows[2]={NULL,NULL};
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return LineError(L"Shifting requires text mode and no running external command.");
+ if(IsViewOnly())return FALSE;
+ while(*args==(right?L'>':L'<')){repeat++;args++;}
+ args=SkipBlank(args);
+ if(*args){
+  if(*args<L'0' || *args>L'9')return LineError(L"Shift accepts only a positive line count.");
+  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)return LineError(L"Shift count is too large.");count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
+  if(!count || *SkipBlank(args))return LineError(L"Shift accepts only a positive line count.");
+ }
+ if(TabStop<1 || TabStop>128 || ShiftWidth<1 || ShiftWidth>128 || repeat>WV_MAX_POSITION/(UINT)ShiftWidth)return LineError(L"Invalid shift or tab width.");
+ width=repeat*(UINT)ShiftWidth;
+ if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
+ if(!first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=total;
+ if(!first || first>last || last>total)return LineError(L"Invalid shift line range.");
+ if(count){first=last;last=count-1>total-first?total:first+count-1;}
+ FreezeLineDialogs(windows,enabled);StartInterruptCheck();WvExGlobalActive=TRUE;
+ if(!LineSpan(first,last,&begin,&end))goto done;
+ lastCursor=begin;
+ for(line=first;line<=last;line++){
+  if(CheckInterrupt())goto done;
+  p=begin;columns=0;offset=CountBytes(&begin);
+  while((c=CharAt(&p))==' ' || c=='\t'){
+   WV_ULONG add=c=='\t'?(UINT)TabStop-columns%(UINT)TabStop:1;
+   if(!WvSizeAdd(columns,add,&columns)){LineError(L"Indentation width overflow.");goto done;}
+   if(CharAndAdvance(&p)==C_ERROR)goto readError;
+   if((++work&255)==0 && CheckInterrupt())goto done;
+  }
+  if(c==C_ERROR)goto readError;
+  oldLength=CountBytes(&p)-offset;
+  if(CharFlags(c)&1)columns=0; /* Whitespace-only lines become empty. */
+  else if(right){if(!WvSizeAdd(columns,width,&columns)){LineError(L"Indentation width overflow.");goto done;}}
+  else columns=columns>width?columns-width:0;
+  tabs=TabStop>1?columns/(UINT)TabStop:0;
+  chars=tabs+(TabStop>1?columns%(UINT)TabStop:columns);
+  if(chars>WV_MAX_POSITION/unit){LineError(L"Indentation size overflow.");goto done;}
+  newLength=chars*unit;size=TransferSize();
+  if(!WvSizeAdd(size,newLength,&expected)){LineError(L"Indentation would exceed the document size limit.");goto done;}
+  if(newLength){
+   bytes=malloc((size_t)newLength);if(!bytes){LineError(L"Not enough memory for indentation.");goto done;}
+   for(i=0;i<chars;i++){
+    BYTE value=(BYTE)(i<tabs?'\t':' ');
+    if(unit==2){bytes[2*i]=UtfLsbFirst?value:0;bytes[2*i+1]=UtfLsbFirst?0:value;}
+    else bytes[i]=(BYTE)(CharSet==CS_EBCDIC?MapAnsiToEbcdic[value]:value);
+    if((++work&255)==0 && CheckInterrupt())goto done;
+   }
+  }
+  if(oldLength || newLength){
+   if(!started){StartUndoSequence();started=TRUE;SelectCount=0;}
+   CurrPos=begin;
+   if(newLength && (!InsertBuffer(bytes,newLength,0) || Interrupted))goto done;
+   if(TransferSize()!=expected){LineError(L"Shift stopped after insertion; completed edits can be undone.");goto done;}
+   p.p=FirstPage;p.i=p.f=0;
+   if(Advance(&p,offset+newLength)!=offset+newLength)goto readError;
+   if(oldLength){
+    SelectStart=p;SelectCount=oldLength;
+    if(!EnterDeleteForUndo(&SelectStart,SelectCount,0)){SelectCount=0;LineError(L"Cannot record shift undo; original indentation retained.");goto done;}
+    DeleteSelected(2|8|64);
+    if(TransferSize()!=expected-oldLength){LineError(L"Shift did not remove its complete original indentation.");goto done;}
+   }
+   p.p=FirstPage;p.i=p.f=0;
+   if(Advance(&p,offset+newLength)!=offset+newLength)goto readError;
+  }
+  free(bytes);bytes=NULL;lastCursor=p;
+  if(line==last)break;
+  do{
+   c=CharAndAdvance(&p);if(c==C_ERROR)goto readError;
+   if((++work&255)==0 && CheckInterrupt())goto done;
+  }while(!(CharFlags(c)&1));
+  if(c==C_EOF)goto readError;
+  begin=p;
+ }
+ CurrPos=lastCursor;ok=TRUE;goto done;
+readError:
+ LineError(L"Cannot read the shift input.");
+done:
+ free(bytes);if(started || ok)FinishLineEdit();if(Disabled)Enable();WvExGlobalActive=FALSE;
+ for(j=0;j<2;j++)if(enabled[j] && IsWindow(windows[j]))EnableWindow(windows[j],TRUE);
+ if(Interrupted)return LineError(L"Shift cancelled; completed edits can be undone.");
+ return ok;
+}
+BOOL WvExMark(WV_ULONG line,PWSTR args)
+{
+ extern POSITION MarkPos[27];POSITION begin,end,p;INT name,c,j;
+ BOOL ok=FALSE,enabled[2]={FALSE,FALSE};HWND windows[2]={NULL,NULL};
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return LineError(L"Line marks require text mode and no running external command.");
+ args=SkipBlank(args);name=*args;
+ if(name<L'a' || name>L'z' || *SkipBlank(args+1))return LineError(L"Mark requires one lowercase letter a-z.");
+ if(line==(WV_ULONG)-1)line=CountLines(&CurrPos)+1;
+ if(!line || line>LinesInFile+IncompleteLastLine())return LineError(L"Invalid mark line address.");
+ FreezeLineDialogs(windows,enabled);StartInterruptCheck();WvExGlobalActive=TRUE;
+ if(!LineSpan(line,line,&begin,&end))goto done;
+ p=begin;
+ while((c=CharAt(&p))==' ' || c=='\t'){
+  if(CharAndAdvance(&p)==C_ERROR){LineError(L"Cannot read the mark input.");goto done;}
+  if(CheckInterrupt())goto done;
+ }
+ if(c==C_ERROR){LineError(L"Cannot read the mark input.");goto done;}
+ if(CheckInterrupt())goto done;
+ if(CharFlags(c)&1)p=begin;
+ MarkPos[name&31]=p;ok=TRUE;
+done:
+ if(Disabled)Enable();WvExGlobalActive=FALSE;
+ for(j=0;j<2;j++)if(enabled[j] && IsWindow(windows[j]))EnableWindow(windows[j],TRUE);
+ if(Interrupted)return LineError(L"Mark command cancelled; previous mark retained.");
+ return ok;
+}
 static UINT TransferLf(BYTE *bytes)
 {
  if(UtfEncoding==16){bytes[0]=UtfLsbFirst?'\n':0;bytes[1]=UtfLsbFirst?0:'\n';return 2;}

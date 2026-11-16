@@ -82,6 +82,47 @@ Case 'transfer-copy-page-boundary' (('a'*8191)+"`nb`nc`n") @(':1,2t$') (('a'*819
 Case 'transfer-move-page-boundary' (('a'*8191)+"`nb`nc`n") @(':1,2m$') ("c`n"+('a'*8191)+"`nb`n")
 Case 'transfer-copy-large-undo' (('a'*131071)+"`nb`nc`n") @(':1,2t$') (('a'*131071)+"`nb`nc`n"+('a'*131071)+"`nb`n")
 Case 'transfer-move-large-undo' (('a'*131071)+"`nb`nc`n") @(':1,2m$') ("c`n"+('a'*131071)+"`nb`n")
+Case 'indent-right-default' "a`nb`n" @(':set ts=8 sw=4',':>') "    a`nb`n"
+Case 'indent-left-default' "      a`nb`n" @(':set ts=8 sw=4',':<') "  a`nb`n"
+Case 'indent-right-range' "a`n  b`nc`n" @(':set ts=8 sw=4',':1,2>') "    a`n      b`nc`n"
+Case 'indent-left-range' "`ta`n  b`nc`n" @(':set ts=8 sw=4',':1,2<') "    a`nb`nc`n"
+Case 'indent-repeated-right' "a`nb`n" @(':set ts=8 sw=4',':1,2>>') "`ta`n`tb`n"
+Case 'indent-repeated-left' "`t  a`n`tb`n" @(':set ts=8 sw=4',':1,2<<') "  a`nb`n"
+Case 'indent-count' "a`nb`nc`nd`n" @(':set ts=8 sw=4',':2>2') "a`n    b`n    c`nd`n"
+Case 'indent-range-count' "a`nb`nc`nd`n" @(':set ts=8 sw=4',':1,2>2') "a`n    b`n    c`nd`n"
+Case 'indent-count-clips-eof' "a`nb`n" @(':set ts=8 sw=4',':2>99') "a`n    b`n"
+Case 'indent-percent' "a`nb`n" @(':set ts=8 sw=4',':%>') "    a`n    b`n"
+Case 'indent-spaces-only' "a`nb`n" @(':set ts=1 sw=4',':1,2>') "    a`n    b`n"
+Case 'indent-nondefault-widths' "  a`n`t b`n" @(':set ts=4 sw=3',':1,2>') "`t a`n`t`tb`n"
+Case 'indent-blank-lines' "`n `t`na`n" @(':set ts=8 sw=4',':%>') "`n`n    a`n"
+Case 'indent-whitespace-eof' "a`n   " @(':set ts=8 sw=4',':2<') "a`n"
+Case 'indent-unterminated' "a`nb" @(':set ts=8 sw=4',':2>') "a`n    b"
+Case 'indent-mixed-endings' "a`rb`r`nc`n" @(':set ts=8 sw=4',':%>') "    a`r    b`r`n    c`n"
+Case 'indent-no-change' "a`nb`n" @(':set ts=8 sw=4',':%<') "a`nb`n" $utf8 $false
+Case 'indent-cursor-last-nonblank' "a`n  b`nc`n" @(':set ts=8 sw=4',':1,2>','rX') "    a`n      X`nc`n" $utf8 $false
+Case 'indent-preserve-register' "a`nb`n" @(':set ts=8 sw=4',':2yank',':1>',':0put') "b`n    a`nb`n" $utf8 $false
+Case 'indent-page-boundary' (('a'*8191)+"`n  b`n") @(':set ts=8 sw=4',':1,2>') ("    "+('a'*8191)+"`n      b`n")
+Case 'indent-large-prefix' ((' '*131071)+"a`nb`n") @(':set ts=8 sw=4',':1<') (("`t"*16383)+"   a`nb`n")
+foreach($enc in @(@('utf8',[Text.UTF8Encoding]::new($true)),@('utf16le',[Text.UnicodeEncoding]::new($false,$true)),@('utf16be',[Text.UnicodeEncoding]::new($true,$true)))){
+ Case ('indent-right-'+$enc[0]) "é`r`n  中😀`r`n" @(':set ts=8 sw=4',':%>') "    é`r`n      中😀`r`n" $enc[1]
+ Case ('indent-left-'+$enc[0]) "`té`r`n  中😀" @(':set ts=8 sw=4',':%<') "    é`r`n中😀" $enc[1]
+ Case ('mark-'+$enc[0]) "é`r`n  中😀`r`n" @(':2mark a','`a','rX') "é`r`n  X😀`r`n" $enc[1]
+}
+Case 'mark-current-cursor-preserved' "a`nb`nc`n" @(':3',':1mark a','rX') "a`nb`nX`n"
+Case 'mark-short-name' "a`n  b`nc`n" @(':2ma a','`a','rX') "a`n  X`nc`n"
+Case 'mark-k-spaced' "a`nb`nc`n" @(':2k z',"'z",'rX') "a`nX`nc`n"
+Case 'mark-k-compact' "a`nb`nc`n" @(':2',':ka',':1',"'a",'rX') "a`nX`nc`n"
+Case 'mark-first-nonblank' "a`n `tb`nc`n" @(':2mark a','`a','rX') "a`n `tX`nc`n"
+Case 'mark-view-only' "a`nb`nc`n" @(':set viewonly',':2ka',':set noviewonly',"'a",'rX') "a`nX`nc`n"
+Case 'mark-tracks-shift' "a`n  b`n" @(':set ts=8 sw=4',':2ka',':1,2>','`a','rX') "    a`n      X`n" $utf8 $false
+Case 'mark-tracks-insert' "a`nb`n" @(':2ka',':1copy0','`a','rX') "a`na`nX`n" $utf8 $false
+Case 'mark-tracks-page-split' (('a'*4000)+"`nb`n") @(':set ts=1 sw=128',':2ka',':1>','`a','rX') ((' '*128)+('a'*4000)+"`nX`n") $utf8 $false
+Case 'mark-tracks-insert-at-mark' "a`nb`n" @(':set ts=8 sw=4',':1ka',':1>','`a','rX') "    X`nb`n" $utf8 $false
+Case 'mark-tracks-delete' "a`nb`nc`nd`n" @(':3ka',':1,2delete','`a','rX') "X`nd`n" $utf8 $false
+Case 'mark-inside-deletion' "a`nb`nc`nd`n" @(':2ka',':1,2delete','`a','rX') "X`nd`n" $utf8 $false
+Case 'mark-tracks-multipage-delete' (('a'*8191)+"`nb`nc`n") @(':3ka',':1,2delete','`a','rX') "X`n" $utf8 $false
+Case 'mark-tracks-undo' "a`nb`n" @(':set ts=8 sw=4',':2ka',':1,2>',':undo','`a','rX') "a`nX`n" $utf8 $false
+Case 'mark-tracks-split-at-mark' (('a'*4095)+"`nb`n") @(':set ts=1 sw=128',':1ka',':1>','`a','rX') ((' '*128)+'X'+('a'*4094)+"`nb`n") $utf8 $false
 $results|ConvertTo-Json|Set-Content "$PSScriptRoot/ex-line-results.json"
 if(@($results|Where-Object Result -eq 'FAIL').Count){throw 'Ex line command regressions failed'}
 "$($results.Count) line command cases passed"

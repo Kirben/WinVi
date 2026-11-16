@@ -682,7 +682,7 @@ void DeleteSelected(INT Flags) {
 	while (SelectStart.i + SelectCount > SelectStart.p->Fill) {
 		n = SelectStart.p->Fill - SelectStart.i;
 		if (n) {
-			CorrectLineInfo(0, 0, 0, 0, SelectBytePos, -n);
+			CorrectLineInfo(SelectStart.p, SelectStart.p->Fill, SelectStart.p, SelectStart.i, SelectBytePos, -n);
 			SelectCount -= n;
 			if (SelectStart.i &&
 					(SelectStart.p->PageBuf || ReloadPage(SelectStart.p))) {
