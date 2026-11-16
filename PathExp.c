@@ -61,6 +61,8 @@ static struct {
 	{L"chdir",		   2},
 	{L"edit",		   1},	/*1=expand normal files*/
 	{L"filename",	   1},
+	{L"map", 0},
+	{L"unmap", 0},
 	{L"source", 1},
 	{L"shell", 0},
 	{L"z", 0},

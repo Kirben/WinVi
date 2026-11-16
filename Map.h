@@ -1,3 +1,5 @@
+#ifndef WINVI_MAP_H
+#define WINVI_MAP_H
 /********************************************************\
 |*                                                      *|
 |*   Program:              WinVi                        *|
@@ -19,7 +21,7 @@
 typedef struct tagMAP {
 	struct tagMAP *Next;
 	LPSTR		  Name, InputDisplay, Replace;
-	LPWORD		  InputMatch, ReplaceMap;
+	LPDWORD		  InputMatch, ReplaceMap;
 	DWORD		  Flags;
 } *PMAP;
 
@@ -31,10 +33,24 @@ typedef struct tagMAP {
 extern PMAP FirstMapping;
 
 VOID FreeMappings(PMAP);
-BOOL TranslateMapping(PWORD*, PCSTR);
+#define WV_MAP_TEXT_CAP (WV_TEXT_CAP*8+64)
+#define WV_MAP_KEYDOWN 0x100UL
+#define WV_MAP_CHAR 0x200UL
+#define WV_MAP_CTRL 0x400UL
+#define WV_MAP_SHIFT 0x800UL
+#define WV_MAP_ALT 0x1000UL
+#define WV_MAP_UNICODE 0x20000UL
+size_t WvMapLength(const DWORD *);
+DWORD WvMapChar(WCHAR);
+BOOL WvMapPrepareChange(void);
+BOOL TranslateMapping(PDWORD*, PCSTR);
+BOOL IsMappingEqual(PDWORD,PDWORD);
+BOOL WvExMapping(PWSTR,BOOL,BOOL,BOOL);
 INT_PTR MacrosCallback(HWND, UINT, WPARAM, LPARAM);
 VOID StopMap(BOOL);
 BOOL IsKeyboardMapMsg(PMSG);
 BOOL KeyboardMapDequeue(PMSG);
 VOID WmChar(WPARAM);
 VOID WmKeydown(WPARAM);
+
+#endif

@@ -1234,6 +1234,29 @@ and will not repeated here.</p>
 
 
 
+<h3>Keyboard mappings from ex commands</h3>
+<p><code>:map lhs rhs</code> defines a normal-mode keyboard macro.
+<code>:map! lhs rhs</code> defines one for insert/replace mode and command entry.
+<code>:unmap[!] lhs</code> removes only the corresponding modes; mappings in
+other modes and abbreviations are retained. With no arguments, map lists that
+mode's mappings in a read-only window. With just lhs it lists matching entries.</p>
+<p>For example, <code>:map Q :1s/a/A/&lt;CR&gt;</code> runs a substitution, and
+<code>:map! jj &lt;Esc&gt;</code> makes jj leave insert mode. Key names include
+&lt;CR&gt;, &lt;Esc&gt;, &lt;Tab&gt;, &lt;BS&gt;, &lt;Space&gt;, &lt;lt&gt;,
+&lt;F1&gt; through &lt;F24&gt; and navigation keys. C-, S- and A- modifiers mean
+Control, Shift and Alt. Ctrl+V quotes the following character, including a space.
+&lt;Nop&gt; makes an empty replacement. Unicode text is supported; supplementary
+characters use two UTF-16 key messages. Input is limited to 63 key messages.</p>
+<p>These commands share the Settings keyboard-macro table. Settings must be
+closed before changing it. Definitions affect this running instance; use
+Settings - Keyboard Macros - Store to save them. Listing uses Settings key
+notation, including U+hhhh Unicode escapes and V+hh virtual-key escapes.
+Older WinVi versions do not understand these new escapes.</p>
+<p>WinVi's existing macro engine plays replacements without remapping them.
+It has no timeout for ambiguous prefixes: avoid making one input sequence a
+prefix of another. Literal append/insert/change line collection is not mapped.
+Definitions do not change document text or undo. A running macro finishes its
+original replacement even if it removes or redefines itself.</p>
 <h3>Command files and an interactive shell</h3>
 <p><code>:so[urce] filename</code> executes ex commands from a local file.
 Quote names containing spaces. Commands may start with a colon; blank lines

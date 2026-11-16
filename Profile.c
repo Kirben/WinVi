@@ -1191,43 +1191,31 @@ static VOID LoadFontSettings(VOID)
 }
 
 static VOID LoadMappingSettings(VOID)
-{	INT  i = 0;
-	CHAR Value[256];
-	PMAP ThisMapping, *MapPtr;
-
-	FreeMappings(FirstMapping);
-	FirstMapping = NULL;
-	#if defined(WIN32)
-		MapPtr = &FirstMapping;
-		if (hKey != INVALID_HANDLE_VALUE) {
-			RegCloseKey(hKey);
-			hKey = INVALID_HANDLE_VALUE;
-		}
-		for (;;) {
-			wsprintf(Subkey, pfMapping, ++i);
-			if (!MyGetProfileString(pfMappingName, "", Value, sizeof(Value)))
-				break;
-			ThisMapping = calloc(1, sizeof(*ThisMapping));
-			if (ThisMapping == NULL) break;
-			AllocStringA(&ThisMapping->Name, Value);
-			MyGetProfileString(pfMappingInput, "", Value, sizeof(Value));
-			if (!TranslateMapping(&ThisMapping->InputMatch, Value)) continue;
-			AllocStringA(&ThisMapping->InputDisplay, Value);
-			MyGetProfileString(pfMappingReplace, "", Value, sizeof(Value));
-			if (!TranslateMapping(&ThisMapping->ReplaceMap, Value)) continue;
-			AllocStringA(&ThisMapping->Replace, Value);
-			ThisMapping->Flags = MyGetProfileLong(pfMappingFlags, 0, 0);
-			RegCloseKey(hKey);
-			hKey = INVALID_HANDLE_VALUE;
-			*MapPtr = ThisMapping;
-			MapPtr = &ThisMapping->Next;
-		}
-		if (hKey != INVALID_HANDLE_VALUE) {
-			RegCloseKey(hKey);
-			hKey = INVALID_HANDLE_VALUE;
-		}
-		*Subkey = '\0';
-	#endif
+{INT i=0;CHAR *Value=malloc(WV_MAP_TEXT_CAP);PMAP ThisMapping,*MapPtr;
+ if(!Value)return;
+ FreeMappings(FirstMapping);FirstMapping=NULL;
+#if defined(WIN32)
+ MapPtr=&FirstMapping;
+ if(hKey!=INVALID_HANDLE_VALUE){RegCloseKey(hKey);hKey=INVALID_HANDLE_VALUE;}
+ for(;;){
+  wsprintf(Subkey,pfMapping,++i);
+  if(!MyGetProfileString(pfMappingName,"",Value,WV_MAP_TEXT_CAP))break;
+  ThisMapping=calloc(1,sizeof(*ThisMapping));if(!ThisMapping)break;
+  if(strlen(Value)>127 || !AllocStringA(&ThisMapping->Name,Value))goto invalid;
+  MyGetProfileString(pfMappingInput,"",Value,WV_MAP_TEXT_CAP);
+  if(strlen(Value)>=WV_MAP_TEXT_CAP-1 || !TranslateMapping(&ThisMapping->InputMatch,Value) || !WvMapLength(ThisMapping->InputMatch) || WvMapLength(ThisMapping->InputMatch)>63 || !AllocStringA(&ThisMapping->InputDisplay,Value))goto invalid;
+  MyGetProfileString(pfMappingReplace,"",Value,WV_MAP_TEXT_CAP);
+  if(strlen(Value)>=WV_MAP_TEXT_CAP-1 || !TranslateMapping(&ThisMapping->ReplaceMap,Value) || !AllocStringA(&ThisMapping->Replace,Value))goto invalid;
+  ThisMapping->Flags=MyGetProfileLong(pfMappingFlags,0,0);
+  *MapPtr=ThisMapping;MapPtr=&ThisMapping->Next;ThisMapping=NULL;
+invalid:
+  FreeMappings(ThisMapping);
+  if(hKey!=INVALID_HANDLE_VALUE){RegCloseKey(hKey);hKey=INVALID_HANDLE_VALUE;}
+ }
+ if(hKey!=INVALID_HANDLE_VALUE){RegCloseKey(hKey);hKey=INVALID_HANDLE_VALUE;}
+ *Subkey=0;
+#endif
+ free(Value);
 }
 
 COLORREF ShmTextColor  = RGB(255,255,255);

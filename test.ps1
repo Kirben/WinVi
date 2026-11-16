@@ -25,8 +25,8 @@ try {
  }
  Run-Step 'build-command-fixture' {& "$tests/command-fixture.cmd"} $results
  Run-Step 'build-shell-fixture' {& "$tests/shell-fixture.cmd"} $results
- foreach($native in 'search-regression','auto-split','compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global','ex-line','ex-display','ex-input-state','ex-script'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
- if($Configuration -in 'Both','Asan'){Run-Step 'ex-script-asan' {& "$tests/ex-script-test.cmd" asan} $results;Run-Step 'ex-input-state-asan' {& "$tests/ex-input-state-test.cmd" asan} $results;Run-Step 'ex-display-asan' {& "$tests/ex-display-test.cmd" asan} $results;Run-Step 'ex-line-asan' {& "$tests/ex-line-test.cmd" asan} $results;Run-Step 'search-regression-asan' {& "$tests/search-regression-test.cmd" asan} $results;Run-Step 'auto-split-asan' {& "$tests/auto-split-test.cmd" asan} $results;Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
+ foreach($native in 'search-regression','auto-split','compatibility','format','platform','size','io','page-fault','hex-layout','hex-print','ex-global','ex-line','ex-display','ex-input-state','ex-script','ex-map'){Run-Step "native-$native" {& "$tests/$native-test.cmd"} $results}
+ if($Configuration -in 'Both','Asan'){Run-Step 'ex-map-asan' {& "$tests/ex-map-test.cmd" asan} $results;Run-Step 'ex-script-asan' {& "$tests/ex-script-test.cmd" asan} $results;Run-Step 'ex-input-state-asan' {& "$tests/ex-input-state-test.cmd" asan} $results;Run-Step 'ex-display-asan' {& "$tests/ex-display-test.cmd" asan} $results;Run-Step 'ex-line-asan' {& "$tests/ex-line-test.cmd" asan} $results;Run-Step 'search-regression-asan' {& "$tests/search-regression-test.cmd" asan} $results;Run-Step 'auto-split-asan' {& "$tests/auto-split-test.cmd" asan} $results;Run-Step 'compatibility-asan' {& "$tests/compatibility-test.cmd" asan} $results}
  Run-Step 'focused-asan-regressions' {& "$tests/bugs/build-and-test.cmd"} $results
  Copy-Item "$tests/bugs/bug-results.json" "$results/focused-results.json"
  Copy-Item "$tests/bugs/after-command-faults.stdout.txt" "$results/resource-fault-details.txt"
@@ -37,7 +37,7 @@ try {
   if(!(Test-Path $env:WINVI_TEST_EXE)){throw "Missing executable $env:WINVI_TEST_EXE"}
   $env:WINVI_TEST_CASES=Join-Path $folder 'cases'
   Run-Step "$kind-save-faults" {if($kind-eq'Asan'){& "$tests/safe-save-test.cmd" asan}else{& "$tests/safe-save-test.cmd"}} $folder
-  foreach($suite in 'auto-split','integration','read-failure','search-cancel','reliability','ex-global','search','ex-line','ex-display','ex-repeat','ex-input','ex-script'){
+  foreach($suite in 'auto-split','integration','read-failure','search-cancel','reliability','ex-global','search','ex-line','ex-display','ex-repeat','ex-input','ex-script','ex-map'){
    Run-Step "$kind-$suite" {& pwsh -STA -NoProfile -File "$tests/$suite.ps1"} $folder
    Copy-Item "$tests/$suite-results.json" "$folder/$suite-results.json"
   }

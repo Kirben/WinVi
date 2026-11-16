@@ -47,6 +47,7 @@ VOID TermMappings(VOID)
 
 VOID FreeMappings(PMAP Tree)
 {
+	if(Tree && Tree==FirstMapping)StopMap(TRUE);
 	while (Tree != NULL) {
 		PMAP ToDel = Tree;
 
@@ -111,7 +112,7 @@ static PSTR KeyNames[] = {
 	NULL
 };
 
-static BOOL HandleAsWmChar(WORD VKey)
+static BOOL HandleAsWmChar(DWORD VKey)
 {
 	switch (VKey) {
 		case VK_TAB:
@@ -125,21 +126,27 @@ static BOOL HandleAsWmChar(WORD VKey)
 	}
 }
 
-BOOL TranslateMapping(LPWORD *ppMapping, PCSTR String)
-{	WORD Result[512];
-	WORD *p = Result;
+size_t WvMapLength(const DWORD *p)
+{size_t n=0;if(p)while(p[n])n++;return n;}
+DWORD WvMapChar(WCHAR c)
+{return c>255?WV_MAP_UNICODE|c:MAP_CHAR|(c<32?MAP_CTRL|'@'|c:c);}
+BOOL TranslateMapping(LPDWORD *ppMapping, PCSTR String)
+{ DWORD *Result,*p;size_t length=strlen(String);
 	INT  c;
 
+ *ppMapping=NULL;
+ if(length>=WV_MAP_TEXT_CAP)return FALSE;
+ Result=calloc(length+2,sizeof(DWORD));if(!Result)return FALSE;p=Result;
 	assert(sizeof(Keys) == sizeof(KeyNames)/sizeof(KeyNames[0])-1);
 	*p = 0;
 	while (*String) {
-		assert(p < Result + sizeof(Result)/sizeof(WORD) - 1);
+		assert(p < Result + length + 1);
 		switch (*String) {
 			case '\'':
 			case '"':	/*WM_CHARs*/
 						c = *String;
 						while (*++String && *String != c) {
-							assert(p < Result + sizeof(Result)/sizeof(WORD) - 1);
+							assert(p < Result + length + 1);
 							p[1] = p[0];
 							*p |= MAP_CHAR | (BYTE)*String;
 							if ((BYTE)*String < ' ') *p |= MAP_CTRL | '@';
@@ -153,7 +160,21 @@ BOOL TranslateMapping(LPWORD *ppMapping, PCSTR String)
 						++String;
 						break;
 
-			default:	/*check several strings...*/
+            default:
+                        if(String[0]=='V' && String[1]=='+' && strlen(String)>=4){
+                            UINT value=0;INT i;for(i=2;i<4;i++){INT d=String[i];d=d>='0'&&d<='9'?d-'0':d>='A'&&d<='F'?d-'A'+10:d>='a'&&d<='f'?d-'a'+10:-1;if(d<0)break;value=value*16+d;}
+                            if(i==4 && value && (!String[4] || String[4]==' ')){*p++|=MAP_KEYDOWN|value;*p=0;String+=4;break;}
+                        }
+                        if(String[0]=='F' && String[1]>='1' && String[1]<='2' && String[2]>='0' && String[2]<='9'){
+                            UINT f=(String[1]-'0')*10+String[2]-'0';
+                            if(f>=13 && f<=24 && (!String[3] || String[3]==' ')){*p++|=MAP_KEYDOWN|(VK_F1+f-1);*p=0;String+=3;break;}
+                        }
+                        if(String[0]=='U' && String[1]=='+' && strlen(String)>=6){
+                            UINT value=0;INT i;
+                            for(i=2;i<6;i++){INT d=String[i];d=d>='0'&&d<='9'?d-'0':d>='A'&&d<='F'?d-'A'+10:d>='a'&&d<='f'?d-'a'+10:-1;if(d<0)break;value=value*16+d;}
+                            if(i==6 && (!String[6] || String[6]==' ')){if(*p && value>255){free(Result);return FALSE;}*p++|=WvMapChar((WCHAR)value);*p=0;String+=6;break;}
+                        }
+                        /*check several strings...*/
 						if (strncmp(String, "Ctrl+", 5) == 0 ||
 							strncmp(String, "Strg+", 5) == 0) {
 								*p |= MAP_CTRL;
@@ -199,13 +220,13 @@ BOOL TranslateMapping(LPWORD *ppMapping, PCSTR String)
 						break;
 		}
 	}
-	*p++ = 0;
-	if ((*ppMapping = _fcalloc(p - Result, sizeof(WORD))) == NULL) {
-		ErrorBox(MB_ICONSTOP, 300, 5);
-		return (FALSE);
-	}
-	_fmemcpy(*ppMapping, Result, (p - Result) * sizeof(WORD));
-	return (TRUE);
+ *p=0;
+ for(DWORD *q=Result;*q;q++)if(*q&WV_MAP_UNICODE){
+  UINT c=*q&0xffff;
+  if(c>=0xd800 && c<=0xdbff){if(!(q[1]&WV_MAP_UNICODE) || (q[1]&0xffff)<0xdc00 || (q[1]&0xffff)>0xdfff){free(Result);return FALSE;}q++;}
+  else if(c>=0xdc00 && c<=0xdfff){free(Result);return FALSE;}
+ }
+ *ppMapping=Result;return TRUE;
 }
 
 PMAP DupMapping(PMAP m)
@@ -215,12 +236,11 @@ PMAP DupMapping(PMAP m)
 	AllocStringA(&n->Name, m->Name);
 	AllocStringA(&n->InputDisplay, m->InputDisplay);
 	AllocStringA(&n->Replace, m->Replace);
-	n->ReplaceMap = _fcalloc(lstrlen((PSTR)m->ReplaceMap) + 2, 1);
-	if (n->ReplaceMap != NULL)
-		_fmemcpy(n->ReplaceMap, m->ReplaceMap, lstrlen((LPSTR)m->ReplaceMap)+2);
-	n->InputMatch = _fcalloc(lstrlen((PSTR)m->InputMatch) + 2, 1);
-	if (n->InputMatch != NULL)
-		_fmemcpy(n->InputMatch, m->InputMatch, lstrlen((LPSTR)m->InputMatch)+2);
+ n->ReplaceMap=calloc(WvMapLength(m->ReplaceMap)+1,sizeof(DWORD));
+ if(n->ReplaceMap)memcpy(n->ReplaceMap,m->ReplaceMap,(WvMapLength(m->ReplaceMap)+1)*sizeof(DWORD));
+ n->InputMatch=calloc(WvMapLength(m->InputMatch)+1,sizeof(DWORD));
+ if(n->InputMatch)memcpy(n->InputMatch,m->InputMatch,(WvMapLength(m->InputMatch)+1)*sizeof(DWORD));
+
 	n->Flags = m->Flags;
 	if (n->Name == NULL || n->InputDisplay == NULL || n->Replace	== NULL
 						|| n->InputMatch   == NULL || n->ReplaceMap	== NULL) {
@@ -246,19 +266,18 @@ INT FindMacroName(HWND ListBox, LPSTR Name)
 	return (i);
 }
 
-BOOL IsMappingEqual(LPWORD m1, LPWORD m2)
-{
-	/*All significant bytes are not equal 0, terminated by one 0 word*/
-	return (lstrcmp((LPSTR)m1, (LPSTR)m2) == 0);
-}
+BOOL IsMappingEqual(LPDWORD a,LPDWORD b)
+{size_t n=WvMapLength(a);return n==WvMapLength(b) && (!n || !memcmp(a,b,n*sizeof(DWORD)));}
 
 INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 {	HWND  ListBox;
-	CHAR  Buf[256];
+	CHAR *Buf;
 	PMAP  ThisMapping, m, *MapPtr;
 	INT	  i, k;
 
 	PARAM_NOT_USED(lPar);
+ if(uMsg!=WM_INITDIALOG && uMsg!=WM_COMMAND)return FALSE;
+ Buf=malloc(WV_MAP_TEXT_CAP);if(!Buf)return FALSE;
 	switch (uMsg) {
 		case WM_INITDIALOG:
 			FreeMappings(NewMappings);
@@ -278,11 +297,11 @@ INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 				SetDlgItemText(hDlg, IDC_MACROINPUT,   "");
 				SetDlgItemText(hDlg, IDC_MACROREPLACE, "");
 				SendDlgItemMessage(hDlg, IDC_MACRONAME,    EM_LIMITTEXT,
-								   sizeof(Buf)/2 - 1, 0);
+								   127, 0);
 				SendDlgItemMessage(hDlg, IDC_MACROINPUT,   EM_LIMITTEXT,
-								   sizeof(Buf)   - 1, 0);
+								   WV_MAP_TEXT_CAP   - 1, 0);
 				SendDlgItemMessage(hDlg, IDC_MACROREPLACE, EM_LIMITTEXT,
-								   sizeof(Buf)   - 1, 0);
+								   WV_MAP_TEXT_CAP   - 1, 0);
 				EnableWindow(GetDlgItem(hDlg, IDC_DELMACRO), FALSE);
 			}
 			CheckDlgButton(hDlg, IDC_INSERTMODE,  TRUE);
@@ -336,15 +355,15 @@ INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 				case IDC_MACRONAME:
 				case IDC_MACROINPUT:
 					if (NOTIFICATION != EN_CHANGE) break;
-					GetDlgItemText(hDlg, IDC_MACRONAME, Buf, sizeof(Buf));
+					GetDlgItemText(hDlg, IDC_MACRONAME, Buf, 128);
 					for (k = 0; k < 2; ++k) {
-						LPWORD CmpMapping;
+						LPDWORD CmpMapping;
 						DWORD  f;
 
 						i = FindMacroName(ListBox, Buf);
 						if (i != -1 || k) break;
 						/*same name not found, try to find same input...*/
-						GetDlgItemText(hDlg, IDC_MACROINPUT, Buf, sizeof(Buf));
+						GetDlgItemText(hDlg, IDC_MACROINPUT, Buf, WV_MAP_TEXT_CAP);
 						if (!TranslateMapping(&CmpMapping, Buf)) break;
 						f = 0;
 						if (IsDlgButtonChecked(hDlg, IDC_ABBREV))
@@ -380,8 +399,8 @@ INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						EnableWindow(GetDlgItem(hDlg, IDC_COMMANDMODE),
 									 COMMAND == IDC_MAP);
 					}
-					if (GetDlgItemText(hDlg, IDC_MACRONAME, Buf, sizeof(Buf)) &&
-						GetDlgItemText(hDlg, IDC_MACROINPUT,Buf, sizeof(Buf))) {
+					if (GetDlgItemText(hDlg, IDC_MACRONAME, Buf, 128) &&
+						GetDlgItemText(hDlg, IDC_MACROINPUT,Buf, WV_MAP_TEXT_CAP)) {
 							SendMessage(hwndSettings, DM_SETDEFID, 102, 0);
 							SendMessage(hDlg, DM_SETDEFID, IDC_SETMACRO, 0);
 					}
@@ -393,19 +412,20 @@ INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 						PMAP *pmNew, *pmFree = NULL;
 
 						/*create a new entry...*/
-						GetDlgItemText(hDlg, IDC_MACROINPUT, Buf, sizeof(Buf));
+						GetDlgItemText(hDlg, IDC_MACROINPUT, Buf, WV_MAP_TEXT_CAP);
 						if (!AllocStringA	 (&ThisMapping->InputDisplay,Buf) ||
-							!TranslateMapping(&ThisMapping->InputMatch,  Buf)) {
+							!TranslateMapping(&ThisMapping->InputMatch,  Buf) ||
+                            !WvMapLength(ThisMapping->InputMatch) || WvMapLength(ThisMapping->InputMatch)>63) {
 								FreeMappings(ThisMapping);
 								break;
 						}
-						GetDlgItemText(hDlg, IDC_MACROREPLACE,Buf,sizeof(Buf));
+						GetDlgItemText(hDlg, IDC_MACROREPLACE,Buf,WV_MAP_TEXT_CAP);
 						if (!AllocStringA	 (&ThisMapping->Replace,	 Buf) ||
 							!TranslateMapping(&ThisMapping->ReplaceMap,  Buf)) {
 								FreeMappings(ThisMapping);
 								break;
 						}
-						GetDlgItemText(hDlg, IDC_MACRONAME, Buf, sizeof(Buf));
+						GetDlgItemText(hDlg, IDC_MACRONAME, Buf, 128);
 						if (!AllocStringA(&ThisMapping->Name,	Buf)) {
 							FreeMappings(ThisMapping);
 							break;
@@ -500,12 +520,12 @@ INT_PTR MacrosCallback(HWND hDlg, UINT uMsg, WPARAM wPar, LPARAM lPar)
 			break;
 
 		default:
-			return (FALSE);
+			free(Buf);return (FALSE);
 	}
-	return (TRUE);
+	free(Buf);return (TRUE);
 }
 
-static BOOL MapIsMatching(LPWORD Input, LPWORD CompareWith, INT Len)
+static BOOL MapIsMatching(LPDWORD Input, LPDWORD CompareWith, INT Len)
 {
 	#if 0
 	//	return (_fstrncmp((LPCSTR)Input, (LPCSTR)CompareWith,
@@ -513,8 +533,8 @@ static BOOL MapIsMatching(LPWORD Input, LPWORD CompareWith, INT Len)
 	#else
 		while (Len--) {
 			if (*Input != *CompareWith
-				&& ((*Input & (MAP_CHAR | MAP_SHIFT)) != (MAP_CHAR | MAP_SHIFT)
-					|| (*Input & ~MAP_SHIFT) != *CompareWith))
+                && ((*Input&WV_MAP_UNICODE) || (*CompareWith&WV_MAP_UNICODE) || ((*Input & (MAP_CHAR | MAP_SHIFT)) != (MAP_CHAR | MAP_SHIFT)
+					|| (*Input & ~MAP_SHIFT) != *CompareWith)))
 				return (FALSE);
 			++Input;
 			++CompareWith;
@@ -524,15 +544,16 @@ static BOOL MapIsMatching(LPWORD Input, LPWORD CompareWith, INT Len)
 }
 
 BOOL   MatchingAbbreviation;
-WORD   InputQueue[64];
+DWORD  InputQueue[64];
 INT    QueuedChars   = 0;		/*already matched input chars*/
-LPWORD DoSequence	 = NULL;
+LPDWORD DoSequence	 = NULL;
+static LPDWORD ReplayOwned=NULL;
 INT    SequenceLen   = 0;		/*number of valid entries in DoSequence*/
 INT    AbbrevDeletes = 0;
 MSG    PendingMsg    = {0};
-WORD   PendingDown   = 0;
-WORD   PendingUp	 = 0;
-WORD   FinalKeyState = 0;
+DWORD  PendingDown   = 0;
+DWORD  PendingUp	 = 0;
+DWORD  FinalKeyState = 0;
 BOOL   DenyAbbrev	 = FALSE, PrevDenyAbbrev;
 
 static BOOL MapMatch(BOOL DequeueSingle)
@@ -540,33 +561,37 @@ static BOOL MapMatch(BOOL DequeueSingle)
 	PMAP		 m;
 	static DWORD Match;
 
-	if (QueuedChars == 1) {
-		if		(hwndCmd  && Focus == hwndCmd) Match = M_COMMANDLINE;
-		else if	(hwndMain && Focus == hwndMain)
-			 Match = Mode >= InsertMode ? M_INSERTMODE : M_COMMANDMODE;
-		else Match = 0;		/*dont match macros*/
-	} else if (DequeueSingle && SequenceLen > 0) return (TRUE);
+ if(DequeueSingle && (SequenceLen>0 || PendingDown || PendingUp || AbbrevDeletes))return TRUE;
+ if(SequenceLen<=0 && ReplayOwned){free(ReplayOwned);ReplayOwned=NULL;DoSequence=NULL;}
+ if(hwndCmd && Focus==hwndCmd)Match=M_COMMANDLINE;
+ else if(hwndMain && Focus==hwndMain)Match=Mode>=InsertMode?M_INSERTMODE:M_COMMANDMODE;
+ else Match=0;
+
 	for (m = FirstMapping; m != NULL; m = m->Next) {
 		INT Len;
 
 		if (!(m->Flags & Match) || (m->Flags&M_ABBREVIATION && PrevDenyAbbrev))
 			continue;
-		if ((Len = lstrlen((LPCSTR)m->InputMatch)/sizeof(WORD)) == 0) continue;
+		if ((Len = (INT)WvMapLength(m->InputMatch)) == 0) continue;
 		if (Len > QueuedChars) Len = QueuedChars;
 		if (MapIsMatching(InputQueue, m->InputMatch, Len)) {
 			if (Len <= QueuedChars && m->InputMatch[Len] == 0) {
 				/*full match...*/
 				DoSequence	= m->ReplaceMap;
-				SequenceLen	= lstrlen((PSTR)DoSequence) / sizeof(WORD);
+				SequenceLen	= (INT)WvMapLength(DoSequence);
 				if (m->Flags & M_ABBREVIATION) {
-					AbbrevDeletes = Len;
+					AbbrevDeletes=0;
+                    for(INT k=0;k<Len;k++){
+                     DWORD c=m->InputMatch[k];AbbrevDeletes++;
+                     if((c&WV_MAP_UNICODE) && (c&0xffff)>=0xd800 && (c&0xffff)<=0xdbff && k+1<Len && (m->InputMatch[k+1]&WV_MAP_UNICODE) && (m->InputMatch[k+1]&0xffff)>=0xdc00 && (m->InputMatch[k+1]&0xffff)<=0xdfff)k++;
+                    }
 				}
 				if (GetKeyState(VK_CONTROL)	< 0) FinalKeyState |= MAP_CTRL;
 				if (GetKeyState(VK_SHIFT)	< 0) FinalKeyState |= MAP_SHIFT;
 				if (GetKeyState(VK_MENU)	< 0) FinalKeyState |= MAP_ALT;
 				PendingUp = FinalKeyState;
 				if ((QueuedChars -= Len) > 0)
-				  memmove(InputQueue, InputQueue+Len, QueuedChars*sizeof(WORD));
+				  memmove(InputQueue, InputQueue+Len, QueuedChars*sizeof(DWORD));
 			} else /*partial match*/ SequenceLen = 0;
 			return (!(MatchingAbbreviation = (m->Flags & M_ABBREVIATION) != 0));
 		}
@@ -598,15 +623,35 @@ static VOID KeyState(BYTE VKey, BOOL Down)
 	}
 }
 
+BOOL WvMapPrepareChange(void)
+{
+ LPDWORD copy;UINT_PTR p=(UINT_PTR)DoSequence;
+ if(SequenceLen<=0 || ReplayOwned || (p>=(UINT_PTR)InputQueue && p<(UINT_PTR)(InputQueue+64)))return TRUE;
+ if((size_t)SequenceLen>SIZE_MAX/sizeof(DWORD)-1)return FALSE;
+ copy=malloc(((size_t)SequenceLen+1)*sizeof(DWORD));if(!copy)return FALSE;
+ memcpy(copy,DoSequence,(size_t)SequenceLen*sizeof(DWORD));copy[SequenceLen]=0;
+ ReplayOwned=DoSequence=copy;return TRUE;
+}
+
 VOID StopMap(BOOL ResetShiftKeys)
 {
-	AbbrevDeletes = QueuedChars = SequenceLen = PendingDown = 0;
+	AbbrevDeletes = QueuedChars = SequenceLen = PendingDown = PendingUp = 0;
+ free(ReplayOwned);ReplayOwned=NULL;DoSequence=NULL;PendingMsg.message=0;MatchingAbbreviation=DenyAbbrev=PrevDenyAbbrev=FALSE;
 	if (ResetShiftKeys) {
 		if (GetKeyState(VK_CONTROL)	< 0) KeyState(VK_CONTROL, FALSE);
 		if (GetKeyState(VK_SHIFT)	< 0) KeyState(VK_SHIFT,	  FALSE);
 		if (GetKeyState(VK_MENU)	< 0) KeyState(VK_MENU,	  FALSE);
 		FinalKeyState = 0;
 	}
+}
+
+static BOOL MappingWord(DWORD token)
+{
+ if(token&WV_MAP_UNICODE){WCHAR c=(WCHAR)token;WORD one=0,three=0;
+  GetStringTypeW(CT_CTYPE1,&c,1,&one);GetStringTypeW(CT_CTYPE3,&c,1,&three);
+  return (one&(C1_ALPHA|C1_DIGIT)) || (three&(C3_NONSPACING|C3_DIACRITIC));
+ }
+ return (token&(MAP_CHAR|MAP_CTRL))==MAP_CHAR && (CharFlags((BYTE)token)&8)!=0;
 }
 
 BOOL IsKeyboardMapMsg(PMSG Msg)
@@ -616,10 +661,10 @@ BOOL IsKeyboardMapMsg(PMSG Msg)
 	 *		   FALSE if Msg is not a keyboard message or if it does not match
 	 *				 a mapping macro.
 	 */
-{	WORD c = 0;
+{	DWORD c = 0;
 
 	if (Msg->message == WM_KEYDOWN || Msg->message == WM_SYSKEYDOWN) {
-		if (memchr(Keys, Msg->wParam, sizeof(Keys)) != NULL) {
+		if ((Msg->wParam>=VK_F1 && Msg->wParam<=VK_F24) || (Msg->wParam<=255 && memchr(Keys,(int)Msg->wParam,sizeof(Keys))!=NULL)) {
 			c = (BYTE)Msg->wParam;
 			if (GetKeyState(VK_CONTROL)	< 0) c |= MAP_CTRL;
 			if (GetKeyState(VK_SHIFT)	< 0) c |= MAP_SHIFT;
@@ -631,32 +676,34 @@ BOOL IsKeyboardMapMsg(PMSG Msg)
 				   && GetKeyState(VK_CONTROL) < 0)
 			c = MAP_CTRL | MAP_ALT | MAP_KEYDOWN | 'V';
 	} else if (Msg->message == WM_CHAR || Msg->message == WM_SYSCHAR) {
-		c = MAP_CHAR | (BYTE)Msg->wParam;
+        if(Msg->wParam>255)c=WV_MAP_UNICODE|(WCHAR)Msg->wParam;
+        else c=MAP_CHAR|(BYTE)Msg->wParam;
 		if (c < (MAP_CHAR | ' '))	   c |= MAP_CTRL | '@';
-		if (GetKeyState(VK_SHIFT) < 0) c |= MAP_SHIFT;
-		if (GetKeyState(VK_MENU)  < 0) c |= MAP_ALT;
+        if(!(c&WV_MAP_UNICODE)){
+		 if (GetKeyState(VK_SHIFT) < 0) c |= MAP_SHIFT;
+		 if (GetKeyState(VK_MENU)  < 0) c |= MAP_ALT;
+        }
 	}
 	if (c == 0) return (FALSE);
 
-	if (AbbrevDeletes) {
-		if (c & (MAP_KEYDOWN | MAP_CTRL) || !(CharFlags((BYTE)c) & 8)) {
+	if (c == (MAP_CHAR|MAP_CTRL|'C') || c == (MAP_KEYDOWN|MAP_CTRL|VK_CANCEL)) {
+		StopMap(FALSE);
+		MapInterrupted = TRUE;
+	}
+	if (AbbrevDeletes && !PendingMsg.message) {
+		if (!MappingWord(c)) {
 			/*final match of non-letter for abbreviation...*/
 			memcpy(&PendingMsg, Msg, sizeof(PendingMsg));
 			return (TRUE);
 		}
-		AbbrevDeletes = QueuedChars = 0;
+		AbbrevDeletes=QueuedChars=SequenceLen=0;DoSequence=NULL;MatchingAbbreviation=FALSE;
 	}
 	if (QueuedChars >= sizeof(InputQueue)/sizeof(InputQueue[0])-1) {
 		/*buffer size exceeded, ignore keyboard message...*/
 		return (TRUE);
 	}
 	PrevDenyAbbrev = DenyAbbrev && QueuedChars == 0;
-	DenyAbbrev	   = (c & (MAP_CHAR | MAP_CTRL)) == MAP_CHAR
-					 && (CharFlags((BYTE)c) & 8) != 0;
-	if (c == (MAP_CHAR|MAP_CTRL|'C') || c == (MAP_KEYDOWN|MAP_CTRL|VK_CANCEL)) {
-		StopMap(FALSE);
-		MapInterrupted = TRUE;
-	}
+	DenyAbbrev=MappingWord(c);
 	InputQueue[QueuedChars++] = c;
 	return (MapMatch(TRUE));
 }
@@ -679,28 +726,26 @@ BOOL KeyboardMapDequeue(PMSG Msg)
 		Msg->hwnd	 = Focus;
 		return (TRUE);
 	}
+ if(!PendingDown && !PendingUp && SequenceLen<=0 && PendingMsg.message){
+  memcpy(Msg,&PendingMsg,sizeof(*Msg));PendingMsg.message=0;DenyAbbrev=PrevDenyAbbrev=FALSE;return TRUE;
+ }
 	if (!PendingDown && !PendingUp) {
 		if (SequenceLen <= 0 && QueuedChars) MapMatch(FALSE);
 		if (SequenceLen > 0) {
 			--SequenceLen;
 			PendingDown = PendingUp = *DoSequence;
-			if (DoSequence++ == InputQueue) {
-				if (QueuedChars > 1) {
-					assert(QueuedChars <= sizeof(InputQueue) / sizeof(WORD));
-					memmove(InputQueue, InputQueue + 1,
-							--QueuedChars * sizeof(WORD));
-					MapMatch(FALSE);
-				} else {
-					assert(SequenceLen == 0);
-					SequenceLen = QueuedChars = 0;
-				}
-			}
+            if(DoSequence++==InputQueue){
+             if(QueuedChars>0)memmove(InputQueue,InputQueue+1,(size_t)--QueuedChars*sizeof(DWORD));
+             SequenceLen=0;DoSequence=NULL;
+            }
 		} else {
 			PendingDown = FinalKeyState;	/*restore last received kbd state*/
 			FinalKeyState = 0;
 		}
 	}
-	if (PendingDown) {
+ if(PendingDown & WV_MAP_UNICODE){
+  Msg->message=WM_CHAR;Msg->wParam=PendingDown&0xffff;PendingDown=PendingUp=0;
+ }else if (PendingDown) {
 		if (PendingDown & MAP_CHAR) {
 			Msg->message = PendingDown & MAP_ALT ? WM_SYSCHAR : WM_CHAR;
 			Msg->wParam = (BYTE)PendingDown;
@@ -781,7 +826,7 @@ BOOL KeyboardMapDequeue(PMSG Msg)
 	if (((Msg->message == WM_SYSCHAR && Msg->wParam >= ' ')
 		 || (Msg->wParam == VK_F10 
 			 && PendingUp == (MAP_KEYDOWN | MAP_SHIFT | VK_F10)))
-		&& Focus == hwndMain && SequenceLen && *DoSequence & MAP_CHAR) {
+		&& Focus == hwndMain && SequenceLen && !(*DoSequence & WV_MAP_UNICODE) && *DoSequence & MAP_CHAR) {
 			/*menu select messages are *not* passing main loop,
 			 *they seem to be handled within GetMessage/PeekMessage,
 			 *so the mapped menu character must be posted.

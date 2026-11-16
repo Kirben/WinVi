@@ -1,3 +1,5 @@
+#ifndef WINVI_H_INCLUDED
+#define WINVI_H_INCLUDED
 #include "Counts.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -413,6 +415,8 @@ BOOL QuitCmd(BOOL);
 void ResizeWithLinesAndColumns(void);
 UINT WvEncodedEol(BYTE[4]);
 BOOL WvExInputDone(BOOL);
+BOOL WvExMap(PWSTR,BOOL,BOOL);
+BOOL WvExOutput(PWSTR);
 BOOL WvExSource(PWSTR);
 BOOL WvExShell(void);
 BOOL WvExSourceActive(void);
@@ -517,3 +521,5 @@ void WvExGlobalEdit(WV_ULONG,WV_ULONG,WV_ULONG);
 struct tagPOSITION;
 INT WvExMatchLine(struct tagPOSITION*,struct tagPOSITION*);
 extern void (*WvExGlobalEditHook)(WV_ULONG,WV_ULONG,WV_ULONG);
+
+#endif /* WINVI_H_INCLUDED */

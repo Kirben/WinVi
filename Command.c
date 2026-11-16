@@ -686,7 +686,11 @@ BOOL CommandExec(PWSTR Cmd)
 		}
 		if (Cmd == NULL) return (FALSE);
 	}
-	if ((Args = Compare(Cmd, L"source", 2, 0x14)) != NULL) {
+	if ((Args = Compare(Cmd, L"map", 3, 12)) != NULL) {
+        Ok=WvExMap(Args,FALSE,CommandWithExclamation);
+    } else if ((Args = Compare(Cmd, L"unmap", 3, 12)) != NULL) {
+        Ok=WvExMap(Args,TRUE,CommandWithExclamation);
+    } else if ((Args = Compare(Cmd, L"source", 2, 0x14)) != NULL) {
         Ok=WvExSource(Args);
     } else if ((Args = Compare(Cmd, L"shell", 2, 0)) != NULL) {
         Ok=WvExShell();

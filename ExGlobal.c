@@ -70,6 +70,7 @@ static BOOL ShowOutput(WCHAR *text)
  window=CreateWindowExW(0,cls.lpszClassName,L"WinVi - ex command output",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,800,500,hwndMain,NULL,hInst,text);
  if(!window)return FALSE;ShowWindow(window,SW_SHOWNORMAL);return TRUE;
 }
+BOOL WvExOutput(PWSTR text){return ShowOutput(text);}
 static BOOL AppendOutput(WCHAR **text,size_t *length,size_t *capacity,WCHAR c)
 {
  if(*length+2>*capacity){

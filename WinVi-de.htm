@@ -1270,6 +1270,30 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Tastaturmakros als ex-Kommandos</h3>
+<p><code>:map lhs rhs</code> definiert ein Makro im Kommandomodus.
+<code>:map! lhs rhs</code> gilt im Einfuege-/Ersetzungsmodus und in der
+Kommandozeile. <code>:unmap[!] lhs</code> entfernt nur diese Modi; andere Modi
+und Abkuerzungen bleiben erhalten. Ohne Argumente zeigt map die Makros dieses
+Modus in einem schreibgeschuetzten Fenster, mit nur lhs die passenden Eintraege.</p>
+<p>Beispiele: <code>:map Q :1s/a/A/&lt;CR&gt;</code> und
+<code>:map! jj &lt;Esc&gt;</code>. Tastennamen sind unter anderem &lt;CR&gt;,
+&lt;Esc&gt;, &lt;Tab&gt;, &lt;BS&gt;, &lt;Space&gt;, &lt;lt&gt;, Navigationstasten
+und &lt;F1&gt; bis &lt;F24&gt;. C-, S- und A- stehen fuer Strg, Umschalt und Alt.
+Strg+V maskiert das folgende Zeichen, auch ein Leerzeichen. &lt;Nop&gt; erzeugt
+eine leere Ersetzung. Unicode wird unterstuetzt; Zeichen ausserhalb der BMP
+belegen zwei UTF-16-Tastennachrichten. Die Eingabe darf hoechstens 63 solche
+Nachrichten enthalten.</p>
+<p>Die Kommandos verwenden dieselbe Tabelle wie Einstellungen - Tastaturmakros.
+Zum Aendern muss Einstellungen geschlossen sein. Definitionen gelten fuer die
+laufende Instanz; Speichern im Makrodialog macht sie dauerhaft. Die Anzeige
+verwendet die Einstellungsnotation mit U+hhhh fuer Unicode und V+hh fuer
+virtuelle Tasten. Alte WinVi-Versionen verstehen diese neuen Schreibweisen nicht.</p>
+<p>Die bestehende Makroverarbeitung expandiert Ersetzungen nicht erneut und hat
+keinen Zeitablauf fuer mehrdeutige Praefixe. Eine Eingabe sollte daher kein
+Praefix einer anderen sein. Die woertliche Zeileneingabe bei append/insert/change
+wird nicht umgesetzt. Definitionen aendern weder Dokument noch Undo. Ein Makro
+beendet seine urspruengliche Ersetzung auch nach eigener Entfernung/Neudefinition.</p>
 <h3>Befehlsdateien und interaktive Shell</h3>
 <p><code>:so[urce] Dateiname</code> f&uuml;hrt ex-Befehle aus einer lokalen Datei
 aus. Namen mit Leerzeichen in Anf&uuml;hrungszeichen setzen. Ein Doppelpunkt
