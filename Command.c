@@ -739,6 +739,15 @@ BOOL CommandExec(PWSTR Cmd)
 		else if (EndLine == (WV_ULONG)-2) EndLine = 2147000000;
 		DeleteCmd(StartLine, EndLine, Args);
 		Ok = TRUE;
+	} else if ((Args = Compare(Cmd, L"print", 1, 7)) != NULL) {
+        Ok = WvExDisplay(StartLine, EndLine, Args, 1);
+	} else if ((Args = Compare(Cmd, L"number", 2, 7)) != NULL ||
+               (Args = Compare(Cmd, L"#", 1, 7)) != NULL) {
+        Ok = WvExDisplay(StartLine, EndLine, Args, 2);
+	} else if ((Args = Compare(Cmd, L"list", 1, 7)) != NULL) {
+        Ok = WvExDisplay(StartLine, EndLine, Args, 3);
+	} else if ((Args = Compare(Cmd, L"undo", 1, 0)) != NULL) {
+        Ok = WvExUndo();
 	} else if ((Args = Compare(Cmd, L"move", 1, 7)) != NULL) {
         Ok = TransferCmd(StartLine, EndLine, Args, TRUE);
 	} else if ((Args = Compare(Cmd, L"copy", 2, 7)) != NULL ||

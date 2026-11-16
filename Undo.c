@@ -463,3 +463,13 @@ void Undo(WORD Flags)
 		EnableToolButton(IDB_UNDO, FALSE);
 	ShowEditCaret();
 }
+
+/* Ex undo follows the existing vi whole-operation undo/redo toggle. */
+BOOL WvExUndo(void)
+{
+    if (ExecRunning()) {NewStatus(0,L"Cannot undo while an external command is running.",NS_ERROR);return FALSE;}
+    if (IsViewOnly()) return FALSE;
+    if (!LastUndo) {Error(219);return FALSE;}
+    Undo(0);
+    return TRUE;
+}

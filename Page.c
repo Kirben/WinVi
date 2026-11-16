@@ -412,7 +412,7 @@ INT CharAt(PPOSITION Pos)
 			} else if (c < 0xf8) {
 				if ((c2 = AdvanceAndByte(&Pos2)) < 0x80 || c2 >= 0xc0)
 					return C_UNDEF;
-				c = ((c & 0x1f) << 6) | (c2 & 0x3f);
+				c = ((c & 0x07) << 6) | (c2 & 0x3f);
 				if ((c2 = AdvanceAndByte(&Pos2)) < 0x80 || c2 >= 0xc0)
 					return C_UNDEF;
 				c = (c << 6) | (c2 & 0x3f);
@@ -493,7 +493,7 @@ INT CharAndAdvance(PPOSITION Pos)
 			} else if (c < 0xf8) {
 				if ((c2 = ByteAndAdvance(&Pos2)) < 0x80 || c2 >= 0xc0)
 					return C_UNDEF;
-				c = ((c & 0x1f) << 6) | (c2 & 0x3f);
+				c = ((c & 0x07) << 6) | (c2 & 0x3f);
 				if ((c2 = ByteAndAdvance(&Pos2)) < 0x80 || c2 >= 0xc0)
 					return C_UNDEF;
 				c = (c << 6) | (c2 & 0x3f);

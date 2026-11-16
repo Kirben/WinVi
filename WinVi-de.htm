@@ -1270,6 +1270,30 @@ oben aufgelistet und werden hier nicht wiederholt.</p>
 
 
 
+<h3>Zeilen anzeigen und &Auml;nderungen zur&uuml;cknehmen</h3>
+<p><code>:[Bereich]p[rint] [Anzahl]</code> zeigt die Zeilen in einem eigenen
+schreibgesch&uuml;tzten Fenster. <code>:[Bereich]nu[mber] [Anzahl]</code>
+(auch <code>:[Bereich]# [Anzahl]</code>) stellt Zeilennummer und Tabulator voran.
+<code>:[Bereich]l[ist] [Anzahl]</code> zeigt Tabulatoren als <code>^I</code>,
+andere ASCII-Steuerzeichen ohne Zeilenende-Funktion in Caret-Schreibweise,
+DEL als <code>^?</code> und jedes Zeilenende als <code>$</code>. Unicode-Text
+bleibt erhalten; andere Texte verwenden die eingestellte Codepage. Ein NUL
+ohne Zeilenende-Funktion (OEM-Modus) erscheint bei print/number als &#x2400;,
+bei list als <code>^@</code>. Es gelten WinVis Textmodus-Regeln f&uuml;r Zeilenenden.</p>
+<p>Standard ist die aktuelle Zeile. Eine positive Anzahl beginnt an der letzten
+angegebenen Adresse und endet sp&auml;testens am Dateiende. <code>:2,4print</code>
+und <code>:2print 3</code> zeigen Zeilen 2-4; <code>:%list</code> zeigt das ganze
+Dokument. Der Cursor endet am Anfang der letzten angezeigten Zeile. Text,
+Register und Undo-Verlauf bleiben unver&auml;ndert. Auch schreibgesch&uuml;tzte
+Dokumente sind erlaubt. Textmodus und kein laufender externer Befehl sind
+erforderlich. Bei Abbruch, Lesefehler oder Speichermangel bleibt das Dokument
+unver&auml;ndert; die unvollst&auml;ndige Ausgabe wird verworfen.</p>
+<p><code>:u[ndo]</code> nimmt die letzte ganze Bearbeitungsoperation wie
+vi-<code>u</code> zur&uuml;ck. Ein zweites <code>:undo</code> stellt sie wieder
+her. Zwischenzeitliches Anzeigen von Zeilen &auml;ndert diese Gruppierung nicht.
+Adressen, Anzahl und Argumente sind unzul&auml;ssig. Das Dokument muss
+bearbeitbar sein; kein externer Befehl darf laufen.</p>
+
 <h3><a name="ExLineCommands"></a>Zeilen verbinden, kopieren und einf&uuml;gen</h3>
 <p><code>:[Bereich]j[oin][!] [Anzahl]</code> verbindet die angegebenen Zeilen.
 Ohne Bereich werden die angegebene/aktuelle und die folgende Zeile verbunden.

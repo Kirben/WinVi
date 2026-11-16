@@ -1234,6 +1234,30 @@ and will not repeated here.</p>
 
 
 
+<h3>Displaying lines and undo</h3>
+<p><code>:[range]p[rint] [count]</code> displays the addressed lines in a
+separate read-only window. <code>:[range]nu[mber] [count]</code> (also
+<code>:[range]# [count]</code>) prefixes each line with its line number and a
+tab. <code>:[range]l[ist] [count]</code> displays tabs as <code>^I</code>,
+other non-terminating ASCII control characters in caret notation, DEL as
+<code>^?</code>, and a <code>$</code> at each line end. Unicode text is
+preserved; legacy text is decoded using its configured code page. A NUL that
+does not terminate a line (OEM mode) is shown as &#x2400; by print/number and
+as <code>^@</code> by list. Line endings follow WinVi's text-mode rules.</p>
+<p>The default is the current line. A positive count starts at the last
+addressed line and stops at EOF. For example, <code>:2,4print</code> displays
+lines 2-4; <code>:2print 3</code> does the same. <code>:%list</code> displays
+the whole document. On success the cursor moves to the beginning of the last
+displayed line. Displaying does not modify text, registers or undo history;
+view-only documents are supported. Text mode and no running external command
+are required. Cancellation, read errors or insufficient output memory leave
+the document unchanged and discard the unfinished output.</p>
+<p><code>:u[ndo]</code> undoes the last whole editing operation, just like
+vi-mode <code>u</code>. A second <code>:undo</code> redoes it. Displaying lines
+between an edit and undo does not break that grouping. No addresses, counts
+or arguments are accepted. Undo requires an editable document and no running
+external command.</p>
+
 <h3><a name="ExLineCommands"></a>Joining, yanking and putting lines</h3>
 <p><code>:[range]j[oin][!] [count]</code> joins addressed lines. Without a range,
 the addressed/current line and the following line are joined. Normal joining

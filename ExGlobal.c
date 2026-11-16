@@ -67,7 +67,7 @@ static BOOL ShowOutput(WCHAR *text)
  cls.lpfnWndProc=OutputProc;cls.hInstance=hInst;cls.lpszClassName=L"WinViExOutput";
  cls.hCursor=LoadCursor(NULL,IDC_ARROW);cls.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
  if(!RegisterClassW(&cls) && GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return FALSE;
- window=CreateWindowExW(0,cls.lpszClassName,L"WinVi - global command output",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,800,500,hwndMain,NULL,hInst,text);
+ window=CreateWindowExW(0,cls.lpszClassName,L"WinVi - ex command output",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,800,500,hwndMain,NULL,hInst,text);
  if(!window)return FALSE;ShowWindow(window,SW_SHOWNORMAL);return TRUE;
 }
 static BOOL AppendOutput(WCHAR **text,size_t *length,size_t *capacity,WCHAR c)
@@ -80,6 +80,81 @@ static BOOL AppendOutput(WCHAR **text,size_t *length,size_t *capacity,WCHAR c)
   *text=grown;*capacity=next;
  }
  (*text)[(*length)++]=c;(*text)[*length]=0;return TRUE;
+}
+/* Page readers return bytes in legacy encodings. Convert those to the wide
+   output window, keeping a valid DBCS pair together. EBCDIC is already mapped
+   to ANSI by CharAndAdvance. */
+static INT DisplayChar(PPOSITION pos)
+{
+ extern INT AnsiCodePage,OemCodePage;
+ INT c=CharAndAdvance(pos),codepage;CHAR bytes[2];WCHAR wide;
+ if(UtfEncoding || c<128)return c;
+ codepage=CharSet==CS_OEM?OemCodePage:AnsiCodePage;bytes[0]=(CHAR)c;
+ if(CharSet!=CS_EBCDIC && IsDBCSLeadByteEx(codepage,(BYTE)c)){
+  INT next=ByteAt(pos);if(next==C_ERROR)return C_ERROR;bytes[1]=(CHAR)next;
+  if(next>=0 && MultiByteToWideChar(codepage,MB_ERR_INVALID_CHARS,bytes,2,&wide,1)==1){Advance(pos,1);return wide;}
+  return 0xfffd;
+ }
+ return MultiByteToWideChar(codepage,0,bytes,1,&wide,1)==1?wide:0xfffd;
+}
+/* Standalone display commands share the global output window, but do not
+   compile a search, edit the document, or start an undo sequence. */
+BOOL WvExDisplay(WV_ULONG first,WV_ULONG last,PWSTR args,INT kind)
+{
+ WV_ULONG total=LinesInFile+IncompleteLastLine(),count=0,line=1,work=0;
+ POSITION pos={FirstPage,0,0},cursor=CurrPos;WCHAR *output=NULL;
+ size_t used=0,capacity=0;INT c,i;BOOL ok=FALSE,enabled[2]={FALSE,FALSE};
+ HWND dialogs[2]={hwndSearch,hwndSettings};
+ if(WvExGlobalActive || HexEditMode || ExecRunning())return GlobalError(L"Display commands require text mode and no running external command.");
+ while(*args==L' ' || *args==L'\t')args++;
+ if(*args){
+  if(*args<L'0' || *args>L'9')return GlobalError(L"Display accepts only a positive line count.");
+  do{UINT digit=*args++-L'0';if(count>(WV_MAX_POSITION-digit)/10)return GlobalError(L"Display count is too large.");count=count*10+digit;}while(*args>=L'0' && *args<=L'9');
+  while(*args==L' ' || *args==L'\t')args++;
+  if(!count || *args)return GlobalError(L"Display accepts only a positive line count.");
+ }
+ if(first==(WV_ULONG)-1)first=CountLines(&CurrPos)+1;
+ if(!first && last==(WV_ULONG)-2)first=1;
+ if(last==(WV_ULONG)-1)last=first;else if(last==(WV_ULONG)-2)last=total;
+ if(!first || first>last || last>total || !total)return GlobalError(L"Invalid display line range.");
+ if(count){first=last;last=count-1>total-first?total:first+count-1;}
+ for(i=0;i<2;i++)if(dialogs[i] && IsWindowEnabled(dialogs[i])){enabled[i]=TRUE;EnableWindow(dialogs[i],FALSE);}
+ WvExGlobalActive=TRUE;StartInterruptCheck();Disable(1);DragAcceptFiles(hwndMain,FALSE);
+ if(CharAt(&pos)==C_BOM)CharAndAdvance(&pos);
+ while(line<=last){
+  if(CheckInterrupt())goto done;
+  cursor=pos;
+  if(line>=first && kind==2){WCHAR number[32],*p;_snwprintf(number,32,L"%I64u\t",line);for(p=number;*p;p++)if(!AppendOutput(&output,&used,&capacity,*p))goto noMemory;}
+  for(;;){
+   c=DisplayChar(&pos);
+   if(c==C_ERROR){GlobalError(L"Cannot read the display input.");goto done;}
+   if(CharFlags(c)&1)break;
+   if(line>=first){
+    if(kind==3 && ((c>=0 && c<32) || c==127)){
+     if(!AppendOutput(&output,&used,&capacity,L'^') || !AppendOutput(&output,&used,&capacity,c==127?L'?':(WCHAR)(c+64)))goto noMemory;
+    }else if(!AppendOutput(&output,&used,&capacity,c<0?0xfffd:c==0?0x2400:(WCHAR)c))goto noMemory;
+   }
+   if((++work&255)==0 && CheckInterrupt())goto done;
+  }
+  if(line>=first){
+   if(kind==3 && !AppendOutput(&output,&used,&capacity,L'$'))goto noMemory;
+   if(!AppendOutput(&output,&used,&capacity,L'\r') || !AppendOutput(&output,&used,&capacity,L'\n'))goto noMemory;
+  }
+  if(line==last)break;
+  if(c==C_EOF){GlobalError(L"Display range ended unexpectedly.");goto done;}
+  line++;
+ }
+ if(CheckInterrupt())goto done;
+ if(!ShowOutput(output)){GlobalError(L"Cannot display ex output.");goto done;}
+ NewPosition(&cursor);ok=TRUE;goto done;
+noMemory:
+ GlobalError(L"Not enough memory for ex output.");
+done:
+ free(output);if(Disabled)Enable();DragAcceptFiles(hwndMain,TRUE);
+ for(i=0;i<2;i++)if(enabled[i] && IsWindow(dialogs[i]))EnableWindow(dialogs[i],TRUE);
+ Jump(&CurrPos);FindValidPosition(&CurrPos,0);ShowEditCaret();WvExGlobalActive=FALSE;
+ if(Interrupted)return GlobalError(L"Display cancelled; document unchanged.");
+ return ok;
 }
 BOOL WvExGlobal(WV_ULONG first,WV_ULONG last,PWSTR args,BOOL inverse)
 {

@@ -384,6 +384,7 @@ void StartUndoSequence(void);
 void DisableUndo(void);
 void SetSafeForUndo(BOOL);
 void Undo(WORD);
+BOOL WvExUndo(void);
 
 /*input.c*/
 BOOL IsViewOnly(void);
@@ -497,6 +498,7 @@ void WvWatchFlash(WPARAM,LPARAM);
 
 /* Two-pass ex global operations and document edit tracking. */
 extern BOOL WvExGlobalActive, WvExGlobalUndo;
+BOOL WvExDisplay(WV_ULONG, WV_ULONG, PWSTR, INT);
 BOOL WvExGlobal(WV_ULONG,WV_ULONG,PWSTR,BOOL);
 void WvExGlobalEdit(WV_ULONG,WV_ULONG,WV_ULONG);
 struct tagPOSITION;
